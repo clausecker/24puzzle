@@ -40,7 +40,7 @@ extern const signed char movetab[25][4];
  * dest is adjacent to the empty square's current location.  Furtermore,
  * this function assumes 0 <= dloc < 25.
  */
-extern inline void
+inline void
 move(struct puzzle *p, size_t dloc)
 {
 	size_t zloc, dtile;
@@ -59,7 +59,7 @@ move(struct puzzle *p, size_t dloc)
  * Return the number of moves when the empty square is at z.  It is
  * assumed that 0 <= z < 25.
  */
-extern inline size_t
+inline size_t
 move_count(size_t z)
 {
 	/*
@@ -76,7 +76,7 @@ move_count(size_t z)
  * less than four moves are possible, the last one or two entries are
  * marked with -1.  It is assumed that 0 <= z < 25.
  */
-extern inline const signed char *
+inline const signed char *
 get_moves(size_t z)
 {
 	return (movetab[z]);
