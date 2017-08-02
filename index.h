@@ -1,66 +1,42 @@
 #ifndef INDEX_H
 #define INDEX_H
 
-#include <stdint.h>
-
 #include "puzzle.h"
+#include "tileset.h"
 
 /*
- * For many purposes, it is useful to consider sets of tiles.
- * A tileset represents a set of tiles as a bitmask.
+ * To build pattern databases, we need a perfect bijective hash function
+ * from partial puzzle configurations to integers in 0 ... n-1 where n
+ * is the number of possible partial puzzle configurations for the given
+ * tile set.  In this program, we use generalized Lehmer codes as our
+ * index function.  The Lehmer code assigns to each tile the number of
+ * higher numbered tiles before it.  When applying this to partial
+ * puzzle configurations, we simply consider all ignored tiles to have
+ * higher numbers than all tiles in our tile set.  This does the right
+ * thing.  See the implementation for notes on how to efficiently
+ * compute Lehmer codes.
+ *
+ * For many use cases, we are content with having the index
+ * split up into its components, which is why we separate the
+ * computation of the structured index (struct index) and the
+ * index product (index).
  */
-typedef uint_least32_t tileset;
-
-enum {
-	EMPTY_TILESET = 0,
-	FULL_TILESET = 0x1ffffff,
-};
-
-/* tileset.c */
-
-/*
- * Return 1 if t is in ts.
- */
-inline int
-tileset_has(tileset ts, size_t t)
-{
-	return ((ts & (tileset)1 << t) != 0);
+struct index {
+	unsigned char cmp[25];
 }
 
 /*
- * Add t to ts and return the updated tileset.
+ * This type represents an index into the pattern database.  Under a
+ * suitable factorial number system, each index is equivalent to its
+ * corresponding structured index.  You can use the functions
+ * combine_index() and split_index() to convert between the two
+ * representations.
  */
-inline tileset
-tileset_add(tileset ts, size_t t)
-{
-	return (ts | (tileset)1 << t);
-}
-
-/*
- * Remove t from ts and return the updated tileset.
- */
-inline tileset
-tileset_remove(tileset ts, size_t t)
-{
-	return (ts & ~((tileset)1 << t));
-}
-
-/*
- * Return the number of tiles in ts.
- */
-inline int
-tileset_count(tileset ts)
-{
-	return (__builtin_popcount(ts));
-}
-
-
-/* index.c */
-
-typedef uint_least64_t index;
 
 extern index	search_space_size(tileset);
-extern index	compute_index(const struct puzzle*, tileset);
-extern void	invert_index(struct puzzle*, tileset, index);
+extern void	compute_index(tileset, struct index*, const struct puzzle*);
+extern void	invert_index(tileset, struct puzzle*, const struct index*);
+extern index	combine_index(tileset, const struct index*);
+extern void	split_index(tileset, struct index*, index);
 
 #endif /* INDEX_H */

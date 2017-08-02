@@ -1,5 +1,5 @@
 /* tileset.c -- functionality for tilesets */
-#include "index.h"
+#include "tileset.h"
 
 /* generate code for inline functions */
 extern inline int	tileset_has(), tileset_count();
