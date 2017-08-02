@@ -4,6 +4,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "builtins.h"
+
 /*
  * For many purposes, it is useful to consider sets of tiles.
  * A tileset represents a set of tiles as a bitmask.
@@ -48,7 +50,7 @@ tileset_remove(tileset ts, size_t t)
 inline int
 tileset_count(tileset ts)
 {
-	return (__builtin_popcount(ts));
+	return (popcount(ts));
 }
 
 #endif /* TILESET_H */
