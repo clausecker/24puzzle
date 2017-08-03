@@ -23,7 +23,7 @@
  */
 struct index {
 	unsigned char cmp[25];
-}
+};
 
 /*
  * This type represents an index into the pattern database.  Under a
@@ -32,6 +32,7 @@ struct index {
  * combine_index() and split_index() to convert between the two
  * representations.
  */
+typedef unsigned long long index;
 
 extern index	search_space_size(tileset);
 extern void	compute_index(tileset, struct index*, const struct puzzle*);
