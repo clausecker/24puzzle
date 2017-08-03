@@ -1,4 +1,5 @@
 #ifndef BUILTINS_H
+#define BUILTINS_H
 
 /*
  * This header contains code to check if certain builtin functions are
@@ -26,6 +27,15 @@
 # endif
 #endif
 
+/* check if __builtin_ctz() is available */
+#ifndef HAS_CTZ
+# if __has_builtin(__builtin_ctz) || GCC_VERSION >= 30400
+#  define HAS_CTZ 1
+# else
+#  define HAS_CTZ 0
+# endif
+#endif
+
 /*
  * Compute the number of bits set in x.
  */
@@ -38,7 +48,38 @@ popcount(unsigned x)
 	/* https://graphics.stanford.edu/~seander/bithacks.html */
 	x = x - (x >> 1 & 0x55555555u);
 	x = (x & 0x33333333u) + (x >> 2 & 0x33333333u);
-	return ((x + (x >> 4) & 0x0f0f0f0fu) * 0x01010101u >> 24);
+	x = x + (x >> 4) & 0x0f0f0f0fu;
+	return ((x * 0x01010101u & 0xffffffffu) >> 24);
+#endif
+}
+
+/*
+ * Compute the number of trailing zeroes in x.  If x == 0, behaviour is
+ * undefined.
+ */
+static inline int
+ctz(unsigned x)
+{
+#if HAS_CTZ == 1
+	return (__builtin_ctz(x));
+#else
+	/* https://graphics.stanford.edu/~seander/bithacks.html */
+	int r = 31;
+
+	x &= -x;
+
+	if (x & 0x0000ffffu)
+		r -= 16;
+	if (x & 0x00ff00ffu)
+		r -=  8;
+	if (x & 0x0f0f0f0fu)
+		r -=  4;
+	if (x & 0x33333333u)
+		r -=  2;
+	if (x & 0x55555555u)
+		r -=  1;
+
+	return (r);
 #endif
 }
 
