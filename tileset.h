@@ -20,7 +20,7 @@ enum {
 /*
  * Return 1 if t is in ts.
  */
-inline int
+static inline int
 tileset_has(tileset ts, size_t t)
 {
 	return ((ts & (tileset)1 << t) != 0);
@@ -29,7 +29,7 @@ tileset_has(tileset ts, size_t t)
 /*
  * Add t to ts and return the updated tileset.
  */
-inline tileset
+static inline tileset
 tileset_add(tileset ts, size_t t)
 {
 	return (ts | (tileset)1 << t);
@@ -38,7 +38,7 @@ tileset_add(tileset ts, size_t t)
 /*
  * Remove t from ts and return the updated tileset.
  */
-inline tileset
+static inline tileset
 tileset_remove(tileset ts, size_t t)
 {
 	return (ts & ~((tileset)1 << t));
@@ -47,10 +47,57 @@ tileset_remove(tileset ts, size_t t)
 /*
  * Return the number of tiles in ts.
  */
-inline int
+static inline int
 tileset_count(tileset ts)
 {
 	return (popcount(ts));
+}
+
+/*
+ * Return 1 if ts is empty.
+ */
+static inline int
+tileset_empty(tileset ts)
+{
+	return (ts == 0);
+}
+
+/*
+ * Return a tileset equal to ts without the tile with the lowest number.
+ * If ts is empty, return ts unchanged.
+ */
+static inline tileset
+tileset_remove_least(tileset ts)
+{
+	return (ts & ts - 1);
+}
+
+/*
+ * Return the number of the lowest numbered tile in ts.  If ts is empty,
+ * behaviour is undefined.
+ */
+static inline int
+tileset_get_least(tileset ts)
+{
+	return (ctz(ts));
+}
+
+/*
+ * Return the intersection of ts1 and ts2.
+ */
+static inline tileset
+tileset_intersect(tileset ts1, tileset ts2)
+{
+	return (ts1 & ts2);
+}
+
+/*
+ * Return a tileset containing the lowest numbered n tiles.
+ */
+static inline tileset
+tileset_least(size_t n)
+{
+	return ((1 << n) - 1);
 }
 
 #endif /* TILESET_H */
