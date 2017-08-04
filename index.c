@@ -29,6 +29,31 @@ compute_index(tileset ts, struct index *idx, const struct puzzle *p)
 }
 
 /*
+ * Compute the tile configuration from a structured index.  If the
+ * index contains less pieces than it should, the remaining pieces are
+ * assigned in an unpredictable manner.  This function assumes that
+ * the trailing unused fields in idx are set to zero as compute_index()
+ * does anyway.
+ */
+extern void
+invert_index(tileset ts, struct puzzle *p, const struct index *idx)
+{
+	/* in base 32 this is 24 23 22 ... 2 1 0 */
+	__int128 occupation = (__int128)1782769360921721754ULL << 64 | 14242959524133701664ULL, mask;
+	size_t i;
+
+	/* unneeded, kept as an argument to simplify future changes */
+	(void)ts;
+
+	for (i = 0; i < TILE_COUNT; i++) {
+		mask = ((__int128)1 << 5 * idx->cmp[i]) - 1;
+		p->tiles[i] = 31 & occupation >> 5 * idx->cmp[i];
+		p->grid[p->tiles[i]] = i;
+		occupation = (occupation & mask) | (occupation >> 5 & ~mask);
+	}
+}
+
+/*
  * This table contains partial products 25, 25 * 24, 25 * 24 * 23, ...
  * for use by combine_index.  To keep all numbers inside 32 bits, we
  * omit the terms 25 * 24 * ... * 19 in the second half.  This allows us
