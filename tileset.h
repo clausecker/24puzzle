@@ -1,7 +1,6 @@
 #ifndef TILESET_H
 #define TILESET_H
 
-#include <stddef.h>
 #include <stdint.h>
 
 #include "builtins.h"
@@ -21,7 +20,7 @@ enum {
  * Return 1 if t is in ts.
  */
 static inline int
-tileset_has(tileset ts, size_t t)
+tileset_has(tileset ts, unsigned t)
 {
 	return ((ts & (tileset)1 << t) != 0);
 }
@@ -30,7 +29,7 @@ tileset_has(tileset ts, size_t t)
  * Add t to ts and return the updated tileset.
  */
 static inline tileset
-tileset_add(tileset ts, size_t t)
+tileset_add(tileset ts, unsigned t)
 {
 	return (ts | (tileset)1 << t);
 }
@@ -39,7 +38,7 @@ tileset_add(tileset ts, size_t t)
  * Remove t from ts and return the updated tileset.
  */
 static inline tileset
-tileset_remove(tileset ts, size_t t)
+tileset_remove(tileset ts, unsigned t)
 {
 	return (ts & ~((tileset)1 << t));
 }
@@ -47,7 +46,7 @@ tileset_remove(tileset ts, size_t t)
 /*
  * Return the number of tiles in ts.
  */
-static inline int
+static inline unsigned
 tileset_count(tileset ts)
 {
 	return (popcount(ts));
@@ -76,7 +75,7 @@ tileset_remove_least(tileset ts)
  * Return the number of the lowest numbered tile in ts.  If ts is empty,
  * behaviour is undefined.
  */
-static inline int
+static inline unsigned
 tileset_get_least(tileset ts)
 {
 	return (ctz(ts));
@@ -95,7 +94,7 @@ tileset_intersect(tileset ts1, tileset ts2)
  * Return a tileset containing the lowest numbered n tiles.
  */
 static inline tileset
-tileset_least(size_t n)
+tileset_least(unsigned n)
 {
 	return ((1 << n) - 1);
 }
