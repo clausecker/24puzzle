@@ -32,12 +32,12 @@ struct index {
  * combine_index() and split_index() to convert between the two
  * representations.
  */
-typedef unsigned long long index;
+typedef unsigned long long cmbindex;
 
-extern index	search_space_size(tileset);
+extern cmbindex	search_space_size(tileset);
 extern void	compute_index(tileset, struct index*, const struct puzzle*);
 extern void	invert_index(tileset, struct puzzle*, const struct index*);
-extern index	combine_index(tileset, const struct index*);
-extern void	split_index(tileset, struct index*, index);
+extern cmbindex	combine_index(tileset, const struct index*);
+extern void	split_index(tileset, struct index*, cmbindex);
 
 #endif /* INDEX_H */
