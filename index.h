@@ -22,7 +22,7 @@
  * index product (index).
  */
 struct index {
-	unsigned char cmp[25];
+	unsigned char cmp[TILE_COUNT];
 };
 
 /*

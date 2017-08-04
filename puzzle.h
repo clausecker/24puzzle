@@ -27,13 +27,15 @@
  * If viewed as permutations of { 0, ..., 24 }, tiles[] and grid[]
  * are inverse to each other at any given time.
  */
+enum { TILE_COUNT = 25 };
+
 struct puzzle {
-	unsigned char tiles[25], grid[25];
+	unsigned char tiles[TILE_COUNT], grid[TILE_COUNT];
 };
 
 /* puzzle.c */
 extern const struct puzzle solved_puzzle;
-extern const signed char movetab[25][4];
+extern const signed char movetab[TILE_COUNT][4];
 
 /*
  * Move the empty square to dloc, modifying p.  It is not tested whether

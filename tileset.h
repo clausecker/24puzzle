@@ -1,19 +1,18 @@
 #ifndef TILESET_H
 #define TILESET_H
 
-#include <stdint.h>
-
 #include "builtins.h"
+#include "puzzle.h"
 
 /*
  * For many purposes, it is useful to consider sets of tiles.
  * A tileset represents a set of tiles as a bitmask.
  */
-typedef uint_least32_t tileset;
+typedef unsigned tileset;
 
 enum {
 	EMPTY_TILESET = 0,
-	FULL_TILESET = 0x1ffffff,
+	FULL_TILESET = (1 << TILE_COUNT) - 1,
 };
 
 /*

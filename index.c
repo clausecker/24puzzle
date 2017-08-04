@@ -6,6 +6,7 @@
 #include "builtins.h"
 #include "tileset.h"
 #include "index.h"
+#include "puzzle.h"
 
 /*
  * Compute the index for tiles ts in p and store them in idx.
@@ -18,13 +19,13 @@ compute_index(tileset ts, struct index *idx, const struct puzzle *p)
 	size_t i, least;
 	tileset occupation = FULL_TILESET;
 
+	memset(idx->cmp, 0, TILE_COUNT);
+
 	for (i = 0; !tileset_empty(ts); ts = tileset_remove_least(ts), i++) {
 		least = p->tiles[tileset_get_least(ts)];
 		idx->cmp[i] = tileset_count(tileset_intersect(occupation,tileset_least(least)));
 		occupation = tileset_remove(occupation, least);
 	}
-
-	memset(idx->cmp + i, 0, sizeof idx->cmp - i);
 }
 
 /*
