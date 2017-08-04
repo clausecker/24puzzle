@@ -34,10 +34,13 @@ struct index {
  */
 typedef unsigned long long cmbindex;
 
+enum { INDEX_STR_LEN = 3 * 25 + 1 };
+
 extern cmbindex	search_space_size(tileset);
 extern void	compute_index(tileset, struct index*, const struct puzzle*);
 extern void	invert_index(tileset, struct puzzle*, const struct index*);
 extern cmbindex	combine_index(tileset, const struct index*);
 extern void	split_index(tileset, struct index*, cmbindex);
+extern void	index_string(tileset, char[INDEX_STR_LEN], const struct index*);
 
 #endif /* INDEX_H */

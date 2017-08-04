@@ -37,6 +37,9 @@ struct puzzle {
 extern const struct puzzle solved_puzzle;
 extern const signed char movetab[TILE_COUNT][4];
 
+enum { PUZZLE_STR_LEN = 151 };
+extern void puzzle_string(char[PUZZLE_STR_LEN], const struct puzzle*);
+
 /*
  * Move the empty square to dloc, modifying p.  It is not tested whether
  * dest is adjacent to the empty square's current location.  Furtermore,

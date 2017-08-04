@@ -1,6 +1,7 @@
 /* puzzle.c -- manipulating struct puzzle */
 
 #include <assert.h>
+#include <stdio.h>
 
 #include "puzzle.h"
 
@@ -53,3 +54,21 @@ const signed char movetab[25][4] = {
 	18, 22, 24, -1,
 	19, 23, -1, -1,
 };
+
+/*
+ * Describe p as a string and write the result to str.
+ */
+extern void
+puzzle_string(char str[PUZZLE_STR_LEN], const struct puzzle *p)
+{
+	size_t i;
+
+	for (i = 0; i < TILE_COUNT; i++)
+		sprintf(str + 3 * i, "%2d ", p->tiles[i]);
+
+	for (i = 0; i < TILE_COUNT; i++)
+		sprintf(str + 3 * TILE_COUNT + 3 * i, "%2d ", p->grid[i]);
+
+	str[3 * TILE_COUNT - 1] = '\n';
+	str[2 * 3 * TILE_COUNT - 1] = '\n';
+}

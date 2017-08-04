@@ -2,6 +2,7 @@
 #include <assert.h>
 #include <stddef.h>
 #include <string.h>
+#include <stdio.h>
 
 #include "builtins.h"
 #include "tileset.h"
@@ -104,4 +105,22 @@ combine_index(tileset ts, const struct index *idx)
 			accum2 += partial_products[i] * idx->cmp[i];
 
 	return (accum1 + accum2 * (25ULL * 23 * 22 * 21 * 20 * 19));
+}
+
+/*
+ * Describe idx as a string and write the result to str.  Only the tiles
+ * in ts are printed.
+ */
+extern void
+index_string(tileset ts, char str[INDEX_STR_LEN], const struct index *idx)
+{
+	size_t i, j;
+
+	for (i = j = 0; i < TILE_COUNT; i++)
+		if (tileset_has(ts, i))
+			sprintf(str + 3 * i, "%2d ", idx->cmp[j++]);
+		else
+			strcpy(str + 3 * i, "   ");
+
+	str[3 * TILE_COUNT] = '\n';
 }
