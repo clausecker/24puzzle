@@ -8,13 +8,13 @@
  * To build pattern databases, we need a perfect bijective hash function
  * from partial puzzle configurations to integers in 0 ... n-1 where n
  * is the number of possible partial puzzle configurations for the given
- * tile set.  In this program, we use generalized Lehmer codes as our
- * index function.  The Lehmer code assigns to each tile the number of
+ * tile set.  In this program, we use generalized inversion vectors as
+ * our index function.  The inversion number of a tile is the number of
  * higher numbered tiles before it.  When applying this to partial
  * puzzle configurations, we simply consider all ignored tiles to have
- * higher numbers than all tiles in our tile set.  This does the right
- * thing.  See the implementation for notes on how to efficiently
- * compute Lehmer codes.
+ * higher numbers than all tiles in our tile set.  This does the
+ * right thing.  See the implementation for notes on how to efficiently
+ * compute inversion vectors.
  *
  * For many use cases, we are content with having the index
  * split up into its components, which is why we separate the
