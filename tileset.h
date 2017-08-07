@@ -15,6 +15,8 @@ enum {
 	FULL_TILESET = (1 << TILE_COUNT) - 1,
 };
 
+extern tileset	tileset_eqclass(tileset ts, const struct puzzle *);
+
 /*
  * Return 1 if t is in ts.
  */
