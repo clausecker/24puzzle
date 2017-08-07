@@ -5,10 +5,6 @@
 
 #include "puzzle.h"
 
-/* generate code for inline functions */
-extern inline void	move();
-extern inline size_t	move_count();
-extern inline const signed char *get_moves();
 /*
  * A solved puzzle configuration.
  */
