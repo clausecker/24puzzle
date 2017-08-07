@@ -34,23 +34,36 @@ compute_index(tileset ts, struct index *idx, const struct puzzle *p)
  * index contains less pieces than it should, the remaining pieces are
  * assigned in an unpredictable manner.  This function assumes that
  * the trailing unused fields in idx are set to zero as compute_index()
- * does anyway.
+ * does anyway.  If ts is not FULL_TILESET, a representant of the
+ * class of configurations indexed by idx and ts is chosen arbitrarily.
+ * This implementation always chooses the least representant.
  */
 extern void
 invert_index(tileset ts, struct puzzle *p, const struct index *idx)
 {
 	/* in base 32 this is 24 23 22 ... 2 1 0 */
 	__int128 occupation = (__int128)1782769360921721754ULL << 64 | 14242959524133701664ULL, mask;
-	size_t i;
+	size_t i, least;
+	tileset tsc = tileset_complement(ts);
 
-	/* unneeded, kept as an argument to simplify future changes */
-	(void)ts;
+	/* clear padding */
+	memset(p, 0, sizeof *p);
 
-	for (i = 0; i < TILE_COUNT; i++) {
+	/* fill tiles in idx, ts */
+	for (i = 0; !tileset_empty(ts); ts = tileset_remove_least(ts), i++) {
+		least = tileset_get_least(ts);
 		mask = ((__int128)1 << 5 * idx->cmp[i]) - 1;
-		p->tiles[i] = 31 & occupation >> 5 * idx->cmp[i];
-		p->grid[p->tiles[i]] = i;
+		p->tiles[least] = 31 & occupation >> 5 * idx->cmp[i];
+		p->grid[p->tiles[least]] = least;
 		occupation = (occupation & mask) | (occupation >> 5 & ~mask);
+	}
+
+	/* fill remaining tiles as if encoded as 0 */
+	for (; !tileset_empty(tsc); tsc = tileset_remove_least(tsc)) {
+		least = tileset_get_least(tsc);
+		p->tiles[least] = 31 & occupation;
+		p->grid[p->tiles[least]] = least;
+		occupation >>= 5;
 	}
 }
 
@@ -62,7 +75,7 @@ invert_index(tileset ts, struct puzzle *p, const struct index *idx)
  * some architectures.
  */
 static const unsigned
-partial_products[16] = {
+partial_products[15] = {
 	1u,
 	25u,
 	25u * 24,
@@ -70,8 +83,8 @@ partial_products[16] = {
 	25u * 24 * 23 * 22,
 	25u * 24 * 23 * 22 * 21,
 	25u * 24 * 23 * 22 * 21 * 20,
-	25u * 24 * 23 * 22 * 21 * 20 * 19,
 
+	1u,
 	18u,
 	18u * 17,
 	18u * 17 * 16,
@@ -79,13 +92,12 @@ partial_products[16] = {
 	18u * 17 * 16 * 15 * 14,
 	18u * 17 * 16 * 15 * 14 * 13,
 	18u * 17 * 16 * 15 * 14 * 13 * 12,
-	18u * 17 * 16 * 15 * 14 * 13 * 12 * 11,
 };
 
 /*
  * Combine index idx for tileset ts into a single number.  It is
- * assumed that ts contains no more than 16 members as otherwise, an
- * overflow could occurs.
+ * assumed that ts contains no more than 15 members as otherwise, an
+ * overflow could occur.
  *
  * TODO: Find optimal permutation of index components.
  */
@@ -93,18 +105,34 @@ extern cmbindex
 combine_index(tileset ts, const struct index *idx)
 {
 	size_t i, n = tileset_count(ts);
-	unsigned accum1 = 0, accum2 = 0;
+	cmbindex accum1 = 0, accum2 = 0;
 
-	assert(n <= 16);
-
-	for (i = 0; i < 8; i++)
+	for (i = 0; i < 7; i++)
 		accum1 += partial_products[i] * idx->cmp[i];
 
-	if (n > 8)
-		for (i = 8; i < 16; i++)
+	if (n > 7)
+		for (i = 7; i < 15; i++)
 			accum2 += partial_products[i] * idx->cmp[i];
 
-	return (accum1 + accum2 * (25ULL * 23 * 22 * 21 * 20 * 19));
+	return (accum1 + accum2 * (25ULL * 24 * 23 * 22 * 21 * 20 * 19));
+}
+
+/*
+ * Split a combined index into a separate index.  As with the function
+ * compute_index(), the unused parts of idx are filled with zeros.  This
+ * function is very slow sadly.
+ */
+extern void
+split_index(tileset ts, struct index *idx, cmbindex cmb)
+{
+	size_t i, n = tileset_count(ts);
+
+	memset(idx->cmp, 0, TILE_COUNT);
+
+	for (i = 0; i < n; i++) {
+		idx->cmp[i] = cmb % (25 - i);
+		cmb /= 25 - i;
+	}
 }
 
 /*
@@ -114,10 +142,10 @@ combine_index(tileset ts, const struct index *idx)
 extern void
 index_string(tileset ts, char str[INDEX_STR_LEN], const struct index *idx)
 {
-	size_t i, j;
+	size_t i, j, n = tileset_count(ts);
 
 	for (i = j = 0; i < TILE_COUNT; i++)
-		if (tileset_has(ts, i))
+		if (i < n)
 			sprintf(str + 3 * i, "%2d ", idx->cmp[j++]);
 		else
 			strcpy(str + 3 * i, "   ");

@@ -8,6 +8,8 @@
 #include "tileset.h"
 #include "index.h"
 
+#define TEST_TS 0xf0f0f
+
 /*
  * Set p to a random puzzle configuration.  This function uses the
  * rand() random number generator to generate mediocre randomness.
@@ -39,6 +41,7 @@ random_index(struct index *idx)
 		idx->cmp[i] = rand() % (TILE_COUNT - i);
 }
 
+
 /*
  * Round-trip p through compute_index() and check if we get the same
  * puzzle back.  Return 1 if we do, return 0 and print some information
@@ -54,7 +57,8 @@ test_puzzle(const struct puzzle *p)
 	compute_index(FULL_TILESET, &idx, p);
 	invert_index(FULL_TILESET, &pp, &idx);
 
-	if (memcmp(p, &pp, sizeof pp) != 0) {
+	if (memcmp(p->tiles, pp.tiles, TILE_COUNT) != 0
+	    || memcmp(p->grid, pp.grid, TILE_COUNT) != 0) {
 		printf("test_puzzle failed:\n");
 		puzzle_string(puzzle_str, p);
 		puts(puzzle_str);
@@ -71,18 +75,24 @@ test_puzzle(const struct puzzle *p)
 
 /*
  * Round-trip idx through inverse_index() and check if we get the same
- * index back.  Return 1 if we do, return 0 and print some information
+ * index back.  Also round-trip a random tile set through
+ * combine_index() and see if we get the same result back.  Return 1
+ * if we do, return 0 and print some information
  * if we don't.
  */
 static int
 test_index(const struct index *idx)
 {
 	char puzzle_str[PUZZLE_STR_LEN], index_str[INDEX_STR_LEN];
-	struct index idx2;
+	struct index idx2, idx3;
 	struct puzzle p;
+	cmbindex cmb;
 
 	invert_index(FULL_TILESET, &p, idx);
 	compute_index(FULL_TILESET, &idx2, &p);
+
+	cmb = combine_index(TEST_TS, idx);
+	split_index(TEST_TS, &idx3, cmb);
 
 	if (memcmp(&idx2, idx, sizeof idx2) != 0) {
 		printf("test_index failed:\n");
@@ -91,6 +101,17 @@ test_index(const struct index *idx)
 		puzzle_string(puzzle_str, &p);
 		puts(puzzle_str);
 		index_string(FULL_TILESET, index_str, &idx2);
+		puts(index_str);
+
+		return (0);
+	}
+
+	if (memcmp(&idx3, idx, tileset_count(TEST_TS)) != 0) {
+		printf("test_index failed:\n");
+		index_string(FULL_TILESET, index_str, idx);
+		puts(index_str);
+		printf("%llu\n\n", cmb);
+		index_string(FULL_TILESET, index_str, &idx3);
 		puts(index_str);
 
 		return (0);

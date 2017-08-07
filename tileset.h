@@ -63,6 +63,15 @@ tileset_empty(tileset ts)
 }
 
 /*
+ * Return a tileset containing all tiles not in ts.
+ */
+static inline tileset
+tileset_complement(tileset ts)
+{
+	return (~ts & FULL_TILESET);
+}
+
+/*
  * Return a tileset equal to ts without the tile with the lowest number.
  * If ts is empty, return ts unchanged.
  */
