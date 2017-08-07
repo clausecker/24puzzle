@@ -1,6 +1,7 @@
 #ifndef PUZZLE_H
 #define PUZZLE_H
 
+#include <stdalign.h>
 #include <stddef.h>
 
 /*
@@ -30,7 +31,7 @@
 enum { TILE_COUNT = 25 };
 
 struct puzzle {
-	unsigned char tiles[TILE_COUNT], grid[TILE_COUNT];
+	alignas(8) unsigned char tiles[TILE_COUNT], grid[TILE_COUNT];
 };
 
 /* puzzle.c */
