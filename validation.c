@@ -17,7 +17,6 @@ static int	perm_valid(const unsigned char[25]);
 extern int
 puzzle_valid(const struct puzzle *p)
 {
-	unsigned char perm1[25], perm2[25];
 	size_t i;
 
 	if (!perm_valid(p->tiles) || !perm_valid(p->grid))
