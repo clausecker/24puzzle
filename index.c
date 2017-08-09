@@ -10,6 +10,22 @@
 #include "puzzle.h"
 
 /*
+ * Compute the number of possible values of an index for tile set ts.
+ * This is one higher than the highest index combine_index() would
+ * generate for an index in ts.
+ */
+extern cmbindex
+search_space_size(tileset ts)
+{
+	cmbindex accum = 1, i;
+
+	for (i = 0; i < tileset_count(ts); i++)
+		accum *= 25 - i;
+
+	return (accum);
+}
+
+/*
  * Compute the index for tiles ts in p and store them in idx.
  * It is assumed that p is a valid puzzle.  The remaining index
  * entries are set to 0 by this function.
