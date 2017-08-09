@@ -41,6 +41,23 @@ random_index(struct index *idx)
 		idx->cmp[i] = rand() % (TILE_COUNT - i);
 }
 
+/*
+ * Check if p1 and p2 are the same configuration with respect to the
+ * tiles in ts.  Return 1 if they are, 0 if they are not.
+ */
+static int
+puzzle_equal(tileset ts, const struct puzzle *p1, const struct puzzle *p2)
+{
+	size_t i;
+
+	for (; !tileset_empty(ts); ts = tileset_remove_least(ts)) {
+		i = tileset_get_least(ts);
+		if (p1->tiles[i] != p2->tiles[i])
+			return (0);
+	}
+
+	return (1);
+}
 
 /*
  * Round-trip p through compute_index() and check if we get the same
@@ -48,21 +65,20 @@ random_index(struct index *idx)
  * if we don't.
  */
 static int
-test_puzzle(const struct puzzle *p)
+test_puzzle(tileset ts, const struct puzzle *p)
 {
 	char puzzle_str[PUZZLE_STR_LEN], index_str[INDEX_STR_LEN];
 	struct puzzle pp;
 	struct index idx;
 
-	compute_index(FULL_TILESET, &idx, p);
-	invert_index(FULL_TILESET, &pp, &idx);
+	compute_index(ts, &idx, p);
+	invert_index(ts, &pp, &idx);
 
-	if (memcmp(p->tiles, pp.tiles, TILE_COUNT) != 0
-	    || memcmp(p->grid, pp.grid, TILE_COUNT) != 0) {
-		printf("test_puzzle failed:\n");
+	if (!puzzle_equal(ts, p, &pp)) {
+		printf("test_puzzle failed for 0x%07x:\n", ts);
 		puzzle_string(puzzle_str, p);
 		puts(puzzle_str);
-		index_string(FULL_TILESET, index_str, &idx);
+		index_string(ts, index_str, &idx);
 		puts(index_str);
 		puzzle_string(puzzle_str, &pp);
 		puts(puzzle_str);
@@ -81,37 +97,37 @@ test_puzzle(const struct puzzle *p)
  * if we don't.
  */
 static int
-test_index(const struct index *idx)
+test_index(tileset ts, const struct index *idx)
 {
 	char puzzle_str[PUZZLE_STR_LEN], index_str[INDEX_STR_LEN];
 	struct index idx2, idx3;
 	struct puzzle p;
 	cmbindex cmb;
 
-	invert_index(FULL_TILESET, &p, idx);
-	compute_index(FULL_TILESET, &idx2, &p);
+	invert_index(ts, &p, idx);
+	compute_index(ts, &idx2, &p);
 
-	cmb = combine_index(TEST_TS, idx);
-	split_index(TEST_TS, &idx3, cmb);
+	cmb = combine_index(ts, idx);
+	split_index(ts, &idx3, cmb);
 
-	if (memcmp(&idx2, idx, sizeof idx2) != 0) {
-		printf("test_index failed:\n");
-		index_string(FULL_TILESET, index_str, idx);
+	if (memcmp(&idx2, idx, tileset_count(ts)) != 0) {
+		printf("test_index failed for 0x%07x:\n", ts);
+		index_string(ts, index_str, idx);
 		puts(index_str);
 		puzzle_string(puzzle_str, &p);
 		puts(puzzle_str);
-		index_string(FULL_TILESET, index_str, &idx2);
+		index_string(ts, index_str, &idx2);
 		puts(index_str);
 
 		return (0);
 	}
 
-	if (memcmp(&idx3, idx, tileset_count(TEST_TS)) != 0) {
-		printf("test_index failed:\n");
-		index_string(FULL_TILESET, index_str, idx);
+	if (memcmp(&idx3, idx, tileset_count(ts)) != 0) {
+		printf("test_index failed for 0x%07x:\n", ts);
+		index_string(ts, index_str, idx);
 		puts(index_str);
 		printf("%llu\n\n", cmb);
-		index_string(FULL_TILESET, index_str, &idx3);
+		index_string(ts, index_str, &idx3);
 		puts(index_str);
 
 		return (0);
@@ -134,13 +150,13 @@ main(int argc, char *argv[])
 
 	for (i = 0; i < n; i++) {
 		random_puzzle(&p);
-		if (!test_puzzle(&p))
+		if (!test_puzzle(TEST_TS, &p))
 			return (EXIT_FAILURE);
 	}
 
 	for (i = 0; i < n; i++) {
 		random_index(&idx);
-		if (!test_index(&idx))
+		if (!test_index(TEST_TS, &idx))
 			return (EXIT_FAILURE);
 	}
 
