@@ -1,5 +1,7 @@
 /* tileset.c -- dealing with sets of tiles */
 
+#include <string.h>
+
 #include "puzzle.h"
 #include "tileset.h"
 
@@ -15,27 +17,15 @@ tileset_flood(tileset cmap, unsigned t)
 
 	do {
 		oldr = r;
-		r = cmap & (r | r  << 5 | r << 1 | r >> 5 | r >> 1);
+
+		/*
+		 * the mask prevents carry into other rows:
+		 * 0x0f7bdef: 01111 01111 01111 01111 01111
+		 */
+		r = cmap & (r | r  << 5 | (r & 0x0f7bdef) << 1 | r >> 5 | r >> 1 & 0x0f7bdef);
 	} while (oldr != r);
 
 	return (r);
-}
-
-/*
- * Given a tileset and a puzzle configuration, compute a tileset
- * representing the squares occupied by tiles in the tileset.
- *
- * TODO: Use SSE4.2 instruction pcmpestrm to compute this quickly.
- */
-static tileset
-tileset_map(tileset ts, const struct puzzle *p)
-{
-	tileset map = EMPTY_TILESET;
-
-	for (; !tileset_empty(ts); ts = tileset_remove_least(ts))
-		map |= 1 << p->tiles[tileset_get_least(ts)];
-
-	return (map);
 }
 
 /*
@@ -58,3 +48,17 @@ tileset_eqclass(tileset ts, const struct puzzle *p)
 		return (cmap);
 }
 
+/*
+ * Generate a string representing ts and store it in str.
+ */
+extern void
+tileset_string(char str[TILESET_STR_LEN], tileset ts)
+{
+	size_t i;
+
+	strcpy(str, "         \n         \n         \n         \n         \n");
+
+	for (i = 0; i < TILE_COUNT; i++)
+		if (tileset_has(ts, i))
+			str[2 * i] = 'X';
+}

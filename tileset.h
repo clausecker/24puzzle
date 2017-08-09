@@ -13,9 +13,12 @@ typedef unsigned tileset;
 enum {
 	EMPTY_TILESET = 0,
 	FULL_TILESET = (1 << TILE_COUNT) - 1,
+
+	TILESET_STR_LEN = 2 * 25 + 1,
 };
 
-extern tileset	tileset_eqclass(tileset ts, const struct puzzle *);
+extern tileset	tileset_eqclass(tileset, const struct puzzle *);
+extern void	tileset_string(char[TILESET_STR_LEN], tileset);
 
 /*
  * Return 1 if t is in ts.
@@ -107,6 +110,23 @@ static inline tileset
 tileset_least(unsigned n)
 {
 	return ((1 << n) - 1);
+}
+
+/*
+ * Given a tileset and a puzzle configuration, compute a tileset
+ * representing the squares occupied by tiles in the tileset.
+ *
+ * TODO: Use SSE4.2 instruction pcmpestrm to compute this quickly.
+ */
+static inline tileset
+tileset_map(tileset ts, const struct puzzle *p)
+{
+	tileset map = EMPTY_TILESET;
+
+	for (; !tileset_empty(ts); ts = tileset_remove_least(ts))
+		map |= 1 << p->tiles[tileset_get_least(ts)];
+
+	return (map);
 }
 
 /*
