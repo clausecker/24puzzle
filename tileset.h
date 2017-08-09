@@ -109,4 +109,20 @@ tileset_least(unsigned n)
 	return ((1 << n) - 1);
 }
 
+/*
+ * Given a tileset eq representing some squares of the grid, return a
+ * tileset composed of those squares in eq which are adjacent to a
+ * square not in eq.  Intuitively, these are the squares from which a
+ * move could possibly lead to a configuration in a different
+ * equivalence class.
+ */
+static inline tileset
+tileset_reduce_eqclass(tileset eq)
+{
+	tileset c = tileset_complement(eq);
+
+	return (eq & (c << 5 | c << 1 | c >> 1 | c >> 5));
+}
+
+
 #endif /* TILESET_H */
