@@ -23,7 +23,7 @@ static cmbindex
 setup_pdb(patterndb pdb, tileset ts)
 {
 	tileset eq = tileset_eqclass(ts, &solved_puzzle);
-	int count = tileset_count(ts);
+	int count = tileset_count(eq);
 	struct puzzle p = solved_puzzle;
 	struct index idx;
 
