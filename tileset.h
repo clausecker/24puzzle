@@ -141,7 +141,11 @@ tileset_reduce_eqclass(tileset eq)
 {
 	tileset c = tileset_complement(eq);
 
-	return (eq & (c << 5 | c << 1 | c >> 1 | c >> 5));
+	/*
+	 * the mask prevents carry into other rows:
+	 * 0x0f7bdef: 01111 01111 01111 01111 01111
+	 */
+	return (eq & (c | c  << 5 | (c & 0x0f7bdef) << 1 | c >> 5 | c >> 1 & 0x0f7bdef));
 }
 
 

@@ -22,66 +22,153 @@ enum { INFINITY = (unsigned char)-1 };
 static cmbindex
 setup_pdb(patterndb pdb, tileset ts)
 {
-	tileset eq = tileset_eqclass(ts, &solved_puzzle);
-	int count = tileset_count(eq);
+	tileset eq;
 	struct puzzle p = solved_puzzle;
 	struct index idx;
 
 	memset(pdb, INFINITY, (size_t)search_space_size(ts));
 
-	for (; !tileset_empty(eq); eq = tileset_remove_least(eq)) {
-		move(&p, tileset_get_least(eq));
-		compute_index(ts, &idx, &p);
-		pdb[combine_index(ts, &idx)] = 0;
-	}
-
 	/*
 	 * If ts contains the zero tile, each of the configurations in
 	 * the equivalence class are distinct.  If it does not, they are
-	 * all the same and we only added one configuration again and
-	 * again.
+	 * all the same and we only added one configuration.
 	 */
-	return (tileset_has(ts, 0) ? count : 1);
+	if (tileset_has(ts, 0)) {
+		eq = tileset_eqclass(ts, &solved_puzzle);
+
+		for (; !tileset_empty(eq); eq = tileset_remove_least(eq)) {
+			move(&p, tileset_get_least(eq));
+			compute_index(ts, &idx, &p);
+			pdb[combine_index(ts, &idx)] = 0;
+		}
+
+		return (tileset_count(eq));
+	} else {
+		compute_index(ts, &idx, &p);
+		pdb[combine_index(ts, &idx)] = 0;
+
+		return (1);
+	}
 }
 
 /*
- * Find all positions that are within one move from the equivalence
- * class of p and enter them into pdb with value round if the are not
- * yet reachable in the pdb.  Return the number of newly entered
- * positions.  This function essentially implements the inner loop of
- * generate_round(), see there for more pseudo-code.
+ * Set all positions in the same equivalence class as p that are marked
+ * as INFINITY in pdb to round.  Return the number of positions updated.
+ * This function may alter p intermediately but restores its former
+ * value on return.
  */
 static cmbindex
-update_pdb(patterndb pdb, tileset ts, struct puzzle *p, int round)
+update_zero_eqclass(patterndb pdb, tileset ts, struct puzzle *p, int round)
 {
-	struct puzzle newp;
 	struct index idx;
 	cmbindex cmb, count = 0;
-	size_t sq, c, i;
-	tileset eqclass = tileset_eqclass(ts, p);
-	tileset req = tileset_reduce_eqclass(eqclass);
-	const signed char *moves;
+	size_t zloc = p->tiles[0];
+	tileset eq;
 
-	for (; !tileset_empty(req); req = tileset_remove_least(req)) {
-		sq = tileset_get_least(req);
-		move(p, sq);
-
-		c = move_count(sq);
-		moves = get_moves(sq);
-		for (i = 0; i < c; i++) {
-			if (tileset_has(eqclass, moves[i]))
-				continue;
-
-			newp = *p;
-			move(&newp, moves[i]);
-			compute_index(ts, &idx, &newp);
-			cmb = combine_index(ts, &idx);
-			if (pdb[cmb] != INFINITY)
-				continue;
-
+	for (eq = tileset_eqclass(ts, p); !tileset_empty(eq); eq = tileset_remove_least(eq)) {
+		move(p, tileset_get_least(eq));
+		compute_index(ts, &idx, p);
+		cmb = combine_index(ts, &idx);
+		if (pdb[cmb] == INFINITY) {
 			pdb[cmb] = round;
 			count++;
 		}
+
+		/* undo move(p, tileset_get_least(eq)) */
+		move(p, zloc);
+	}
+
+	return (count);
+}
+
+/*
+ * Update one configuration of a PDB that accounts for the zero tile.
+ * This is done by computing all moves from p, checking which of these
+ * lead to a different equivalence class and then updating the PDB for
+ * the equivalence classes of these configurations.
+ */
+static cmbindex
+update_zero_pdb(patterndb pdb, tileset ts, struct puzzle *p, int round)
+{
+	cmbindex count = 0;
+	size_t i, zloc = p->tiles[0], nmove = move_count(zloc);
+	tileset eq = tileset_eqclass(ts, p);
+	const signed char *moves = get_moves(zloc);
+
+	for (i = 0; i < nmove; i++) {
+		/* if we don't leave the equivalence class, skip this move */
+		if (tileset_has(eq, moves[i]))
+			continue;
+
+		move(p, moves[i]);
+		count += update_zero_eqclass(pdb, ts, p, round);
+
+		/* undo move(p, moves[i]) */
+		move(p, zloc);
+	}
+
+	return (count);
+}
+
+/*
+ * Update all equivalence classes we can reach from one concrete
+ * position in a PDB that does not account for the zero tile.  Return
+ * the number of equivalence classes updated. eq should be equal to
+ * tileset_eqclass(ts, p) and is passed as an argument so we don't need
+ * to compute it over and over again.  p is modified by this function
+ * but restored to its original value on return.  This function returns
+ */
+static cmbindex
+update_nonzero_moves(patterndb pdb, tileset ts, struct puzzle *p, int round,
+    tileset eq)
+{
+	struct index idx;
+	cmbindex cmb, count = 0;
+	size_t i, nmove, zloc = p->tiles[0];
+	const signed char *moves;
+
+	nmove = move_count(zloc);
+	moves = get_moves(zloc);
+
+	for (i = 0; i < nmove; i++) {
+		if (tileset_has(eq, moves[i]))
+			continue;
+
+		move(p, moves[i]);
+		compute_index(ts, &idx, p);
+		cmb = combine_index(ts, &idx);
+		if (pdb[cmb] == INFINITY) {
+			pdb[cmb] = round;
+			count++;
+		}
+
+		/* undo move(p, moves[i]) */
+		move(p, zloc);
+	}
+
+	return (count);
+}
+
+/*
+ * Update one equivalence class in a PDB that does not account for the
+ * zero tile.  This is done by checking each possible move in the
+ * reduced equivalence class of p and then updating those that move to a
+ * different equivalence class.  This function returns the number of
+ * entries updated.
+ */
+static cmbindex
+update_nonzero_pdb(patterndb pdb, tileset ts, struct puzzle *p, int round)
+{
+	cmbindex count = 0;
+	size_t zloc = p->tiles[0];
+	tileset eq = tileset_eqclass(ts, p), req;
+
+	for (req = tileset_reduce_eqclass(eq); !tileset_empty(req); req = tileset_remove_least(req)) {
+		move(p, tileset_get_least(req));
+		count += update_nonzero_moves(pdb, ts, p, round, eq);
+
+		/* undo move(p, tileset_get_least(req)) */
+		move(p, zloc);
 	}
 
 	return (count);
@@ -89,22 +176,8 @@ update_pdb(patterndb pdb, tileset ts, struct puzzle *p, int round)
 
 /*
  * Perform one round of PDB generation where round > 0.  This function
- * returns the number of PDB entries updated.  The operation implemented
- * by this function can be described by the following pseudo
- * code:
- *
- * for i = 0 .. search_space_size(ts) - 1 {
- *     if (pdb[i] != round - 1) continue;
- *     p = invert_index(ts, i);
- *     ps = all_positions_in_equivalence_class(ts, p);
- *     dsts = all_positions_reachable_in_a_move(ps);
- *     rdsts = all_positions_not_in_eqclass(ps, dsts);
- *     for (all rdst in rdsts) {
- *         idx = generate_index(rdst);
- *         if (pdb[idx] == INFINITY) pdb[idx] = round;
- *     }
- * }
- *
+ * returns the number of PDB entries updated. TODO describe how this
+ * works.
  * The actual implementation is a bit "inside out" as we do not want to
  * generate the sets dsts and rdsts explicitly and try to save work as
  * much as possible.
@@ -123,7 +196,10 @@ generate_round(patterndb pdb, tileset ts, int round)
 		split_index(ts, &idx, i);
 		invert_index(ts, &p, &idx);
 
-		count += update_pdb(pdb, ts, &p, round);
+		if (tileset_has(ts, 0))
+			count += update_zero_pdb(pdb, ts, &p, round);
+		else
+			count += update_nonzero_pdb(pdb, ts, &p, round);
 	}
 
 	return (count);
