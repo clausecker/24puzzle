@@ -22,6 +22,7 @@ enum { INFINITY = (unsigned char)-1 };
 static cmbindex
 setup_pdb(patterndb pdb, tileset ts)
 {
+	cmbindex count;
 	tileset eq;
 	struct puzzle p = solved_puzzle;
 	struct index idx;
@@ -35,6 +36,7 @@ setup_pdb(patterndb pdb, tileset ts)
 	 */
 	if (tileset_has(ts, 0)) {
 		eq = tileset_eqclass(ts, &solved_puzzle);
+		count = tileset_count(eq);
 
 		for (; !tileset_empty(eq); eq = tileset_remove_least(eq)) {
 			move(&p, tileset_get_least(eq));
@@ -42,7 +44,7 @@ setup_pdb(patterndb pdb, tileset ts)
 			pdb[combine_index(ts, &idx)] = 0;
 		}
 
-		return (tileset_count(eq));
+		return (count);
 	} else {
 		compute_index(ts, &idx, &p);
 		pdb[combine_index(ts, &idx)] = 0;
