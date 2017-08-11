@@ -71,14 +71,25 @@ update_zero_eqclass(patterndb pdb, tileset ts, struct puzzle *p, int round)
 		move(p, tileset_get_least(eq));
 		compute_index(ts, &idx, p);
 		cmb = combine_index(ts, &idx);
-		if (pdb[cmb] == INFINITY) {
-			pdb[cmb] = round;
-			count++;
+
+		if (pdb[cmb] != INFINITY) {
+			/*
+			 * All positions in an equivalence class have
+			 * the same value. Hence, if one entry is
+			 * already filled in, we can savely ignore the
+			 * others.
+			 */
+			move(p, zloc);
+			return (count); /* count is always 0 here */
 		}
+
+		pdb[cmb] = round;
+		count++;
 
 		/* undo move(p, tileset_get_least(eq)) */
 		move(p, zloc);
 	}
+
 
 	return (count);
 }
