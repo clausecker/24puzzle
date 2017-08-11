@@ -1,7 +1,13 @@
 /* genpdb.c -- generate pattern databases */
 
+#include <errno.h>
+#include <stdatomic.h>
+#include <stdbool.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
+
+#include <pthread.h>
 
 #include "puzzle.h"
 #include "tileset.h"
@@ -27,7 +33,7 @@ setup_pdb(patterndb pdb, tileset ts)
 	struct puzzle p = solved_puzzle;
 	struct index idx;
 
-	memset(pdb, INFINITY, (size_t)search_space_size(ts));
+	memset((void*)pdb, INFINITY, (size_t)search_space_size(ts));
 
 	/*
 	 * If ts contains the zero tile, each of the configurations in
@@ -54,6 +60,19 @@ setup_pdb(patterndb pdb, tileset ts)
 }
 
 /*
+ * Atomically update the PDB entry i to round:  If pdb[i] was
+ * INFINITY before, set it to round and return 1.  Otherwise, do
+ * nothing and return 0.  This function is atomic.
+ */
+static cmbindex
+update_pdb_entry(patterndb pdb, cmbindex i, int round)
+{
+	unsigned char infinity = INFINITY;
+
+	return (atomic_compare_exchange_strong(pdb + i, &infinity, round));
+}
+
+/*
  * Set all positions in the same equivalence class as p that are marked
  * as INFINITY in pdb to round.  Return the number of positions updated.
  * This function may alter p intermediately but restores its former
@@ -72,18 +91,19 @@ update_zero_eqclass(patterndb pdb, tileset ts, struct puzzle *p, int round)
 		compute_index(ts, &idx, p);
 		cmb = combine_index(ts, &idx);
 
-		if (pdb[cmb] != INFINITY) {
+		if (update_pdb_entry(pdb, cmb, round) == 0) {
 			/*
 			 * All positions in an equivalence class have
 			 * the same value. Hence, if one entry is
 			 * already filled in, we can savely ignore the
-			 * others.
+			 * others.  This also holds if the current
+			 * equivalence class is updated concurrently as
+			 * we always begin updating at the lowest entry.
 			 */
 			move(p, zloc);
 			return (count); /* count is always 0 here */
 		}
 
-		pdb[cmb] = round;
 		count++;
 
 		/* undo move(p, tileset_get_least(eq)) */
@@ -150,10 +170,7 @@ update_nonzero_moves(patterndb pdb, tileset ts, struct puzzle *p, int round,
 		move(p, moves[i]);
 		compute_index(ts, &idx, p);
 		cmb = combine_index(ts, &idx);
-		if (pdb[cmb] == INFINITY) {
-			pdb[cmb] = round;
-			count++;
-		}
+		count += update_pdb_entry(pdb, cmb, round);
 
 		/* undo move(p, moves[i]) */
 		move(p, zloc);
@@ -188,21 +205,20 @@ update_nonzero_pdb(patterndb pdb, tileset ts, struct puzzle *p, int round)
 }
 
 /*
- * Perform one round of PDB generation where round > 0.  This function
- * returns the number of PDB entries updated. TODO describe how this
- * works.
- * The actual implementation is a bit "inside out" as we do not want to
- * generate the sets dsts and rdsts explicitly and try to save work as
- * much as possible.
+ * Generate one chunk of one round of the PDB where round > 0.  The
+ * chunk starts at index i0 and is n entries long.  The caller must
+ * ensure that the PDB is not read out of bounds.  This function
+ * returns the number of PDB entries updated.  It is safe to execute
+ * in parallel on the same dataset.
  */
 static cmbindex
-generate_round(patterndb pdb, tileset ts, int round)
+generate_round_chunk(patterndb pdb, tileset ts, int round, cmbindex i0, cmbindex n)
 {
 	struct puzzle p;
 	struct index idx;
-	cmbindex i, size = search_space_size(ts), count = 0;
+	cmbindex i, count = 0;
 
-	for (i = 0; i < size; i++) {
+	for (i = i0; i < i0 + n; i++) {
 		if (pdb[i] != round - 1)
 			continue;
 
@@ -219,15 +235,123 @@ generate_round(patterndb pdb, tileset ts, int round)
 }
 
 /*
+ * This structure controls one worker thread.  Each thread generates
+ * the PDB in chunks of CHUNK_SIZE.  This is done instead of splitting
+ * the PDB into j chunks for j threads evenly as the work is far from
+ * being equidistributed in the table.
+ */
+enum { CHUNK_SIZE = 4096 };
+struct worker_configuration {
+	_Atomic cmbindex count;
+	_Atomic cmbindex offset;
+	const cmbindex size;
+	const patterndb pdb;
+	const tileset ts;
+	const int round;
+};
+
+/*
+ * This function is the main function of each worker thread.  It grabs
+ * chunks off the pile and updates the PDB for them until no work is
+ * left.  The number of elements updated is written to cfgarg->count.
+ */
+static void *
+genpdb_worker(void *cfgarg)
+{
+	struct worker_configuration *cfg = cfgarg;
+	cmbindex i, n;
+
+	for (;;) {
+		/* pick up chunk */
+		i = atomic_fetch_add(&cfg->offset, CHUNK_SIZE);
+
+		/* any work left to do? */
+		if (i >= cfg->size)
+			break;
+
+		n = i + CHUNK_SIZE <= cfg->size ? CHUNK_SIZE : cfg->size - i;
+		cfg->count += generate_round_chunk(cfg->pdb, cfg->ts, cfg->round, i, n);
+	}
+
+	return (NULL);
+}
+
+/*
+ * Generate one round of the PDB where round > 0.  Use jobs threads.
+ * This function returns the number of PDB entries updated.  It is
+ * assumed that 0 < i <= GENPDB_MAX_THREADS.
+ */
+static cmbindex
+generate_round(patterndb pdb, tileset ts, int round, int jobs)
+{
+	pthread_t pool[GENPDB_MAX_THREADS];
+	struct worker_configuration cfg = {
+		.count = 0,
+		.offset = 0,
+		.size = search_space_size(ts),
+		.pdb = pdb,
+		.ts = ts,
+		.round = round
+	};
+
+	int i, actual_jobs, error;
+
+	/* for easier debugging, don't multithread when jobs == 1 */
+	if (jobs == 1) {
+		genpdb_worker(&cfg);
+		return (cfg.count);
+	}
+
+	/* spawn threads */
+	for (i = 0; i < jobs; i++) {
+		error = pthread_create(pool + i, NULL, genpdb_worker, &cfg);
+		if (error == 0)
+			continue;
+
+		errno = error;
+		perror("pthread_create");
+
+		/*
+		 * if we cannot spawn as many threads as we like
+		 * but we can at least spawn some threads, just keep
+		 * going with the tablebase generation.  Otherwise,
+		 * there is no point in going on, so this is a good spot
+		 * to throw our hands up in the air and give up.
+		 */
+		if (i++ > 0)
+			break;
+
+		fprintf(stderr, "Couldn't create any threads, aborting...\n");
+		abort();
+	}
+
+	actual_jobs = i;
+
+	/* collect threads */
+	for (i = 0; i < actual_jobs; i++) {
+		error = pthread_join(pool[i], NULL);
+		if (error == 0)
+			continue;
+
+		errno = error;
+		perror("pthread_join");
+		abort();
+	}
+
+	return (cfg.count);
+}
+
+/*
  * Generate a PDB (pattern database) for tileset ts.  pdb must be
  * allocated by the caller to contain at least search_space_size(ts)
  * entries.  If f is not NULL, status updates are written to f after
  * each round.  This function returns the number of rounds needed to
- * fill the PDB. This number is one higher than the highest distance
- * encountered.
+ * fill the PDB.  This number is one higher than the highest distance
+ * encountered.  Up to jobs threads are used to compute the PDB in
+ * parallel.
  */
 extern int
-generate_patterndb(patterndb pdb, tileset ts, FILE *f)
+generate_patterndb(patterndb pdb, tileset ts, int jobs, FILE *f)
 {
 	cmbindex count;
 	int round = 0;
@@ -237,7 +361,7 @@ generate_patterndb(patterndb pdb, tileset ts, FILE *f)
 		fprintf(f, "  0: %20llu\n", count);
 
 	do {
-		count = generate_round(pdb, ts, ++round);
+		count = generate_round(pdb, ts, ++round, jobs);
 		if (f != NULL)
 			fprintf(f, "%3d: %20llu\n", round, count);
 	} while (count != 0);

@@ -23,16 +23,26 @@ main(int argc, char *argv[])
 {
 	tileset ts = 0x00000e7; /* 0 1 2 5 6 7 */
 	size_t count, size;
-	int optchar, tile;
+	int optchar, tile, jobs = 1;
 	const char *fname = NULL, *token;
 
 	patterndb pdb;
 	FILE *f = NULL;
 
-	while (optchar = getopt(argc, argv, "f:t:"), optchar != -1)
+	while (optchar = getopt(argc, argv, "f:j:t:"), optchar != -1)
 		switch (optchar) {
 		case 'f':
 			fname = optarg;
+			break;
+
+		case 'j':
+			jobs = atoi(optarg);
+			if (jobs < 1 || jobs > GENPDB_MAX_THREADS) {
+				fprintf(stderr, "Number of threads must be between 1 and %d\n",
+				    GENPDB_MAX_THREADS);
+				return (EXIT_FAILURE);
+			}
+
 			break;
 
 		case 't':
@@ -79,7 +89,7 @@ main(int argc, char *argv[])
 		return (EXIT_FAILURE);
 	}
 
-	generate_patterndb(pdb, ts, stderr);
+	generate_patterndb(pdb, ts, jobs, stderr);
 
 	if (f != NULL) {
 		count = fwrite(pdb, 1, size, f);

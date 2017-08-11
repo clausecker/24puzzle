@@ -10,8 +10,10 @@
  * configuration (called pattern) the minimal number of moves needed
  * to transition the pattern into a solved configuration.
  */
-typedef unsigned char *patterndb;
+typedef _Atomic unsigned char *patterndb;
 
-extern int	generate_patterndb(patterndb, tileset, FILE *);
+enum { GENPDB_MAX_THREADS = 256 };
+
+extern int	generate_patterndb(patterndb, tileset, int, FILE *);
 
 #endif /* PDB_H */
