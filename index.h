@@ -22,7 +22,7 @@
  * index product (index).
  */
 struct index {
-	unsigned char cmp[TILE_COUNT];
+	alignas(16) unsigned char cmp[TILE_COUNT];
 };
 
 /*

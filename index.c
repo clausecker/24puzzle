@@ -36,7 +36,7 @@ compute_index(tileset ts, struct index *idx, const struct puzzle *p)
 	size_t i, least;
 	tileset occupation = FULL_TILESET;
 
-	memset(idx->cmp, 0, TILE_COUNT);
+	memset(idx, 0, sizeof *idx);
 
 	for (i = 0; !tileset_empty(ts); ts = tileset_remove_least(ts), i++) {
 		least = p->tiles[tileset_get_least(ts)];
@@ -143,7 +143,7 @@ split_index(tileset ts, struct index *idx, cmbindex cmb)
 {
 	size_t i, n = tileset_count(ts);
 
-	memset(idx->cmp, 0, TILE_COUNT);
+	memset(idx, 0, sizeof *idx);
 
 	for (i = 0; i < n; i++) {
 		idx->cmp[i] = cmb % (25 - i);
