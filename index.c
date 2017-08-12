@@ -10,20 +10,26 @@
 #include "puzzle.h"
 
 /*
- * Compute the number of possible values of an index for tile set ts.
- * This is one higher than the highest index combine_index() would
- * generate for an index in ts.
+ * Search space sizes for the first 16 tablebase sizes.
  */
-extern cmbindex
-search_space_size(tileset ts)
-{
-	cmbindex accum = 1, i;
-
-	for (i = 0; i < tileset_count(ts); i++)
-		accum *= 25 - i;
-
-	return (accum);
-}
+const cmbindex search_space_sizes[16] = {
+	1LLU,
+	25LLU,
+	25LLU * 24,
+	25LLU * 24 * 23,
+	25LLU * 24 * 23 * 22,
+	25LLU * 24 * 23 * 22 * 21,
+	25LLU * 24 * 23 * 22 * 21 * 20,
+	25LLU * 24 * 23 * 22 * 21 * 20 * 19,
+	25LLU * 24 * 23 * 22 * 21 * 20 * 19 * 18,
+	25LLU * 24 * 23 * 22 * 21 * 20 * 19 * 18 * 17,
+	25LLU * 24 * 23 * 22 * 21 * 20 * 19 * 18 * 17 * 16,
+	25LLU * 24 * 23 * 22 * 21 * 20 * 19 * 18 * 17 * 16 * 15,
+	25LLU * 24 * 23 * 22 * 21 * 20 * 19 * 18 * 17 * 16 * 15 * 14,
+	25LLU * 24 * 23 * 22 * 21 * 20 * 19 * 18 * 17 * 16 * 15 * 14 * 13,
+	25LLU * 24 * 23 * 22 * 21 * 20 * 19 * 18 * 17 * 16 * 15 * 14 * 13 * 12,
+	25LLU * 24 * 23 * 22 * 21 * 20 * 19 * 18 * 17 * 16 * 15 * 14 * 13 * 12 * 11,
+};
 
 /*
  * Compute the index for tiles ts in p and store them in idx.

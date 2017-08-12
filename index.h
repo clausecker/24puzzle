@@ -36,11 +36,24 @@ typedef unsigned long long cmbindex;
 
 enum { INDEX_STR_LEN = 3 * 25 + 1 };
 
-extern cmbindex	search_space_size(tileset);
 extern void	compute_index(tileset, struct index*, const struct puzzle*);
 extern void	invert_index(tileset, struct puzzle*, const struct index*);
 extern cmbindex	combine_index(tileset, const struct index*);
 extern void	split_index(tileset, struct index*, cmbindex);
 extern void	index_string(tileset, char[INDEX_STR_LEN], const struct index*);
+
+extern const cmbindex search_space_sizes[16];
+
+/*
+ * Compute the number of possible values of an index for tile set ts.
+ * This is one higher than the highest index combine_index() would
+ * generate for an index in ts.
+ */
+static inline cmbindex
+search_space_size(tileset ts)
+{
+
+	return (search_space_sizes[tileset_count(ts)]);
+}
 
 #endif /* INDEX_H */
