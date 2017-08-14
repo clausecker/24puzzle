@@ -1,4 +1,13 @@
 *.s
 *.o
+*.a
 *.core
 core
+*.pdb
+
+# binaries
+cmd/genpdb
+cmd/verifypdb
+test/indextest
+test/tiletest
+

@@ -5,21 +5,20 @@ LDLIBS=-lpthread
 OBJ=index.o puzzle.o tileset.o validation.o pdbgen.o pdbverify.o
 BINARIES=test/indextest test/tiletest cmd/genpdb cmd/verifypdb
 
-all: $(BINARIES) $(OBJ)
+all: $(BINARIES) 24puzzle.a
 
-test/indextest: $(OBJ) test/indextest.o
-	$(CC) $(LDFLAGS) -o $@ $(OBJ) test/indextest.o $(LDLIBS)
+.o:
+	$(CC) $(LDFLAGS) -o $@ $^ $(LDLIBS)
 
-test/tiletest: $(OBJ) test/tiletest.o
-	$(CC) $(LDFLAGS) -o $@ $(OBJ) test/tiletest.o $(LDLIBS)
+24puzzle.a: $(OBJ)
+	ar rc $@ $?
 
-cmd/genpdb: $(OBJ) cmd/genpdb.o
-	$(CC) $(LDFLAGS) -o $@ $(OBJ) cmd/genpdb.o $(LDLIBS)
-
-cmd/verifypdb: $(OBJ) cmd/verifypdb.o
-	$(CC) $(LDFLAGS) -o $@ $(OBJ) cmd/verifypdb.o $(LDLIBS)
+test/indextest: test/indextest.o 24puzzle.a
+test/tiletest: test/tiletest.o 24puzzle.a
+cmd/genpdb: cmd/genpdb.o 24puzzle.a
+cmd/verifypdb: cmd/verifypdb.o 24puzzle.a
 
 clean:
-	rm -f *.o test/*.o cmd/*.o $(BINARIES)
+	rm -f *.a *.o test/*.o cmd/*.o $(BINARIES)
 
 .PHONY: all clean
