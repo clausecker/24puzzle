@@ -37,9 +37,9 @@ main(int argc, char *argv[])
 
 		case 'j':
 			jobs = atoi(optarg);
-			if (jobs < 1 || jobs > GENPDB_MAX_THREADS) {
+			if (jobs < 1 || jobs > PDB_MAX_THREADS) {
 				fprintf(stderr, "Number of threads must be between 1 and %d\n",
-				    GENPDB_MAX_THREADS);
+				    PDB_MAX_THREADS);
 				return (EXIT_FAILURE);
 			}
 

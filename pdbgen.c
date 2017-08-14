@@ -229,12 +229,11 @@ generate_round_chunk(patterndb pdb, tileset ts, int round, cmbindex i0, cmbindex
 }
 
 /*
- * This structure controls one worker thread.  Each thread generates
- * the PDB in chunks of CHUNK_SIZE.  This is done instead of splitting
+ * This structure controls one worker thread.  Each thread generates the
+ * PDB in chunks of PDB_CHUNK_SIZE.  This is done instead of splitting
  * the PDB into j chunks for j threads evenly as the work is far from
  * being equidistributed in the table.
  */
-enum { CHUNK_SIZE = 4096 };
 struct worker_configuration {
 	_Atomic cmbindex count;
 	_Atomic cmbindex offset;
@@ -257,13 +256,13 @@ genpdb_worker(void *cfgarg)
 
 	for (;;) {
 		/* pick up chunk */
-		i = atomic_fetch_add(&cfg->offset, CHUNK_SIZE);
+		i = atomic_fetch_add(&cfg->offset, PDB_CHUNK_SIZE);
 
 		/* any work left to do? */
 		if (i >= cfg->size)
 			break;
 
-		n = i + CHUNK_SIZE <= cfg->size ? CHUNK_SIZE : cfg->size - i;
+		n = i + PDB_CHUNK_SIZE <= cfg->size ? PDB_CHUNK_SIZE : cfg->size - i;
 		cfg->count += generate_round_chunk(cfg->pdb, cfg->ts, cfg->round, i, n);
 	}
 
@@ -278,7 +277,7 @@ genpdb_worker(void *cfgarg)
 static cmbindex
 generate_round(patterndb pdb, tileset ts, int round, int jobs)
 {
-	pthread_t pool[GENPDB_MAX_THREADS];
+	pthread_t pool[PDB_MAX_THREADS];
 	struct worker_configuration cfg = {
 		.count = 0,
 		.offset = 0,

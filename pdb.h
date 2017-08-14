@@ -19,9 +19,14 @@ typedef _Atomic unsigned char *patterndb;
  */
 enum { INFINITY = (unsigned char)-1 };
 
-/* highest number of threads allowed for generate_patterndb() */
-enum { GENPDB_MAX_THREADS = 256 };
+enum {
+	/* max number of threads allowed */
+	PDB_MAX_THREADS = 256,
+
+	/* chunk size for parallel PDB processing */
+	PDB_CHUNK_SIZE = 4096,
+};
 
 extern int	generate_patterndb(patterndb, tileset, int, FILE *);
-extern cmbindex	verify_patterndb(patterndb, tileset, FILE *);
+extern int	verify_patterndb(patterndb, tileset, int, FILE *);
 #endif /* PDB_H */
