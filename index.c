@@ -117,6 +117,27 @@ partial_products[15] = {
 };
 
 /*
+ * Perform compute_index() and combine_index() in one step to speed up
+ * the index computation.
+ */
+extern cmbindex
+full_index(tileset ts, const struct puzzle *p)
+{
+	size_t least;
+	cmbindex accum = 0, factor = 1, i;
+	tileset occupation = FULL_TILESET;
+
+	for (i = 25; !tileset_empty(ts); ts = tileset_remove_least(ts), i--) {
+		least = p->tiles[tileset_get_least(ts)];
+		accum += factor * tileset_count(tileset_intersect(occupation,tileset_least(least)));
+		factor *= i;
+		occupation = tileset_remove(occupation, least);
+	}
+
+	return (accum);
+}
+
+/*
  * Combine index idx for tileset ts into a single number.  It is
  * assumed that ts contains no more than 15 members as otherwise, an
  * overflow could occur.

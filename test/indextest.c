@@ -70,6 +70,7 @@ test_puzzle(tileset ts, const struct puzzle *p)
 	char puzzle_str[PUZZLE_STR_LEN], index_str[INDEX_STR_LEN];
 	struct puzzle pp;
 	struct index idx;
+	cmbindex cmbstep, cmbfull;
 
 	compute_index(ts, &idx, p);
 	invert_index(ts, &pp, &idx);
@@ -82,6 +83,17 @@ test_puzzle(tileset ts, const struct puzzle *p)
 		puts(index_str);
 		puzzle_string(puzzle_str, &pp);
 		puts(puzzle_str);
+
+		return (0);
+	}
+
+	cmbstep = combine_index(ts, &idx);
+	cmbfull = full_index(ts, p);
+	if (cmbstep != cmbfull) {
+		printf("test_puzzle failed for 0x%07x:\n", ts);
+		puzzle_string(puzzle_str, p);
+		puts(puzzle_str);
+		printf("%llu != %llu\n", cmbstep, cmbfull);
 
 		return (0);
 	}

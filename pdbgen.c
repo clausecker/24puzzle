@@ -25,7 +25,6 @@ setup_pdb(patterndb pdb, tileset ts)
 	cmbindex count;
 	tileset eq;
 	struct puzzle p = solved_puzzle;
-	struct index idx;
 
 	memset((void*)pdb, INFINITY, (size_t)search_space_size(ts));
 
@@ -40,14 +39,12 @@ setup_pdb(patterndb pdb, tileset ts)
 
 		for (; !tileset_empty(eq); eq = tileset_remove_least(eq)) {
 			move(&p, tileset_get_least(eq));
-			compute_index(ts, &idx, &p);
-			pdb[combine_index(ts, &idx)] = 0;
+			pdb[full_index(ts, &p)] = 0;
 		}
 
 		return (count);
 	} else {
-		compute_index(ts, &idx, &p);
-		pdb[combine_index(ts, &idx)] = 0;
+		pdb[full_index(ts, &p)] = 0;
 
 		return (1);
 	}
@@ -75,17 +72,14 @@ update_pdb_entry(patterndb pdb, cmbindex i, int round)
 static cmbindex
 update_zero_eqclass(patterndb pdb, tileset ts, struct puzzle *p, int round)
 {
-	struct index idx;
-	cmbindex cmb, count = 0;
+	cmbindex count = 0;
 	size_t zloc = zero_location(p);
 	tileset eq;
 
 	for (eq = tileset_eqclass(ts, p); !tileset_empty(eq); eq = tileset_remove_least(eq)) {
 		move(p, tileset_get_least(eq));
-		compute_index(ts, &idx, p);
-		cmb = combine_index(ts, &idx);
 
-		if (update_pdb_entry(pdb, cmb, round) == 0) {
+		if (update_pdb_entry(pdb, full_index(ts, p), round) == 0) {
 			/*
 			 * All positions in an equivalence class have
 			 * the same value. Hence, if one entry is
@@ -149,8 +143,7 @@ static cmbindex
 update_nonzero_moves(patterndb pdb, tileset ts, struct puzzle *p, int round,
     tileset eq)
 {
-	struct index idx;
-	cmbindex cmb, count = 0;
+	cmbindex count = 0;
 	size_t i, nmove, zloc = zero_location(p);
 	const signed char *moves;
 
@@ -162,9 +155,7 @@ update_nonzero_moves(patterndb pdb, tileset ts, struct puzzle *p, int round,
 			continue;
 
 		move(p, moves[i]);
-		compute_index(ts, &idx, p);
-		cmb = combine_index(ts, &idx);
-		count += update_pdb_entry(pdb, cmb, round);
+		count += update_pdb_entry(pdb, full_index(ts, p), round);
 
 		/* undo move(p, moves[i]) */
 		move(p, zloc);
