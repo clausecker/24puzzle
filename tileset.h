@@ -148,5 +148,22 @@ tileset_reduce_eqclass(tileset eq)
 	return (eq & (c | c  << 5 | (c & 0x0f7bdef) << 1 | c >> 5 | c >> 1 & 0x0f7bdef));
 }
 
+/*
+ * Given a puzzle configuration p, a tileset ts and a tileset eq =
+ * tileset_eqclass(ts, p), return if p is the canonical configuration in
+ * p.  A configuration in the equivalence class is canonical, if it has
+ * the lowest zero position out of all configurations in the equivalence
+ * class that are equal with respect to ts.  Return nonzero if this is
+ * the canonical configuration, zero if it is not.
+ */
+static inline int
+tileset_is_canonical(tileset ts, tileset eq, const struct puzzle *p)
+{
+
+	if (tileset_has(ts, 0))
+		return (p->tiles[0] == tileset_get_least(eq));
+	else
+		return (1);
+}
 
 #endif /* TILESET_H */
