@@ -13,7 +13,7 @@
 static void
 usage(const char *argv0)
 {
-	fprintf(stderr, "Usage: %s [-f file] [-t tile,tile,...]\n", argv0);
+	fprintf(stderr, "Usage: %s [-f file] [-t tile,tile,...] [-j nproc]\n", argv0);
 
 	exit(EXIT_FAILURE);
 }
@@ -23,8 +23,8 @@ main(int argc, char *argv[])
 {
 	tileset ts = 0x00000e7; /* 0 1 2 5 6 7 */
 	size_t count, size;
-	int optchar, tile, jobs = 1;
-	const char *fname = NULL, *token;
+	int optchar, jobs = 1;
+	const char *fname = NULL;
 
 	patterndb pdb;
 	FILE *f = NULL;
@@ -46,18 +46,9 @@ main(int argc, char *argv[])
 			break;
 
 		case 't':
-			ts = EMPTY_TILESET;
-			token = strtok(optarg,",");
-
-			while (token != NULL) {
-				tile = atoi(token);
-				if (tile < 0 || tile >= TILE_COUNT) {
-					fprintf(stderr, "Tile out of range: %s\n", token);
-					return (EXIT_FAILURE);
-				}
-
-				ts = tileset_add(ts, tile);
-				token = strtok(NULL,",");
+			if (tileset_parse(&ts, optarg) != 0) {
+				fprintf(stderr, "Cannot parse tile set: %s\n", optarg);
+				return (EXIT_FAILURE);
 			}
 
 			break;

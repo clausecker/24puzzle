@@ -1,5 +1,6 @@
 /* tileset.c -- dealing with sets of tiles */
 
+#include <stdlib.h>
 #include <string.h>
 
 #include "puzzle.h"
@@ -61,4 +62,35 @@ tileset_string(char str[TILESET_STR_LEN], tileset ts)
 	for (i = 0; i < TILE_COUNT; i++)
 		if (tileset_has(ts, i))
 			str[2 * i] = 'X';
+}
+
+/*
+ * Parse a tileset represented as a list of tiles.  Return 0 if a
+ * tileset could be parsed succesfully, -1 otherwise.  On success,
+ * *ts is the parsed tileset, otherwise, *ts is undefined.
+ */
+extern int
+tileset_parse(tileset *ts, const char *str)
+{
+	long component;
+
+	*ts = EMPTY_TILESET;
+
+	for (;;) {
+		component = strtol(str, (char**)&str, 10);
+		if (component < 0 || component >= TILE_COUNT)
+			return (-1);
+
+		*ts = tileset_add(*ts, component);
+
+		if (*str == '\0')
+			break;
+
+		if (*str != ',')
+			return (-1);
+
+		str++;
+	}
+
+	return (0);
 }

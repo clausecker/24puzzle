@@ -19,7 +19,7 @@ enum {
 
 extern tileset	tileset_eqclass(tileset, const struct puzzle *);
 extern void	tileset_string(char[TILESET_STR_LEN], tileset);
-
+extern int	tileset_parse(tileset *, const char *);
 /*
  * Return 1 if t is in ts.
  */
