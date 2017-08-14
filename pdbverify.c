@@ -25,7 +25,7 @@ verify_configuration(patterndb pdb, tileset ts, struct puzzle *p, tileset eq,
     int pdist, int *has_progress, FILE *f)
 {
 	struct index idx;
-	size_t i, zloc = p->tiles[0], nmove = move_count(zloc);
+	size_t i, zloc = zero_location(p), nmove = move_count(zloc);
 	int dist, result = 0;
 	char pstr[PUZZLE_STR_LEN];
 	const signed char *moves = get_moves(zloc);
@@ -85,7 +85,7 @@ static int
 verify_eqclass(patterndb pdb, tileset ts, struct puzzle *p, int pdist, FILE *f)
 {
 	struct index idx;
-	size_t zloc = p->tiles[0];
+	size_t zloc = zero_location(p);
 	tileset eq = tileset_eqclass(ts, p), map;
 	int dist, result = 0, has_progress = 0;
 	char pstr[PUZZLE_STR_LEN];
@@ -108,7 +108,7 @@ verify_eqclass(patterndb pdb, tileset ts, struct puzzle *p, int pdist, FILE *f)
 	for (map = eq; !tileset_empty(map); map = tileset_remove_least(map)) {
 		move(p, tileset_get_least(map));
 
-		if (tileset_has(ts, 0)) {
+		if (tileset_has(ts, ZERO_TILE)) {
 			compute_index(ts, &idx, p);
 			dist = pdb[combine_index(ts, &idx)];
 		} else

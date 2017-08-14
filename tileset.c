@@ -41,10 +41,10 @@ tileset_flood(tileset cmap, unsigned t)
 extern tileset
 tileset_eqclass(tileset ts, const struct puzzle *p)
 {
-	tileset cmap = tileset_complement(tileset_map(tileset_remove(ts, 0), p));
+	tileset cmap = tileset_complement(tileset_map(tileset_remove(ts, ZERO_TILE), p));
 
-	if (tileset_has(ts, 0))
-		return (tileset_flood(cmap, p->tiles[0]));
+	if (tileset_has(ts, ZERO_TILE))
+		return (tileset_flood(cmap, zero_location(p)));
 	else
 		return (cmap);
 }

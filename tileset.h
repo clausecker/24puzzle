@@ -160,8 +160,8 @@ static inline int
 tileset_is_canonical(tileset ts, tileset eq, const struct puzzle *p)
 {
 
-	if (tileset_has(ts, 0))
-		return (p->tiles[0] == tileset_get_least(eq));
+	if (tileset_has(ts, ZERO_TILE))
+		return (zero_location(p) == tileset_get_least(eq));
 	else
 		return (1);
 }

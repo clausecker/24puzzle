@@ -28,7 +28,7 @@
  * If viewed as permutations of { 0, ..., 24 }, tiles[] and grid[]
  * are inverse to each other at any given time.
  */
-enum { TILE_COUNT = 25 };
+enum { TILE_COUNT = 25, ZERO_TILE = 0 };
 
 struct puzzle {
 	alignas(8) unsigned char tiles[TILE_COUNT], grid[TILE_COUNT];
@@ -42,6 +42,15 @@ enum { PUZZLE_STR_LEN = 151 };
 extern void puzzle_string(char[PUZZLE_STR_LEN], const struct puzzle*);
 
 /*
+ * Return the location of the zero tile in p.
+ */
+static inline size_t
+zero_location(const struct puzzle *p)
+{
+	return (p->tiles[ZERO_TILE]);
+}
+
+/*
  * Move the empty square to dloc, modifying p.  It is not tested whether
  * dest is adjacent to the empty square's current location.  Furtermore,
  * this function assumes 0 <= dloc < 25.
@@ -52,13 +61,13 @@ move(struct puzzle *p, size_t dloc)
 	size_t zloc, dtile;
 
 	dtile = p->grid[dloc];
-	zloc = p->tiles[0];
+	zloc = zero_location(p);
 
-	p->grid[dloc] = 0;
+	p->grid[dloc] = ZERO_TILE;
 	p->grid[zloc] = dtile;
 
 	p->tiles[dtile] = zloc;
-	p->tiles[0] = dloc;
+	p->tiles[ZERO_TILE] = dloc;
 }
 
 /*

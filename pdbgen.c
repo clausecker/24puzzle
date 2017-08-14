@@ -34,7 +34,7 @@ setup_pdb(patterndb pdb, tileset ts)
 	 * the equivalence class are distinct.  If it does not, they are
 	 * all the same and we only added one configuration.
 	 */
-	if (tileset_has(ts, 0)) {
+	if (tileset_has(ts, ZERO_TILE)) {
 		eq = tileset_eqclass(ts, &solved_puzzle);
 		count = tileset_count(eq);
 
@@ -77,7 +77,7 @@ update_zero_eqclass(patterndb pdb, tileset ts, struct puzzle *p, int round)
 {
 	struct index idx;
 	cmbindex cmb, count = 0;
-	size_t zloc = p->tiles[0];
+	size_t zloc = zero_location(p);
 	tileset eq;
 
 	for (eq = tileset_eqclass(ts, p); !tileset_empty(eq); eq = tileset_remove_least(eq)) {
@@ -118,7 +118,7 @@ static cmbindex
 update_zero_pdb(patterndb pdb, tileset ts, struct puzzle *p, int round)
 {
 	cmbindex count = 0;
-	size_t i, zloc = p->tiles[0], nmove = move_count(zloc);
+	size_t i, zloc = zero_location(p), nmove = move_count(zloc);
 	tileset eq = tileset_eqclass(ts, p);
 	const signed char *moves = get_moves(zloc);
 
@@ -151,7 +151,7 @@ update_nonzero_moves(patterndb pdb, tileset ts, struct puzzle *p, int round,
 {
 	struct index idx;
 	cmbindex cmb, count = 0;
-	size_t i, nmove, zloc = p->tiles[0];
+	size_t i, nmove, zloc = zero_location(p);
 	const signed char *moves;
 
 	nmove = move_count(zloc);
@@ -184,7 +184,7 @@ static cmbindex
 update_nonzero_pdb(patterndb pdb, tileset ts, struct puzzle *p, int round)
 {
 	cmbindex count = 0;
-	size_t zloc = p->tiles[0];
+	size_t zloc = zero_location(p);
 	tileset eq = tileset_eqclass(ts, p), req;
 
 	for (req = tileset_reduce_eqclass(eq); !tileset_empty(req); req = tileset_remove_least(req)) {
@@ -219,7 +219,7 @@ generate_round_chunk(patterndb pdb, tileset ts, int round, cmbindex i0, cmbindex
 		split_index(ts, &idx, i);
 		invert_index(ts, &p, &idx);
 
-		if (tileset_has(ts, 0))
+		if (tileset_has(ts, ZERO_TILE))
 			count += update_zero_pdb(pdb, ts, &p, round);
 		else
 			count += update_nonzero_pdb(pdb, ts, &p, round);
