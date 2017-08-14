@@ -23,5 +23,5 @@ enum { INFINITY = (unsigned char)-1 };
 enum { GENPDB_MAX_THREADS = 256 };
 
 extern int	generate_patterndb(patterndb, tileset, int, FILE *);
-extern cmbindex	validate_patterndb(patterndb, tileset, FILE *);
+extern cmbindex	verify_patterndb(patterndb, tileset, FILE *);
 #endif /* PDB_H */

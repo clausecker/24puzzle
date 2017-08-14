@@ -155,10 +155,10 @@ verify_eqclass(patterndb pdb, tileset ts, struct puzzle *p, int pdist, FILE *f)
  * function verify_zero_position().  This function returns zero if the
  * pattern database was found to be consistent, nonzero otherwise.
  *
- * TODO: Make validation work in parallel.
+ * TODO: Make verification work in parallel.
  */
 extern cmbindex
-validate_patterndb(patterndb pdb, tileset ts, FILE *f)
+verify_patterndb(patterndb pdb, tileset ts, FILE *f)
 {
 	struct puzzle p;
 	struct index idx;

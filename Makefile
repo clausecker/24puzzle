@@ -3,7 +3,7 @@ CFLAGS=-msse4.2 -mpopcnt -O3 -Wall -Wno-missing-braces -Wno-parentheses -I. -g
 LDLIBS=-lpthread
 
 OBJ=index.o puzzle.o tileset.o validation.o pdbgen.o pdbverify.o
-BINARIES=test/indextest test/tiletest cmd/genpdb
+BINARIES=test/indextest test/tiletest cmd/genpdb cmd/verifypdb
 
 all: $(BINARIES) $(OBJ)
 
@@ -15,6 +15,9 @@ test/tiletest: $(OBJ) test/tiletest.o
 
 cmd/genpdb: $(OBJ) cmd/genpdb.o
 	$(CC) $(LDFLAGS) -o $@ $(OBJ) cmd/genpdb.o $(LDLIBS)
+
+cmd/verifypdb: $(OBJ) cmd/verifypdb.o
+	$(CC) $(LDFLAGS) -o $@ $(OBJ) cmd/verifypdb.o $(LDLIBS)
 
 clean:
 	rm -f *.o test/*.o cmd/*.o $(BINARIES)
