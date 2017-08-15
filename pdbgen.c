@@ -58,9 +58,12 @@ setup_pdb(patterndb pdb, tileset ts)
 static cmbindex
 update_pdb_entry(patterndb pdb, cmbindex i, int round)
 {
-	unsigned char infinity = INFINITY;
 
-	return (atomic_compare_exchange_strong(pdb + i, &infinity, round));
+	if (pdb[i] != INFINITY)
+		return (0);
+
+	/* atomic_exchange in case we race with another thread */
+	return (atomic_exchange(pdb + i, round) == INFINITY);
 }
 
 /*
@@ -74,32 +77,30 @@ update_zero_eqclass(patterndb pdb, tileset ts, struct puzzle *p, int round)
 {
 	cmbindex count = 0;
 	size_t zloc = zero_location(p);
-	tileset eq;
+	tileset eq = tileset_eqclass(ts, p), mask;
 
-	for (eq = tileset_eqclass(ts, p); !tileset_empty(eq); eq = tileset_remove_least(eq)) {
-		move(p, tileset_get_least(eq));
+	/*
+	 * All positions in an equivalence class have the same value.
+	 * Hence, if one entry is already filled in, we can savely omit
+	 * the others.  Likely, once we verified that one entry is not
+	 * filled in, we can fill in the others without checking.  There
+	 * is no data race because each thread attempts to fill in the
+	 * least entry in an equivalence class first and only one thread
+	 * gets a successful compare-and-swap.
+	 */
+	move(p, tileset_get_least(eq));
+	count = update_pdb_entry(pdb, full_index(ts, p), round);
+	move(p, zloc);
+	if (count == 0)
+		return (0);
 
-		if (update_pdb_entry(pdb, full_index(ts, p), round) == 0) {
-			/*
-			 * All positions in an equivalence class have
-			 * the same value. Hence, if one entry is
-			 * already filled in, we can savely ignore the
-			 * others.  This also holds if the current
-			 * equivalence class is updated concurrently as
-			 * we always begin updating at the lowest entry.
-			 */
-			move(p, zloc);
-			return (count); /* count is always 0 here */
-		}
-
-		count++;
-
-		/* undo move(p, tileset_get_least(eq)) */
+	for (mask = tileset_remove_least(eq); !tileset_empty(mask); mask = tileset_remove_least(mask)) {
+		move(p, tileset_get_least(mask));
+		pdb[full_index(ts, p)] = round;
 		move(p, zloc);
 	}
 
-
-	return (count);
+	return (tileset_count(eq));
 }
 
 /*
