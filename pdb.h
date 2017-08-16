@@ -2,6 +2,7 @@
 #define PDB_H
 
 #include <stdio.h>
+#include <limits.h>
 
 #include "tileset.h"
 #include "index.h"
@@ -39,5 +40,6 @@ extern int pdb_jobs;
 
 extern int	generate_patterndb(patterndb, tileset, FILE *);
 extern int	verify_patterndb(patterndb, tileset, FILE *);
+extern void	generate_pdb_histogram(cmbindex[PDB_HISTOGRAM_LEN], patterndb, tileset);
 
 #endif /* PDB_H */
