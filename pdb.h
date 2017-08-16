@@ -20,13 +20,24 @@ typedef _Atomic unsigned char *patterndb;
 enum { INFINITY = (unsigned char)-1 };
 
 enum {
-	/* max number of threads allowed */
-	PDB_MAX_THREADS = 256,
+	/* max number of jobs allowed */
+	PDB_MAX_JOBS = 256,
 
-	/* chunk size for parallel PDB processing */
-	PDB_CHUNK_SIZE = 4096,
+	/* maximum number of entries in a PDB histogram */
+	PDB_HISTOGRAM_LEN = 256,
 };
 
-extern int	generate_patterndb(patterndb, tileset, int, FILE *);
-extern int	verify_patterndb(patterndb, tileset, int, FILE *);
+/*
+ * The number of threads to use.  This must be between 1 and
+ * PDB_MAX_JOBS and is set to 1 initially.  This is a global variable
+ * intended to be set once during program initialization.  Since its
+ * value typically does not change during operation, the author deemed
+ * it more useful to have this be a global variable instead of passing
+ * it around everywhere.
+ */
+extern int pdb_jobs;
+
+extern int	generate_patterndb(patterndb, tileset, FILE *);
+extern int	verify_patterndb(patterndb, tileset, FILE *);
+
 #endif /* PDB_H */

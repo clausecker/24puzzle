@@ -23,7 +23,7 @@ main(int argc, char *argv[])
 {
 	tileset ts = 0x00000e7; /* 0 1 2 5 6 7 */
 	size_t count, size;
-	int optchar, jobs = 1;
+	int optchar;
 	const char *fname = NULL;
 
 	patterndb pdb;
@@ -36,10 +36,10 @@ main(int argc, char *argv[])
 			break;
 
 		case 'j':
-			jobs = atoi(optarg);
-			if (jobs < 1 || jobs > PDB_MAX_THREADS) {
+			pdb_jobs = atoi(optarg);
+			if (pdb_jobs < 1 || pdb_jobs > PDB_MAX_JOBS) {
 				fprintf(stderr, "Number of threads must be between 1 and %d\n",
-				    PDB_MAX_THREADS);
+				    PDB_MAX_JOBS);
 				return (EXIT_FAILURE);
 			}
 
@@ -80,7 +80,7 @@ main(int argc, char *argv[])
 		return (EXIT_FAILURE);
 	}
 
-	generate_patterndb(pdb, ts, jobs, stderr);
+	generate_patterndb(pdb, ts, stderr);
 
 	if (f != NULL) {
 		count = fwrite(pdb, 1, size, f);

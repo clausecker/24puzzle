@@ -1,16 +1,14 @@
 /* pdbcheck.c -- validate a pattern database */
 
-#include <errno.h>
 #include <stdatomic.h>
 #include <stdio.h>
 #include <stdlib.h>
-
-#include <pthread.h>
 
 #include "puzzle.h"
 #include "tileset.h"
 #include "index.h"
 #include "pdb.h"
+#include "parallel.h"
 
 /*
  * Verify some of the invariants from verify_eqclass() for the moves
@@ -149,12 +147,26 @@ verify_eqclass(patterndb pdb, tileset ts, struct puzzle *p, int pdist, FILE *f)
 }
 
 /*
+ * Just as with genpdb, this structure controls one verification thread.
+ * Each thread verifies the PDB in chunks of PDB_CHUNK_SIZE.
+ */
+struct verify_config {
+	struct parallel_config pcfg;
+	_Atomic int result;
+	FILE *f;
+};
+
+/*
  * Verify one chunk sized n entries starting at i0 of the PDB.  Return 0
  * if the chunk was found to be consistent, 1 otherwise.
  */
-static int
-verify_chunk(patterndb pdb, tileset ts, cmbindex i0, cmbindex n, FILE *f)
+static void
+verify_chunk(void *cfgarg, cmbindex i0, cmbindex n)
 {
+	struct verify_config *cfg = cfgarg;
+	tileset ts = cfg->pcfg.ts;
+	patterndb pdb = cfg->pcfg.pdb;
+
 	struct puzzle p;
 	struct index idx;
 	cmbindex i;
@@ -163,49 +175,10 @@ verify_chunk(patterndb pdb, tileset ts, cmbindex i0, cmbindex n, FILE *f)
 	for (i = i0; i < i0 + n; i++) {
 		split_index(ts, &idx, i);
 		invert_index(ts, &p, &idx);
-		result |= verify_eqclass(pdb, ts, &p, pdb[i], f);
+		result |= verify_eqclass(pdb, ts, &p, pdb[i], cfg->f);
 	}
 
-	return (result);
-}
-
-/*
- * Just as with genpdb, this structure controls one worker thread.  Each
- * thread verifies the PDB in chunks of PDB_CHUNK_SIZE.
- */
-struct worker_configuration {
-	_Atomic cmbindex offset;
-	_Atomic int result;
-	const cmbindex size;
-	const patterndb pdb;
-	const tileset ts;
-	FILE *const f;
-};
-
-/*
- * This function is the main function of each worker thread.  It grabs
- * chunks off the pile and verifies them until no work is left.  The
- * consistency of the PDB is written to cfgarg->result.
- */
-static void *
-verify_worker(void *cfgarg)
-{
-	struct worker_configuration *cfg = cfgarg;
-	cmbindex i, n;
-
-	for (;;) {
-		/* pick up chunk */
-		i = atomic_fetch_add(&cfg->offset, PDB_CHUNK_SIZE);
-
-		/* any work left to do? */
-		if (i >= cfg->size)
-			break;
-
-		n = i + PDB_CHUNK_SIZE <= cfg->size ? PDB_CHUNK_SIZE : cfg->size - i;
-		cfg->result |= verify_chunk(cfg->pdb, cfg->ts, i, n, cfg->f);
-	}
-
-	return (NULL);
+	cfg->result |= result;
 }
 
 /*
@@ -216,55 +189,17 @@ verify_worker(void *cfgarg)
  * pattern database was found to be consistent, nonzero otherwise.
  */
 extern int
-verify_patterndb(patterndb pdb, tileset ts, int jobs, FILE *f)
+verify_patterndb(patterndb pdb, tileset ts, FILE *f)
 {
-	pthread_t pool[PDB_MAX_THREADS];
-	struct worker_configuration cfg = {
-		.offset = 0,
-		.result = 0,
-		.size = search_space_size(ts),
-		.pdb = pdb,
-		.ts = ts,
-		.f = f
-	};
+	struct verify_config cfg;
 
-	int i, actual_jobs, error;
+	cfg.pcfg.pdb = pdb;
+	cfg.pcfg.ts = ts;
+	cfg.pcfg.worker = verify_chunk;
+	cfg.result = 0;
+	cfg.f = f;
 
-	/* for easier debugging, don't multithread when jobs == 1 */
-	if (jobs == 1) {
-		verify_worker(&cfg);
-		return (cfg.result);
-	}
-
-	/* spawn threads */
-	for (i = 0; i < jobs; i++) {
-		error = pthread_create(pool + i, NULL, verify_worker, &cfg);
-		if (error == 0)
-			continue;
-
-		errno = error;
-		perror("pthread_create");
-
-		/* see pdbgen.c for details */
-		if (i++ > 0)
-			break;
-
-		fprintf(stderr, "Couldn't create any threads, aborting...\n");
-		abort();
-	}
-
-	actual_jobs = i;
-
-	/* collect threads */
-	for (i = 0; i < actual_jobs; i++) {
-		error = pthread_join(pool[i], NULL);
-		if (error == 0)
-			continue;
-
-		errno = error;
-		perror("pthread_join");
-		abort();
-	}
+	pdb_iterate_parallel(&cfg.pcfg);
 
 	return (cfg.result);
 }

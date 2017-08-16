@@ -1,18 +1,14 @@
 /* genpdb.c -- generate pattern databases */
 
-#include <errno.h>
 #include <stdatomic.h>
-#include <stdbool.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
-
-#include <pthread.h>
 
 #include "puzzle.h"
 #include "tileset.h"
 #include "index.h"
 #include "pdb.h"
+#include "parallel.h"
 
 /*
  * Initialize pdb for generating a new pattern dabase.  To do that,
@@ -191,15 +187,30 @@ update_nonzero_pdb(patterndb pdb, tileset ts, struct puzzle *p, int round)
 }
 
 /*
+ * Configuration for generate_patterndb.  count is the total number of
+ * entries updated in this round.
+ */
+struct pdbgen_config {
+	struct parallel_config pcfg;
+	_Atomic cmbindex count;
+	int round;
+};
+
+/*
  * Generate one chunk of one round of the PDB where round > 0.  The
  * chunk starts at index i0 and is n entries long.  The caller must
  * ensure that the PDB is not read out of bounds.  This function
  * returns the number of PDB entries updated.  It is safe to execute
  * in parallel on the same dataset.
  */
-static cmbindex
-generate_round_chunk(patterndb pdb, tileset ts, int round, cmbindex i0, cmbindex n)
+static void
+generate_round_chunk(void *cfgarg, cmbindex i0, cmbindex n)
 {
+	struct pdbgen_config *cfg = cfgarg;
+	patterndb pdb = cfg->pcfg.pdb;
+	tileset ts = cfg->pcfg.ts;
+	int round = cfg->round;
+
 	struct puzzle p;
 	struct index idx;
 	cmbindex i, count = 0;
@@ -217,113 +228,7 @@ generate_round_chunk(patterndb pdb, tileset ts, int round, cmbindex i0, cmbindex
 			count += update_nonzero_pdb(pdb, ts, &p, round);
 	}
 
-	return (count);
-}
-
-/*
- * This structure controls one worker thread.  Each thread generates the
- * PDB in chunks of PDB_CHUNK_SIZE.  This is done instead of splitting
- * the PDB into j chunks for j threads evenly as the work is far from
- * being equidistributed in the table.
- */
-struct worker_configuration {
-	_Atomic cmbindex count;
-	_Atomic cmbindex offset;
-	const cmbindex size;
-	const patterndb pdb;
-	const tileset ts;
-	const int round;
-};
-
-/*
- * This function is the main function of each worker thread.  It grabs
- * chunks off the pile and updates the PDB for them until no work is
- * left.  The number of elements updated is written to cfgarg->count.
- */
-static void *
-genpdb_worker(void *cfgarg)
-{
-	struct worker_configuration *cfg = cfgarg;
-	cmbindex i, n;
-
-	for (;;) {
-		/* pick up chunk */
-		i = atomic_fetch_add(&cfg->offset, PDB_CHUNK_SIZE);
-
-		/* any work left to do? */
-		if (i >= cfg->size)
-			break;
-
-		n = i + PDB_CHUNK_SIZE <= cfg->size ? PDB_CHUNK_SIZE : cfg->size - i;
-		cfg->count += generate_round_chunk(cfg->pdb, cfg->ts, cfg->round, i, n);
-	}
-
-	return (NULL);
-}
-
-/*
- * Generate one round of the PDB where round > 0.  Use jobs threads.
- * This function returns the number of PDB entries updated.  It is
- * assumed that 0 < i <= GENPDB_MAX_THREADS.
- */
-static cmbindex
-generate_round(patterndb pdb, tileset ts, int round, int jobs)
-{
-	pthread_t pool[PDB_MAX_THREADS];
-	struct worker_configuration cfg = {
-		.count = 0,
-		.offset = 0,
-		.size = search_space_size(ts),
-		.pdb = pdb,
-		.ts = ts,
-		.round = round
-	};
-
-	int i, actual_jobs, error;
-
-	/* for easier debugging, don't multithread when jobs == 1 */
-	if (jobs == 1) {
-		genpdb_worker(&cfg);
-		return (cfg.count);
-	}
-
-	/* spawn threads */
-	for (i = 0; i < jobs; i++) {
-		error = pthread_create(pool + i, NULL, genpdb_worker, &cfg);
-		if (error == 0)
-			continue;
-
-		errno = error;
-		perror("pthread_create");
-
-		/*
-		 * if we cannot spawn as many threads as we like
-		 * but we can at least spawn some threads, just keep
-		 * going with the tablebase generation.  Otherwise,
-		 * there is no point in going on, so this is a good spot
-		 * to throw our hands up in the air and give up.
-		 */
-		if (i++ > 0)
-			break;
-
-		fprintf(stderr, "Couldn't create any threads, aborting...\n");
-		abort();
-	}
-
-	actual_jobs = i;
-
-	/* collect threads */
-	for (i = 0; i < actual_jobs; i++) {
-		error = pthread_join(pool[i], NULL);
-		if (error == 0)
-			continue;
-
-		errno = error;
-		perror("pthread_join");
-		abort();
-	}
-
-	return (cfg.count);
+	cfg->count += count;
 }
 
 /*
@@ -336,20 +241,27 @@ generate_round(patterndb pdb, tileset ts, int round, int jobs)
  * parallel.
  */
 extern int
-generate_patterndb(patterndb pdb, tileset ts, int jobs, FILE *f)
+generate_patterndb(patterndb pdb, tileset ts, FILE *f)
 {
-	cmbindex count;
-	int round = 0;
+	struct pdbgen_config cfg;
+	cmbindex count0;
 
-	count = setup_pdb(pdb, ts);
+	cfg.pcfg.pdb = pdb;
+	cfg.pcfg.ts = ts;
+	cfg.pcfg.worker = generate_round_chunk;
+	cfg.round = 0;
+
+	count0 = setup_pdb(pdb, ts);
 	if (f != NULL)
-		fprintf(f, "  0: %20llu\n", count);
+		fprintf(f, "  0: %20llu\n", count0);
 
 	do {
-		count = generate_round(pdb, ts, ++round, jobs);
+		cfg.count = 0;
+		cfg.round++;
+		pdb_iterate_parallel(&cfg.pcfg);
 		if (f != NULL)
-			fprintf(f, "%3d: %20llu\n", round, count);
-	} while (count != 0);
+			fprintf(f, "%3d: %20llu\n", cfg.round, cfg.count);
+	} while (cfg.count != 0);
 
-	return (round);
+	return (cfg.round);
 }
