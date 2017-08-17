@@ -4,7 +4,7 @@ LDLIBS=-lpthread
 
 OBJ=index.o puzzle.o tileset.o validation.o pdbgen.o pdbverify.o parallel.o \
 	histogram.o pdbdom.o
-BINARIES=test/indextest test/tiletest cmd/genpdb cmd/verifypdb
+BINARIES=test/indextest test/tiletest cmd/genpdb cmd/verifypdb cmd/reducepdb
 
 all: $(BINARIES) 24puzzle.a
 
@@ -18,6 +18,7 @@ test/indextest: test/indextest.o 24puzzle.a
 test/tiletest: test/tiletest.o 24puzzle.a
 cmd/genpdb: cmd/genpdb.o 24puzzle.a
 cmd/verifypdb: cmd/verifypdb.o 24puzzle.a
+cmd/reducepdb: cmd/reducepdb.o 24puzzle.a
 
 clean:
 	rm -f *.a *.o test/*.o cmd/*.o $(BINARIES)
