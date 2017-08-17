@@ -220,8 +220,8 @@ compute_reach(tileset ts, struct vertex *reach[REACH_LEN], cmbindex cmb,
 
 	for (req = tileset_reduce_eqclass(eq); !tileset_empty(req); req = tileset_remove_least(req)) {
 		least = tileset_get_least(req);
-		n_move = move_count(req);
-		moves = get_moves(req);
+		n_move = move_count(least);
+		moves = get_moves(least);
 		move(&p, least);
 
 		for (i = 0; i < n_move; i++) {
@@ -232,7 +232,7 @@ compute_reach(tileset ts, struct vertex *reach[REACH_LEN], cmbindex cmb,
 
 			key.index = full_index(ts, &p);
 			loc = bsearch(&key, far, n_far, sizeof *far, compare_by_index);
-			if (loc != NULL)
+			if (loc != NULL && loc->additions != DOMINATED)
 				reach[n_reach++] = loc;
 
 			move(&p, least);
@@ -337,8 +337,6 @@ accumulate_eqclass(patterndb pdb, tileset ts, size_t distance, size_t n_eqdist)
 			eqdist[j++].additions = 0;
 		}
 
-	assert (j == n_eqdist);
-
 	return (eqdist);
 }
 
@@ -421,7 +419,7 @@ reduce_patterndb(patterndb pdb, tileset ts, FILE *f)
 		far = realloc(near, n_far);
 
 		if (f != NULL)
-			fprintf(f, "%3zu: %20zu/%20zu (%5.2f%%)\n", i,
+			fprintf(f, "%3zu: %20zu/%20zu (%5.2f%%)\n", i - 1,
 			    (n_near - n_far), n_near, (100.0 * (n_near - n_far)) / n_near);
 
 		assert(far != NULL);
