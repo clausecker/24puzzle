@@ -1,5 +1,6 @@
 /* histogram.c -- generate PDB histograms */
 
+#include <assert.h>
 #include <string.h>
 
 #include "index.h"
@@ -35,13 +36,15 @@ histogram_worker(void *cfgarg, cmbindex i0, cmbindex n)
 /*
  * Given a pattern database pdb, count how many entries with each
  * distance exist and store the results in histogram.  Use up to
- * jobs threads for parallel computation.
+ * jobs threads for parallel computation.  Return the number of
+ * nonzero entries in histogram.
  */
-extern void
+extern int
 generate_pdb_histogram(cmbindex histogram[PDB_HISTOGRAM_LEN], patterndb pdb,
     tileset ts)
 {
 	struct histogram_config cfg;
+	int i;
 
 	cfg.pcfg.pdb = pdb;
 	cfg.pcfg.ts = ts;
@@ -50,4 +53,11 @@ generate_pdb_histogram(cmbindex histogram[PDB_HISTOGRAM_LEN], patterndb pdb,
 
 	pdb_iterate_parallel(&cfg.pcfg);
 	memcpy(histogram, (void*)cfg.histogram, sizeof cfg.histogram);
+
+	for (i = 0; histogram[i] != 0; i++)
+		;
+
+	assert(i < PDB_HISTOGRAM_LEN);
+
+	return (i);
 }

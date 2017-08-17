@@ -3,7 +3,7 @@ CFLAGS=-msse4.2 -mpopcnt -O3 -Wall -Wno-missing-braces -Wno-parentheses -I. -g
 LDLIBS=-lpthread
 
 OBJ=index.o puzzle.o tileset.o validation.o pdbgen.o pdbverify.o parallel.o \
-	histogram.o
+	histogram.o pdbdom.o
 BINARIES=test/indextest test/tiletest cmd/genpdb cmd/verifypdb
 
 all: $(BINARIES) 24puzzle.a
