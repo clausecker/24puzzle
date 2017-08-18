@@ -163,11 +163,11 @@ build_heap(struct heap *heap)
 {
 	size_t i;
 
-	/* remember, i is unsigned so i >= 0 is a tautology */
-	for (i = heap->total / 2; i > 0; i--)
-		heapify(heap, i - 1);
-
 	heap->length = heap->total;
+
+	/* remember, i is unsigned so i >= 0 is a tautology */
+	for (i = heap->length / 2; i > 0; i--)
+		heapify(heap, i - 1);
 }
 
 /*
@@ -218,7 +218,8 @@ compute_reach(tileset ts, struct vertex *reach[REACH_LEN], cmbindex cmb,
 	eq = tileset_eqclass(ts, &p);
 	zloc = zero_location(&p);
 
-	for (req = tileset_reduce_eqclass(eq); !tileset_empty(req); req = tileset_remove_least(req)) {
+	// for (req = tileset_reduce_eqclass(eq); !tileset_empty(req); req = tileset_remove_least(req)) {
+	for (req = eq; !tileset_empty(req); req = tileset_remove_least(req)) {
 		least = tileset_get_least(req);
 		n_move = move_count(least);
 		moves = get_moves(least);
@@ -242,6 +243,8 @@ compute_reach(tileset ts, struct vertex *reach[REACH_LEN], cmbindex cmb,
 	}
 
 	assert(n_reach <= REACH_LEN);
+
+	// fprintf(stderr, "Index %llu reaches %zu entries.\n", cmb, n_reach);
 
 	return (n_reach);
 }
@@ -288,12 +291,16 @@ find_dominating_set(tileset ts, struct vertex *far, size_t n_far,
 		 */
 		if (n_reach != root->additions) {
 			root->additions = n_reach;
-			if (heapify(&heap, 0))
+			if (!heapify(&heap, 0))
 				continue;
 		}
 
+		/* we should never add a vertex that does not dominate anything new */
+		assert(n_reach != 0);
 		for (i = 0; i < n_reach; i++)
 			reach[i]->additions = DOMINATED;
+
+		// fprintf(stderr, "Removing index %llu dominating %zu entries.\n", root->index, n_reach);
 
 		/* assumes that every reach[i] is a distinct element */
 		n_dominatee -= n_reach;
@@ -341,7 +348,7 @@ accumulate_eqclass(patterndb pdb, tileset ts, size_t distance, size_t n_eqdist)
 }
 
 /*
- * Eradicate the configurations marked as DOMINATED in eqdist from the
+ * Eradicate the configurations not marked as DOMINATED in eqdist from the
  * pattern database.  Then move all entries not marked DOMINATED to the
  * front and return the number of entries not marked DOMINATED.
  */
@@ -351,12 +358,11 @@ eradicate_entries(patterndb pdb, struct vertex *eqdist, size_t n_eqdist)
 	size_t i, j;
 
 	/* invariant: j <= i */
-	for (i = j = 0; i < n_eqdist; i++) {
-		if (eqdist[i].additions == DOMINATED)
+	for (i = j = 0; i < n_eqdist; i++)
+		if (eqdist[i].additions != DOMINATED) {
 			pdb[eqdist[i].index] = INFINITY;
-		else
 			eqdist[j++] = eqdist[i];
-	}
+		}
 
 	return (j);
 }
@@ -408,21 +414,21 @@ reduce_patterndb(patterndb pdb, tileset ts, FILE *f)
 	if (f != NULL)
 		fprintf(f, "%3zu: %20zu/%20zu (%5.2f%%)\n", n_classes - 1, (size_t)0, n_far, 0.0);
 
-	for (i = n_classes - 1; i > 0; i++) {
+	for (i = n_classes - 1; i > 0; i--) {
 		n_near = histogram[i - 1];
 		near = accumulate_eqclass(pdb, ts, i - 1, n_near);
 		find_dominating_set(ts, far, n_far, near, n_near);
 		free(far);
 
 		n_far = eradicate_entries(pdb, near, n_near);
-		/* n_far <  n_near should hold here and realloc should succeed */
-		far = realloc(near, n_far);
+		/* n_far <=  n_near should hold here and realloc should succeed */
+		assert (n_far <= n_near);
+		far = realloc(near, n_far * sizeof *far);
+		assert(far != NULL);
 
 		if (f != NULL)
 			fprintf(f, "%3zu: %20zu/%20zu (%5.2f%%)\n", i - 1,
 			    (n_near - n_far), n_near, (100.0 * (n_near - n_far)) / n_near);
-
-		assert(far != NULL);
 	}
 
 	free(far);
