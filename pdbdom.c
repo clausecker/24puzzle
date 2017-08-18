@@ -218,8 +218,7 @@ compute_reach(tileset ts, struct vertex *reach[REACH_LEN], cmbindex cmb,
 	eq = tileset_eqclass(ts, &p);
 	zloc = zero_location(&p);
 
-	// for (req = tileset_reduce_eqclass(eq); !tileset_empty(req); req = tileset_remove_least(req)) {
-	for (req = eq; !tileset_empty(req); req = tileset_remove_least(req)) {
+	for (req = tileset_reduce_eqclass(eq); !tileset_empty(req); req = tileset_remove_least(req)) {
 		least = tileset_get_least(req);
 		n_move = move_count(least);
 		moves = get_moves(least);
@@ -243,8 +242,6 @@ compute_reach(tileset ts, struct vertex *reach[REACH_LEN], cmbindex cmb,
 	}
 
 	assert(n_reach <= REACH_LEN);
-
-	// fprintf(stderr, "Index %llu reaches %zu entries.\n", cmb, n_reach);
 
 	return (n_reach);
 }
@@ -299,8 +296,6 @@ find_dominating_set(tileset ts, struct vertex *far, size_t n_far,
 		assert(n_reach != 0);
 		for (i = 0; i < n_reach; i++)
 			reach[i]->additions = DOMINATED;
-
-		// fprintf(stderr, "Removing index %llu dominating %zu entries.\n", root->index, n_reach);
 
 		/* assumes that every reach[i] is a distinct element */
 		n_dominatee -= n_reach;
@@ -424,7 +419,7 @@ reduce_patterndb(patterndb pdb, tileset ts, FILE *f)
 		/* n_far <=  n_near should hold here and realloc should succeed */
 		assert (n_far <= n_near);
 		far = realloc(near, n_far * sizeof *far);
-		assert(far != NULL);
+		assert(n_far == 0 || far != NULL);
 
 		if (f != NULL)
 			fprintf(f, "%3zu: %20zu/%20zu (%5.2f%%)\n", i - 1,
