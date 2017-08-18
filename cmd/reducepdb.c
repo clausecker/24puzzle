@@ -114,7 +114,10 @@ main(int argc, char *argv[])
 		return (EXIT_FAILURE);
 	}
 
-	rewind(f);
+	if (in_place)
+		rewind(f);
+	else
+		fclose(f);
 
 	reduce_patterndb(pdb, ts, stderr);
 
@@ -130,6 +133,8 @@ main(int argc, char *argv[])
 			return (EXIT_FAILURE);
 		}
 	}
+
+	fclose(o);
 
 	return (EXIT_SUCCESS);
 }
