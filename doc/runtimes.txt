@@ -11,3 +11,5 @@ time ./reducepdb -f 1,2,5,6,7,10.pdb -t 1,2,5,6,7,10.pdb
 
 revision					host		real		user		jobs
 8e14e094eabca383b31bc3d20d6f03aeabadbdf5	pvs-pc04	16m0.566s	16m0.460s	1
+10c0b5726802b30281a08fcc7387f3313e399e5e	pvs-pc04	6m3.779s	6m3.668s	1
+

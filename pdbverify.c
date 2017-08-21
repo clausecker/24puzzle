@@ -61,7 +61,7 @@ verify_configuration(patterndb pdb, tileset ts, struct puzzle *p, tileset eq,
  * internally consistent with the remaining entries, checking the whole
  * equivalence class of p.  The following invariants must hold:
  *
- * 1. no entry has distance INFINITY as each configuration can be solved
+ * 1. no entry has distance UNREACHED as each configuration can be solved
  * 2. each configuration directly reachable from p's equivalence class
  *    has a distance that differs by at most 1 from p's distance
  * 3. all configurations in the same equivalence class have the same
@@ -86,10 +86,10 @@ verify_eqclass(patterndb pdb, tileset ts, struct puzzle *p, int pdist, FILE *f)
 	char pstr[PUZZLE_STR_LEN];
 
 	/* invariant 1 */
-	if (pdist == INFINITY) {
+	if (pdist == UNREACHED) {
 		if (f != NULL) {
 			puzzle_string(pstr, p);
-			fprintf(f, "Configuration has distance INFINITY:\n%s\n", pstr);
+			fprintf(f, "Configuration has distance UNREACHED:\n%s\n", pstr);
 		}
 
 		return (1);

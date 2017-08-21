@@ -12,7 +12,7 @@
 
 /*
  * Initialize pdb for generating a new pattern dabase.  To do that,
- * each entry is initialized with INFINITY except for the equivalence
+ * each entry is initialized with UNREACHED except for the equivalence
  * class of the starting position, which is initialized to 0.
  */
 static cmbindex
@@ -22,7 +22,7 @@ setup_pdb(patterndb pdb, tileset ts)
 	tileset eq;
 	struct puzzle p = solved_puzzle;
 
-	memset((void*)pdb, INFINITY, (size_t)search_space_size(ts));
+	memset((void*)pdb, UNREACHED, (size_t)search_space_size(ts));
 
 	/*
 	 * If ts contains the zero tile, each of the configurations in
@@ -48,23 +48,23 @@ setup_pdb(patterndb pdb, tileset ts)
 
 /*
  * Atomically update the PDB entry i to round:  If pdb[i] was
- * INFINITY before, set it to round and return 1.  Otherwise, do
+ * UNREACHED before, set it to round and return 1.  Otherwise, do
  * nothing and return 0.  This function is atomic.
  */
 static cmbindex
 update_pdb_entry(patterndb pdb, cmbindex i, int round)
 {
 
-	if (pdb[i] != INFINITY)
+	if (pdb[i] != UNREACHED)
 		return (0);
 
 	/* atomic_exchange in case we race with another thread */
-	return (atomic_exchange(pdb + i, round) == INFINITY);
+	return (atomic_exchange(pdb + i, round) == UNREACHED);
 }
 
 /*
  * Set all positions in the same equivalence class as p that are marked
- * as INFINITY in pdb to round.  Return the number of positions updated.
+ * as UNREACHED in pdb to round.  Return the number of positions updated.
  * This function may alter p intermediately but restores its former
  * value on return.
  */

@@ -18,7 +18,7 @@ typedef _Atomic unsigned char *patterndb;
  * A value representing an infinite distance to the solved position,
  * i.e. a PDB entry that hasn't been filled in yet.
  */
-enum { INFINITY = (unsigned char)-1 };
+enum { UNREACHED = (unsigned char)-1 };
 
 enum {
 	/* max number of jobs allowed */

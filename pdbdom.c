@@ -23,7 +23,7 @@ struct vertex {
 };
 
 enum {
-	DOMINATED = INFINITY, /* == 0xff */
+	DOMINATED = UNREACHED, /* == 0xff */
 	TO_BE_DOMINATED = 0xfe,
 	REACH_LEN = 256,	/* TODO, see compute_reach() */
 };
@@ -235,7 +235,7 @@ compute_reach(tileset ts, patterndb pdb, cmbindex reach[REACH_LEN], cmbindex cmb
 /*
  * Given an equidistance class eqdist of size n_eqdist, compute a
  * subset of eqist that dominates all entries in pdb marked
- * TO_BE_DOMINATED and overwrite these PDB entries with INFINITY.  This
+ * TO_BE_DOMINATED and overwrite these PDB entries with UNREACHED.  This
  * function returns the number of elements in eqdist needed.  The
  * configurations selected are marked as DOMINATED in eqdist.  The
  * eqdist array is permuted as a result of this function.
@@ -275,7 +275,7 @@ find_dominating_set(tileset ts, patterndb pdb, struct vertex *eqdist, size_t n_e
 		/* we should never add a vertex that does not dominate anything new */
 		assert(n_reach != 0);
 		for (i = 0; i < n_reach; i++)
-			pdb[reach[i]] = INFINITY;
+			pdb[reach[i]] = UNREACHED;
 
 		/* assumes that every reach[i] is a distinct element */
 		n_dominatee -= n_reach;
