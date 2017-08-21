@@ -132,9 +132,10 @@ main(int argc, char *argv[])
 
 			return (EXIT_FAILURE);
 		}
+
+		fclose(o);
 	}
 
-	fclose(o);
 
 	return (EXIT_SUCCESS);
 }
