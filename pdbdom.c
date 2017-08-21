@@ -23,7 +23,8 @@ struct vertex {
 };
 
 enum {
-	DOMINATED = 0xff,
+	DOMINATED = INFINITY, /* == 0xff */
+	TO_BE_DOMINATED = 0xfe,
 	REACH_LEN = 256,	/* TODO, see compute_reach() */
 };
 
@@ -182,33 +183,19 @@ remove_root(struct heap *heap)
 }
 
 /*
- * Compare to struct vertex by the value of cmbindex in a manner
- * suitable for qosrt() and bsearch()
- */
-static int
-compare_by_index(const void *aarg, const void *barg)
-{
-	const struct vertex *a = aarg, *b = barg;
-
-	return ((a->index > b->index) - (a->index < b->index));
-}
-
-/*
- * Compute the intersection of the neighborhood of the configuration
- * represented by cmb and the configurations in far.  Store pointers
- * to the configurations found in reach.  Return the number of
- * configurations found.  reach must provide space to store up to
- * REACH_LEN entries.
+ * In the PDB, find entries in the neighborhood of the confinguration
+ * represented by cmb that are marked TO_BE_DOMINATED and store their
+ * indices in reach.  Return the number of configurations found.  reach
+ * must provide space to store up to REACH_LEN entries.
  *
  * TODO: Make this work with zero-aware PDBs.
  */
 static size_t
-compute_reach(tileset ts, struct vertex *reach[REACH_LEN], cmbindex cmb,
-    struct vertex *far, size_t n_far)
+compute_reach(tileset ts, patterndb pdb, cmbindex reach[REACH_LEN], cmbindex cmb)
 {
 	struct puzzle p;
 	struct index idx;
-	struct vertex key = { 0, 0 }, *loc;
+	cmbindex key;
 	tileset eq, req;
 	size_t n_reach = 0, i, zloc, n_move, least;
 	const signed char *moves;
@@ -230,10 +217,9 @@ compute_reach(tileset ts, struct vertex *reach[REACH_LEN], cmbindex cmb,
 
 			move(&p, moves[i]);
 
-			key.index = full_index(ts, &p);
-			loc = bsearch(&key, far, n_far, sizeof *far, compare_by_index);
-			if (loc != NULL && loc->additions != DOMINATED)
-				reach[n_reach++] = loc;
+			key = full_index(ts, &p);
+			if (pdb[key] == TO_BE_DOMINATED)
+				reach[n_reach++] = key;
 
 			move(&p, least);
 		}
@@ -247,37 +233,31 @@ compute_reach(tileset ts, struct vertex *reach[REACH_LEN], cmbindex cmb,
 }
 
 /*
- * Given two adjacent equidistance classes far and near of sizes n_far
- * and n_near, compute a subset of near that dominates all of far.  far
- * does not need to contain all elements in the equidistance class, but
- * only those elements of the equidistance class found in far are
- * considered. If any element is far is marked DOMINATED, behaviour is
- * undefined.  This function returns the number of elements in near
- * needed to cover far.  The elements selected are marked as DOMINATED,
- * the content of far[*].additions is destroyed.  Both arrays are
- * permuted as a result of this function.
+ * Given an equidistance class eqdist of size n_eqdist, compute a
+ * subset of eqist that dominates all entries in pdb marked
+ * TO_BE_DOMINATED and overwrite these PDB entries with INFINITY.  This
+ * function returns the number of elements in eqdist needed.  The
+ * configurations selected are marked as DOMINATED in eqdist.  The
+ * eqdist array is permuted as a result of this function.
  */
 static size_t
-find_dominating_set(tileset ts, struct vertex *far, size_t n_far,
-    struct vertex *near, size_t n_near)
+find_dominating_set(tileset ts, patterndb pdb, struct vertex *eqdist, size_t n_eqdist, size_t n_dominatee)
 {
 	struct heap heap;
-	size_t i, n_dominatee = n_far, n_reach;
-	struct vertex *root, *reach[REACH_LEN];
+	struct vertex *root;
+	size_t i, n_reach;
+	cmbindex reach[REACH_LEN];
 
-	/* make bsearch() work */
-	qsort(far, n_far, sizeof *far, compare_by_index);
+	for (i = 0; i < n_eqdist; i++)
+		eqdist[i].additions = compute_reach(ts, pdb, reach, eqdist[i].index);
 
-	for (i = 0; i < n_near; i++)
-		near[i].additions = compute_reach(ts, reach, near[i].index, far, n_far);
-
-	heap.root = near;
-	heap.total = n_near;
+	heap.root = eqdist;
+	heap.total = n_eqdist;
 	build_heap(&heap);
 
 	while (n_dominatee > 0 && heap.length > 0) {
 		root = get_root(&heap);
-		n_reach = compute_reach(ts, reach, root->index, far, n_far);
+		n_reach = compute_reach(ts, pdb, reach, root->index);
 
 		/*
 		 * If some vertices root reaches were already dominated by
@@ -295,7 +275,7 @@ find_dominating_set(tileset ts, struct vertex *far, size_t n_far,
 		/* we should never add a vertex that does not dominate anything new */
 		assert(n_reach != 0);
 		for (i = 0; i < n_reach; i++)
-			reach[i]->additions = DOMINATED;
+			pdb[reach[i]] = INFINITY;
 
 		/* assumes that every reach[i] is a distinct element */
 		n_dominatee -= n_reach;
@@ -343,9 +323,10 @@ accumulate_eqclass(patterndb pdb, tileset ts, size_t distance, size_t n_eqdist)
 }
 
 /*
- * Eradicate the configurations not marked as DOMINATED in eqdist from the
- * pattern database.  Then move all entries not marked DOMINATED to the
- * front and return the number of entries not marked DOMINATED.
+ * Eradicate the configurations not marked as DOMINATED in eqdist from
+ * the pattern database by overwriting them with TO_BE_DOMINATED.  Then
+ * move all entries not marked DOMINATED to the front and return the
+ * number of entries not marked DOMINATED.
  */
 static size_t
 eradicate_entries(patterndb pdb, struct vertex *eqdist, size_t n_eqdist)
@@ -355,7 +336,7 @@ eradicate_entries(patterndb pdb, struct vertex *eqdist, size_t n_eqdist)
 	/* invariant: j <= i */
 	for (i = j = 0; i < n_eqdist; i++)
 		if (eqdist[i].additions != DOMINATED) {
-			pdb[eqdist[i].index] = INFINITY;
+			pdb[eqdist[i].index] = TO_BE_DOMINATED;
 			eqdist[j++] = eqdist[i];
 		}
 
@@ -388,9 +369,9 @@ eradicate_entries(patterndb pdb, struct vertex *eqdist, size_t n_eqdist)
 extern void
 reduce_patterndb(patterndb pdb, tileset ts, FILE *f)
 {
-	cmbindex histogram[PDB_HISTOGRAM_LEN];
-	struct vertex *far, *near;
-	size_t n_classes, i, n_far, n_near;
+	cmbindex histogram[PDB_HISTOGRAM_LEN], size = search_space_size(ts);
+	struct vertex *near;
+	size_t n_classes, i, n_near, eradicated;
 
 	n_classes = generate_pdb_histogram(histogram, pdb, ts);
 	if (n_classes < 2)
@@ -399,32 +380,28 @@ reduce_patterndb(patterndb pdb, tileset ts, FILE *f)
 	if (f != NULL)
 		fprintf(f, "Histogram: %zu classes.\n\n", n_classes);
 
-	n_far = histogram[n_classes - 1];
-	far = accumulate_eqclass(pdb, ts, n_classes - 1, n_far);
+	/* mark all entries in the farthest equivalence class as "to be dominated" */
+	for (i = 0; i < size; i++)
+		if (pdb[i] == n_classes - 1)
+			pdb[i] = TO_BE_DOMINATED;
 
-	/* remove all entries in the farthest equivalence class from the PDB */
-	for (i = 0; i < n_far; i++)
-		pdb[far[i].index] = INFINITY;
-
+	eradicated = histogram[n_classes - 1];
 	if (f != NULL)
-		fprintf(f, "%3zu: %20zu/%20zu (%5.2f%%)\n", n_classes - 1, (size_t)0, n_far, 0.0);
+		fprintf(f, "%3zu: %20zu/%20zu (%6.2f%%)\n", n_classes - 1,
+		    (size_t)0, eradicated, 0.0);
 
 	for (i = n_classes - 1; i > 0; i--) {
 		n_near = histogram[i - 1];
 		near = accumulate_eqclass(pdb, ts, i - 1, n_near);
-		find_dominating_set(ts, far, n_far, near, n_near);
-		free(far);
+		find_dominating_set(ts, pdb, near, n_near, eradicated);
 
-		n_far = eradicate_entries(pdb, near, n_near);
-		/* n_far <=  n_near should hold here and realloc should succeed */
-		assert (n_far <= n_near);
-		far = realloc(near, n_far * sizeof *far);
-		assert(n_far == 0 || far != NULL);
+		eradicated = eradicate_entries(pdb, near, n_near);
+		/* if this is the last round, there should be nothing left to dominate */
+		assert(i > 1 || eradicated == 0);
+		free(near);
 
 		if (f != NULL)
-			fprintf(f, "%3zu: %20zu/%20zu (%5.2f%%)\n", i - 1,
-			    (n_near - n_far), n_near, (100.0 * (n_near - n_far)) / n_near);
+			fprintf(f, "%3zu: %20zu/%20zu (%6.2f%%)\n", i - 1,
+			    (n_near - eradicated), n_near, (100.0 * (n_near - eradicated)) / n_near);
 	}
-
-	free(far);
 }
