@@ -8,6 +8,7 @@ core
 # binaries
 cmd/genpdb
 cmd/verifypdb
+cmd/reducepdb
+cmd/pdbstats
 test/indextest
 test/tiletest
-
