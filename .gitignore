@@ -12,3 +12,7 @@ cmd/reducepdb
 cmd/pdbstats
 test/indextest
 test/tiletest
+util/rankgen
+
+# generated source files
+ranktbl.c
