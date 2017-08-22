@@ -12,6 +12,7 @@ cmd/reducepdb
 cmd/pdbstats
 test/indextest
 test/tiletest
+test/ranktest
 util/rankgen
 
 # generated source files

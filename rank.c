@@ -17,11 +17,10 @@ const tileset *unrank_tables[TILE_COUNT + 1] = {};
 /*
  * Number of combinations for k items out of TILE_COUNT.  This is just
  * (TILE_COUNT choose k).  This lookup table is used to compute the
- * table sizes in tileset_unrank_init().  Note that the table is
- * symmetric, allowing us to omit half of it.
+ * table sizes in tileset_unrank_init() and for various other purposes.
  */
-static const unsigned
-combination_count[(TILE_COUNT + 1) / 2] = {
+const tsrank
+combination_count[TILE_COUNT + 1] = {
 	1,
 	25,
 	300,
@@ -35,6 +34,19 @@ combination_count[(TILE_COUNT + 1) / 2] = {
 	3268760,
 	4457400,
 	5200300,
+	5200300,
+	4457400,
+	3268760,
+	2042975,
+	1081575,
+	480700,
+	177100,
+	53130,
+	12650,
+	2300,
+	300,
+	25,
+	1,
 };
 
 
@@ -58,7 +70,7 @@ next_combination(tileset ts)
 extern void
 tileset_unrank_init(size_t k)
 {
-	size_t i, n = combination_count[k > TILE_COUNT / 2 ? TILE_COUNT - k : k];
+	size_t i, n = combination_count[k];
 	tileset iter, *tbl;
 
 	tbl = malloc(n * sizeof *unrank_tables[k]);
@@ -67,7 +79,7 @@ tileset_unrank_init(size_t k)
 		abort();
 	}
 
-	for (i = 0, iter = (1 << k + 1) - 1; i < n; i++, iter = next_combination(iter))
+	for (i = 0, iter = (1 << k) - 1; i < n; i++, iter = next_combination(iter))
 		tbl[i] = iter;
 
 	unrank_tables[k] = tbl;

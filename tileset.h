@@ -182,6 +182,8 @@ extern const tsrank rank_heads[RANK_SPLIT2 + 1][1 << TILE_COUNT - RANK_SPLIT2];
 
 /* rank.c */
 extern const tileset *unrank_tables[TILE_COUNT + 1];
+extern const tsrank combination_count[TILE_COUNT + 1];
+
 extern void	tileset_unrank_init(size_t);
 
 /*
@@ -192,10 +194,10 @@ static inline tsrank
 tileset_rank(tileset ts)
 {
 	tileset tail = tileset_intersect(ts, tileset_least(RANK_SPLIT1));
-	tileset mid  = tileset_intersect(ts >> RANK_SPLIT1, tileset_least(RANK_SPLIT2 - RANK_SPLIT1));
+	tileset mid  = tileset_intersect(ts, tileset_least(RANK_SPLIT2));
 	tileset head = ts >> RANK_SPLIT2;
 
-	return (rank_tails[tail] + rank_mids[tileset_count(tail)][mid]
+	return (rank_tails[tail] + rank_mids[tileset_count(tail)][mid >> RANK_SPLIT1]
 	    + rank_heads[tileset_count(mid)][head]);
 }
 
