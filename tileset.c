@@ -2,6 +2,7 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
 
 #include "puzzle.h"
 #include "tileset.h"
@@ -56,12 +57,20 @@ extern void
 tileset_string(char str[TILESET_STR_LEN], tileset ts)
 {
 	size_t i;
+	char buf[3];
 
-	strcpy(str, "         \n         \n         \n         \n         \n");
+	memset(str, ' ', TILESET_STR_LEN - 1);
+	str[TILESET_STR_LEN - 1] = '\0';
 
-	for (i = 0; i < TILE_COUNT; i++)
-		if (tileset_has(ts, i))
-			str[2 * i] = 'X';
+	for (i = 0; i < TILE_COUNT; i++) {
+		if (tileset_has(ts, i)) {
+			sprintf(buf, "%2zu", i);
+			memcpy(str + 3 * i, buf, 2);
+		}
+
+		if (i % 5 == 4)
+			str[3 * i + 2] = '\n';
+	}
 }
 
 /*

@@ -22,7 +22,7 @@ enum {
 	EMPTY_TILESET = 0,
 	FULL_TILESET = (1 << TILE_COUNT) - 1,
 
-	TILESET_STR_LEN = 2 * 25 + 1,
+	TILESET_STR_LEN = 3 * TILE_COUNT + 1,
 };
 
 extern tileset	tileset_eqclass(tileset, const struct puzzle *);

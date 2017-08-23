@@ -2,6 +2,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <time.h>
 
 #include "puzzle.h"
@@ -15,6 +16,8 @@ static void
 random_puzzle(struct puzzle *p)
 {
 	size_t i, j;
+
+	memset(p, 0, sizeof *p);
 
 	for (i = 0; i < TILE_COUNT; i++) {
 		j = rand() % (i + 1);
