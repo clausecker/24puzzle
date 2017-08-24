@@ -36,6 +36,16 @@
 # endif
 #endif
 
+/* check if _pdep_u32() is available */
+#ifndef HAS_PDEP
+# ifdef __BMI2__
+#  include <immintrin.h>
+#  define HAS_PDEP 1
+# else
+#  define HAS_PDEP 0
+# endif
+#endif
+
 /*
  * Compute the number of bits set in x.
  */
@@ -80,6 +90,25 @@ ctz(unsigned x)
 		r -=  1;
 
 	return (r);
+#endif
+}
+
+/*
+ * From x, select the n'th least-significant set bit and return a bit
+ * mask containing just that bit.
+ */
+static inline unsigned
+rankselect(unsigned x, unsigned i)
+{
+#if HAS_PDEP == 1
+	return (_pdep_u32(1 << i, x));
+#else
+	size_t j;
+
+	for (j = 0; j < i; j++)
+		x &= x - 1;
+
+	return (x & ~(x - 1));
 #endif
 }
 

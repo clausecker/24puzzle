@@ -6,6 +6,7 @@ revision					host		real		user		jobs
 03303fc47a08b9ea5a582a28a883363cd40c31bd	pvs-pc04	24m40.846s	24m40.820s	1
 ebc842ffc27dc59010e5ecafa0ebff832a843044	pvs-pc04	22m56.289s	22m56.244s	1
 6d3fb93d0d51b453f710b1ada598f00ba247708b	pvs-pc04	22m18.685s	22m18.672s	1
+1f1db888ecc786b5e0c37606ee60e230595a54c1	pvs-pc04	22m27.122s	22m23.988s	1
 
 time ./reducepdb -f 1,2,5,6,7,10.pdb -t 1,2,5,6,7,10.pdb
 
