@@ -8,7 +8,27 @@
 #include "tileset.h"
 #include "index.h"
 
-#define TEST_TS 0x0000002
+#define TEST_TS 0x00000fe
+
+static unsigned random_seed;
+
+/*
+ * Run the xorshift random number generator for one iteration on
+ * random_seed and return a random number.
+ */
+static unsigned
+xorshift(void)
+{
+	unsigned state = random_seed;
+
+	state ^= state << 13;
+	state ^= state >> 17;
+	state ^= state << 5;
+
+	random_seed = state;
+
+	return (state);
+}
 
 /*
  * Set p to a random puzzle configuration.  This function uses the
@@ -20,7 +40,7 @@ random_puzzle(struct puzzle *p)
 	size_t i, j;
 
 	for (i = 0; i < TILE_COUNT; i++) {
-		j = rand() % (i + 1);
+		j = xorshift() % (i + 1);
 		p->tiles[i] = p->tiles[j];
 		p->tiles[j] = i;
 	}
@@ -32,16 +52,13 @@ random_puzzle(struct puzzle *p)
 /*
  * Set i to a random index.  This function also uses rand().
  */
-#ifdef INDEX_REIMPLEMENTED
 static void
 random_index(struct index *idx)
 {
-	size_t i;
-
-	for (i = 0; i < TILE_COUNT; i++)
-		idx->cmp[i] = rand() % (TILE_COUNT - i);
+	idx->pidx = xorshift() % factorials[tileset_count(TEST_TS)];
+	idx->maprank = xorshift() % combination_count[tileset_count(TEST_TS)];
+	idx->eqidx = 0; /* TODO */
 }
-#endif
 
 /*
  * Check if p1 and p2 are the same configuration with respect to the
@@ -62,6 +79,22 @@ puzzle_equal(tileset ts, const struct puzzle *p1, const struct puzzle *p2)
 }
 
 /*
+ * Check if idx1 and idx2 refer to the same index with respect to ts.
+ * Return 1 if they do, 0 if they do not.
+ */
+static int
+index_equal(tileset ts, const struct index *idx1, const struct index *idx2)
+{
+	if (idx1->pidx != idx2->pidx || idx1->maprank != idx2->maprank)
+		return (0);
+
+	if (tileset_has(ts, ZERO_TILE) && idx1->eqidx != idx2->eqidx)
+		return (0);
+
+	return (1);
+}
+
+/*
  * Round-trip p through compute_index() and check if we get the same
  * puzzle back.  Return 1 if we do, return 0 and print some information
  * if we don't.
@@ -71,8 +104,8 @@ test_puzzle(tileset ts, const struct puzzle *p)
 {
 	char puzzle_str[PUZZLE_STR_LEN], index_str[INDEX_STR_LEN];
 	struct puzzle pp;
-	struct index idx;
-	cmbindex cmbstep, cmbfull;
+	struct index idx, idxsplit;
+	cmbindex cmb;
 
 	compute_index(ts, NULL, &idx, p);
 	invert_index(ts, NULL, &pp, &idx);
@@ -88,18 +121,21 @@ test_puzzle(tileset ts, const struct puzzle *p)
 
 		return (0);
 	}
-/*
-	cmbstep = combine_index(ts, NULL, &idx);
-	cmbfull = full_index(ts, NULL, p);
-	if (cmbstep != cmbfull) {
+
+	cmb = combine_index(ts, NULL, &idx);
+	split_index(ts, NULL, &idxsplit, cmb);
+	if (!index_equal(ts, &idx, &idxsplit)) {
 		printf("test_puzzle failed for 0x%07x:\n", ts);
 		puzzle_string(puzzle_str, p);
 		puts(puzzle_str);
-		printf("%llu != %llu\n", cmbstep, cmbfull);
+		index_string(ts, index_str, &idx);
+		printf("%s\n%llu\n", index_str, cmb);
+		index_string(ts, index_str, &idxsplit);
+		puts(index_str);
 
 		return (0);
 	}
-*/
+
 	return (1);
 }
 
@@ -110,7 +146,6 @@ test_puzzle(tileset ts, const struct puzzle *p)
  * if we do, return 0 and print some information
  * if we don't.
  */
-#ifdef INDEX_REIMPLEMENTED
 static int
 test_index(tileset ts, const struct index *idx)
 {
@@ -119,11 +154,11 @@ test_index(tileset ts, const struct index *idx)
 	struct puzzle p;
 	cmbindex cmb;
 
-	invert_index(ts, &p, idx);
-	compute_index(ts, &idx2, &p);
+	invert_index(ts, NULL, &p, idx);
+	compute_index(ts, NULL, &idx2, &p);
 
-	cmb = combine_index(ts, idx);
-	split_index(ts, &idx3, cmb);
+	cmb = combine_index(ts, NULL, idx);
+	split_index(ts, NULL, &idx3, cmb);
 
 	if (memcmp(&idx2, idx, tileset_count(ts)) != 0) {
 		printf("test_index failed for 0x%07x:\n", ts);
@@ -150,7 +185,6 @@ test_index(tileset ts, const struct index *idx)
 
 	return (1);
 }
-#endif
 
 extern int
 main(int argc, char *argv[])
@@ -162,7 +196,7 @@ main(int argc, char *argv[])
 	if (argc == 2)
 		n = atol(argv[1]);
 
-	srand(time(NULL));
+	random_seed = time(NULL);
 
 	for (i = 0; i < n; i++) {
 		random_puzzle(&p);
@@ -170,13 +204,11 @@ main(int argc, char *argv[])
 			return (EXIT_FAILURE);
 	}
 
-#ifdef INDEX_REIMPLEMENTED
 	for (i = 0; i < n; i++) {
 		random_index(&idx);
 		if (!test_index(TEST_TS, &idx))
 			return (EXIT_FAILURE);
 	}
-#endif
 
 	return (EXIT_SUCCESS);
 }
