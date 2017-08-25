@@ -36,6 +36,15 @@
 # endif
 #endif
 
+/* check if __builtin_prefetch() is availabe */
+#ifndef HAS_PREFETCH
+# if __has_builtin(__builtin_prefetch) || GCC_VERSION >= 30101
+#  define HAS_PREFETCH 1
+# else
+#  define HAS_PREFETCH 0
+# endif
+#endif
+
 /* check if _pdep_u32() is available */
 #ifndef HAS_PDEP
 # ifdef __BMI2__
@@ -109,6 +118,20 @@ rankselect(unsigned x, unsigned i)
 		x &= x - 1;
 
 	return (x & ~(x - 1));
+#endif
+}
+
+/*
+ * Prefetch the cache line in which addr is located.  addr does not need
+ * to point to valid data necessarily.
+ */
+static inline
+void prefetch(const void *addr)
+{
+#ifdef HAS_PREFETCH
+	__builtin_prefetch(addr);
+#else
+	(void)addr;
 #endif
 }
 

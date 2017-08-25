@@ -12,7 +12,8 @@
 /*
  * The first INDEX_MAX_TILES factorials.
  */
-const unsigned factorials[INDEX_MAX_TILES] = {
+const unsigned factorials[INDEX_MAX_TILES + 1] = {
+	1,
 	1,
 	2,
 	2 * 3,
@@ -49,6 +50,7 @@ index_permutation(tileset ts, tileset map, const struct puzzle *p)
 	least = p->tiles[tileset_get_least(ts)];
 	pidx = tileset_count(tileset_intersect(map, tileset_least(least)));
 	map = tileset_remove(map, least);
+	ts = tileset_remove_least(ts);
 
 	for (; !tileset_empty(ts); ts = tileset_remove_least(ts)) {
 		leastidx = tileset_get_least(ts);
@@ -73,8 +75,10 @@ compute_index(tileset ts, const struct index_table *idxt,
 {
 	tileset map = tileset_map(tileset_remove(ts, ZERO_TILE), p);
 
-	idx->pidx = index_permutation(ts, map, p);
 	idx->maprank = tileset_rank(map);
+	prefetch(idxt + idx->maprank);
+	idx->pidx = index_permutation(ts, map, p);
+
 	if (tileset_has(ts, ZERO_TILE))
 		idx->eqidx = idxt[idx->maprank].eqclasses[zero_location(p)];
 	else
@@ -145,14 +149,14 @@ invert_index(tileset ts, const struct index_table *idxt, struct puzzle *p, const
 extern cmbindex
 combine_index(tileset ts, const struct index_table *idxt, const struct index *idx)
 {
-	cmbindex poffset;
+	cmbindex moffset;
 
 	if (tileset_has(ts, ZERO_TILE))
-		poffset = idxt[idx->pidx].offset + idx->eqidx;
+		moffset = idxt[idx->maprank].offset + idx->eqidx;
 	else
-		poffset = idx->pidx;
+		moffset = idx->maprank;
 
-	return (poffset * factorials[tileset_count(ts)] + idx->maprank);
+	return (moffset * factorials[tileset_count(ts)] + idx->pidx);
 }
 
 /*
@@ -167,11 +171,11 @@ split_index(tileset ts, const struct index_table *idxt, struct index *idx, cmbin
 	cmbindex fac = factorials[count];
 	unsigned offset;
 
-	idx->maprank = cmb % fac;
+	idx->pidx = cmb % fac;
 	offset = cmb / fac;
 
 	if (!tileset_has(ts, ZERO_TILE)) {
-		idx->pidx = offset;
+		idx->maprank = offset;
 		idx->eqidx = -1;
 
 		return;
@@ -202,5 +206,8 @@ split_index(tileset ts, const struct index_table *idxt, struct index *idx, cmbin
 extern void
 index_string(tileset ts, char str[INDEX_STR_LEN], const struct index *idx)
 {
+
+	(void)ts;
+
 	snprintf(str, INDEX_STR_LEN, "(%u %u %d)\n", idx->pidx, idx->maprank, idx->eqidx);
 }

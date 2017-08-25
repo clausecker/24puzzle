@@ -76,7 +76,7 @@ extern cmbindex	combine_index(tileset, const struct index_table*, const struct i
 extern void	split_index(tileset, const struct index_table*, struct index*, cmbindex);
 extern void	index_string(tileset, char[INDEX_STR_LEN], const struct index*);
 
-extern const unsigned factorials[INDEX_MAX_TILES];
+extern const unsigned factorials[INDEX_MAX_TILES + 1];
 
 /*
  * Compute the number of possible values of an index for tile set ts.
