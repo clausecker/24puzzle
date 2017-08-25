@@ -48,12 +48,14 @@ struct index {
  * number of equivalence classes in all preceding array entries, i.e.
  * the index the first equivalence class in this array would have when
  * all equivalence classes for all possible maps for a given tileset are
- * stored sequentially.
+ * stored sequentially.  Note that this auxillary structure is valid for
+ * all tilesets with the same amount of tiles and can thus be shared
+ * between threads.
  */
 struct index_table {
 	unsigned offset;
 	signed char eqclasses[TILE_COUNT];
-	unsigned char eqclass_count;
+	unsigned char n_eqclass;
 };
 
 /*
@@ -75,6 +77,7 @@ extern void	invert_index(tileset, const struct index_table*, struct puzzle*, con
 extern cmbindex	combine_index(tileset, const struct index_table*, const struct index*);
 extern void	split_index(tileset, const struct index_table*, struct index*, cmbindex);
 extern void	index_string(tileset, char[INDEX_STR_LEN], const struct index*);
+extern struct index_table	*make_index_table(tileset);
 
 extern const unsigned factorials[INDEX_MAX_TILES + 1];
 
@@ -89,7 +92,7 @@ search_space_size(tileset ts, const struct index_table *idxt)
 	size_t tscount = tileset_count(ts), ccount = combination_count[tscount];
 
 	if (tileset_has(ts, ZERO_TILE))
-		return ((idxt[ccount - 1].offset + idxt[ccount - 1].eqclass_count) * factorials[tscount]);
+		return ((idxt[ccount - 1].offset + idxt[ccount - 1].n_eqclass) * factorials[tscount]);
 	else
 		return (ccount * factorials[tscount]);
 }

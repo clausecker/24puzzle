@@ -49,20 +49,6 @@ combination_count[TILE_COUNT + 1] = {
 	1,
 };
 
-
-/*
- * Compute the lexicographically next combination with tileset_count(ts)
- * bits to ts and return it.
- */
-static tileset
-next_combination(tileset ts)
-{
-	/* https://graphics.stanford.edu/~seander/bithacks.html */
-	tileset t = ts | ts - 1;
-
-	return (t + 1 | (~t & -~t) - 1 >> tileset_get_least(ts) + 1);
-}
-
 /*
  * Allocate and initialize the unrank table for k bits out of
  * TILE_COUNT.  If memory allocation fails, abort the program.

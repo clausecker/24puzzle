@@ -31,6 +31,31 @@ tileset_flood(tileset cmap, unsigned t)
 }
 
 /*
+ * Set up an array mapping grid positions to the number of the
+ * equivalence classes they are in.  Occupied spots are marked as -1.
+ * Return the number of equivalence classes found.
+ */
+extern unsigned
+populate_equivalence_classes(signed char eqclasses[TILE_COUNT], tileset map)
+{
+	unsigned n_eqclass;
+	tileset i, eq, cmap = tileset_complement(map);
+
+	/* first, mark all occupied spots */
+	for (i = map; !tileset_empty(i); i = tileset_remove_least(i))
+		eqclasses[tileset_get_least(i)] = -1;
+
+	for (n_eqclass = 0; !tileset_empty(cmap); n_eqclass++) {
+		eq = tileset_flood(cmap, tileset_get_least(cmap));
+		cmap = tileset_difference(cmap, eq);
+		for (i = eq; !tileset_empty(i); i = tileset_remove_least(i))
+			eqclasses[tileset_get_least(i)] = n_eqclass;
+	}
+
+	return (n_eqclass);
+}
+
+/*
  * For a tileset ts which may or may not contain the zero tile
  * and a puzzle configuration p, compute a tileset representing
  * the squares we can move the zero tile to without disturbing

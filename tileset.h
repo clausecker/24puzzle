@@ -25,9 +25,10 @@ enum {
 	TILESET_STR_LEN = 3 * TILE_COUNT + 1,
 };
 
-extern tileset	tileset_eqclass(tileset, const struct puzzle *);
 extern void	tileset_string(char[TILESET_STR_LEN], tileset);
 extern int	tileset_parse(tileset *, const char *);
+extern unsigned	populate_equivalence_classes(signed char[TILE_COUNT], tileset);
+
 /*
  * Return 1 if t is in ts.
  */
@@ -47,12 +48,21 @@ tileset_add(tileset ts, unsigned t)
 }
 
 /*
+ * Return a tileset containing all tiles in a that are not in b.
+ */
+static inline tileset
+tileset_difference(tileset a, tileset b)
+{
+	return (a & ~b);
+}
+
+/*
  * Remove t from ts and return the updated tileset.
  */
 static inline tileset
 tileset_remove(tileset ts, unsigned t)
 {
-	return (ts & ~((tileset)1 << t));
+	return (tileset_difference(ts, tileset_add(EMPTY_TILESET, t)));
 }
 
 /*
@@ -313,6 +323,19 @@ tileset_unrank(size_t k, tsrank rk)
 		tileset_unrank_init(k);
 
 	return (unrank_tables[k][rk]);
+}
+
+/*
+ * Compute the lexicographically next combination with tileset_count(ts)
+ * bits to ts and return it.
+ */
+static inline tileset
+next_combination(tileset ts)
+{
+	/* https://graphics.stanford.edu/~seander/bithacks.html */
+	tileset t = ts | ts - 1;
+
+	return (t + 1 | (~t & -~t) - 1 >> tileset_get_least(ts) + 1);
 }
 
 #endif /* TILESET_H */

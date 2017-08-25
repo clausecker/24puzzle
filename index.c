@@ -3,6 +3,7 @@
 #include <stddef.h>
 #include <string.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 #include "builtins.h"
 #include "tileset.h"
@@ -27,6 +28,13 @@ const unsigned factorials[INDEX_MAX_TILES + 1] = {
 	2 * 3 * 4 * 5 * 6 * 7 * 8 * 9 * 10 * 11,
 	2 * 3 * 4 * 5 * 6 * 7 * 8 * 9 * 10 * 11 * 12,
 };
+
+/*
+ * This table stores pointers to the index_table structures generated
+ * by make_index_table so we only generate one table for each tile set
+ * size.
+ */
+struct index_table *index_tables[INDEX_MAX_TILES + 1] = {};
 
 /*
  * Compute the permutation index of those tiles listed in ts which must
@@ -189,7 +197,7 @@ split_index(tileset ts, const struct index_table *idxt, struct index *idx, cmbin
 
 		if (idxt[m].offset > offset)
 			r = m;
-		else if (idxt[m].offset + idxt[m].eqclass_count < offset)
+		else if (idxt[m].offset + idxt[m].n_eqclass < offset)
 			l = m;
 		else {
 			idx->pidx = m;
@@ -197,6 +205,46 @@ split_index(tileset ts, const struct index_table *idxt, struct index *idx, cmbin
 			return;
 		}
 	}
+}
+
+/*
+ * Allocate and initialize the lookup table for index generation for
+ * tileset ts.  If storage is insufficient, abort the program.  If ts
+ * does not account for the zero tile, return NULL.
+ */
+extern struct index_table *
+make_index_table(tileset ts)
+{
+	struct index_table *idxt;
+	size_t i, n, tscount;
+	tileset map;
+	unsigned offset = 0;
+
+	if (!tileset_has(ts, ZERO_TILE))
+		return (NULL);
+
+	ts = tileset_remove(ts, ZERO_TILE);
+	tscount = tileset_count(ts);
+	if (index_tables[tscount] != NULL)
+		return (index_tables[tscount]);
+
+	n = combination_count[tscount];
+	idxt = malloc(n * sizeof *idxt);
+	if (idxt == NULL) {
+		perror("malloc");
+		abort();
+	}
+
+	map = tileset_least(tscount);
+	for (i = 0; i < n; i++) {
+		idxt[i].offset = offset;
+		idxt[i].n_eqclass = populate_equivalence_classes(idxt[i].eqclasses, map);
+		offset += idxt[i].n_eqclass;
+		map = next_combination(map);
+	}
+
+	index_tables[tscount] = idxt;
+	return (idxt);
 }
 
 /*
