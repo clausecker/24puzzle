@@ -238,7 +238,7 @@ make_index_table(tileset ts)
 	map = tileset_least(tscount);
 	for (i = 0; i < n; i++) {
 		idxt[i].offset = offset;
-		idxt[i].n_eqclass = populate_equivalence_classes(idxt[i].eqclasses, map);
+		idxt[i].n_eqclass = tileset_populate_eqclasses(idxt[i].eqclasses, map);
 		offset += idxt[i].n_eqclass;
 		map = next_combination(map);
 	}

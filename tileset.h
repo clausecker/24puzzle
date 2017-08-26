@@ -25,9 +25,10 @@ enum {
 	TILESET_STR_LEN = 3 * TILE_COUNT + 1,
 };
 
+extern tileset	tileset_eqclass(tileset, const struct puzzle *);
+extern unsigned	tileset_populate_eqclasses(signed char[TILE_COUNT], tileset);
 extern void	tileset_string(char[TILESET_STR_LEN], tileset);
 extern int	tileset_parse(tileset *, const char *);
-extern unsigned	populate_equivalence_classes(signed char[TILE_COUNT], tileset);
 
 /*
  * Return 1 if t is in ts.

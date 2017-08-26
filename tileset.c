@@ -36,7 +36,7 @@ tileset_flood(tileset cmap, unsigned t)
  * Return the number of equivalence classes found.
  */
 extern unsigned
-populate_equivalence_classes(signed char eqclasses[TILE_COUNT], tileset map)
+tileset_populate_eqclasses(signed char eqclasses[TILE_COUNT], tileset map)
 {
 	unsigned n_eqclass;
 	tileset i, eq, cmap = tileset_complement(map);
