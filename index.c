@@ -85,7 +85,7 @@ compute_index(tileset ts, const struct index_table *idxt,
 
 	idx->maprank = tileset_rank(map);
 	prefetch(idxt + idx->maprank);
-	idx->pidx = index_permutation(ts, map, p);
+	idx->pidx = index_permutation(tileset_remove(ts, ZERO_TILE), map, p);
 
 	if (tileset_has(ts, ZERO_TILE))
 		idx->eqidx = idxt[idx->maprank].eqclasses[zero_location(p)];
@@ -121,7 +121,7 @@ unindex_permutation(struct puzzle *p, tileset ts, tileset map, permindex pidx)
 			cmp = pidx % n_tiles;
 			pidx /= n_tiles--;
 			tile = rankselect(map, cmp);
-			map &= ~tile;
+			map = tileset_difference(map, tile);
 			p->tiles[i] = tileset_get_least(tile);
 		} else {
 			p->tiles[i] = tileset_get_least(cmap);
@@ -140,10 +140,12 @@ unindex_permutation(struct puzzle *p, tileset ts, tileset map, permindex pidx)
 extern void
 invert_index(tileset ts, const struct index_table *idxt, struct puzzle *p, const struct index *idx)
 {
-	tileset map = tileset_unrank(tileset_count(ts), idx->maprank);
+	tileset tsnz = tileset_remove(ts, ZERO_TILE);
+	tileset map = tileset_unrank(tileset_count(tsnz), idx->maprank);
 
 	memset(p, 0, sizeof *p);
-	unindex_permutation(p, tileset_remove(ts, ZERO_TILE), map, idx->pidx);
+	prefetch(idxt + idx->maprank);
+	unindex_permutation(p, tsnz, map, idx->pidx);
 
 	if (tileset_has(ts, ZERO_TILE))
 		move(p, canonical_zero_location(ts, idxt, idx));
@@ -164,7 +166,7 @@ combine_index(tileset ts, const struct index_table *idxt, const struct index *id
 	else
 		moffset = idx->maprank;
 
-	return (moffset * factorials[tileset_count(ts)] + idx->pidx);
+	return (moffset * factorials[tileset_count(tileset_remove(ts, ZERO_TILE))] + idx->pidx);
 }
 
 /*
@@ -175,7 +177,7 @@ combine_index(tileset ts, const struct index_table *idxt, const struct index *id
 extern void
 split_index(tileset ts, const struct index_table *idxt, struct index *idx, cmbindex cmb)
 {
-	size_t count = tileset_count(ts), l, m, r;
+	size_t count = tileset_count(tileset_remove(ts, ZERO_TILE)), l, m, r;
 	cmbindex fac = factorials[count];
 	unsigned offset;
 
@@ -190,20 +192,17 @@ split_index(tileset ts, const struct index_table *idxt, struct index *idx, cmbin
 	}
 
 	/* do a binary search through idxt */
-	l = 0;
-	r = combination_count[count] - 1;
-	for (;;) {
-		m = l + (r - l) / 2; /* avoid overflow */
+	for (l = 0, r = combination_count[count]; r != 0; r >>= 1) {
+		m = l + (r >> 1);
 
-		if (idxt[m].offset > offset)
-			r = m;
-		else if (idxt[m].offset + idxt[m].n_eqclass < offset)
-			l = m;
-		else {
-			idx->pidx = m;
+		if (offset >= idxt[m].offset + idxt[m].n_eqclass) {
+			l = m + 1;
+			r--;
+		} else if (offset >= idxt[m].offset) {
+			idx->maprank = m;
 			idx->eqidx = offset - idxt[m].offset;
 			return;
-		}
+		} /* else move left */
 	}
 }
 
