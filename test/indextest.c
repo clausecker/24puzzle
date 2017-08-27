@@ -1,8 +1,10 @@
 /* indextest.c -- test if the various index functions work correctly */
+#define _POSIX_C_SOURCE 200809L
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
+#include <unistd.h>
 
 #include "puzzle.h"
 #include "tileset.h"
@@ -53,10 +55,12 @@ random_puzzle(struct puzzle *p)
  * Set i to a random index.  This function also uses rand().
  */
 static void
-random_index(struct index *idx)
+random_index(struct index *idx, tileset ts)
 {
-	idx->pidx = xorshift() % factorials[tileset_count(TEST_TS)];
-	idx->maprank = xorshift() % combination_count[tileset_count(TEST_TS)];
+	tileset tsnz = tileset_remove(ts, ZERO_TILE);
+
+	idx->pidx = xorshift() % factorials[tileset_count(tsnz)];
+	idx->maprank = xorshift() % combination_count[tileset_count(tsnz)];
 	idx->eqidx = 0; /* TODO */
 }
 
@@ -67,10 +71,11 @@ random_index(struct index *idx)
 static int
 puzzle_equal(tileset ts, const struct puzzle *p1, const struct puzzle *p2)
 {
+	tileset tsnz;
 	size_t i;
 
-	for (; !tileset_empty(ts); ts = tileset_remove_least(ts)) {
-		i = tileset_get_least(ts);
+	for (tsnz = tileset_remove(ts, ZERO_TILE); !tileset_empty(tsnz); tsnz = tileset_remove_least(tsnz)) {
+		i = tileset_get_least(tsnz);
 		if (p1->tiles[i] != p2->tiles[i])
 			return (0);
 	}
@@ -100,15 +105,15 @@ index_equal(tileset ts, const struct index *idx1, const struct index *idx2)
  * if we don't.
  */
 static int
-test_puzzle(tileset ts, const struct puzzle *p)
+test_puzzle(tileset ts, const struct index_table *idxt, const struct puzzle *p)
 {
 	char puzzle_str[PUZZLE_STR_LEN], index_str[INDEX_STR_LEN];
 	struct puzzle pp;
 	struct index idx, idxsplit;
 	cmbindex cmb;
 
-	compute_index(ts, NULL, &idx, p);
-	invert_index(ts, NULL, &pp, &idx);
+	compute_index(ts, idxt, &idx, p);
+	invert_index(ts, idxt, &pp, &idx);
 
 	if (!puzzle_equal(ts, p, &pp)) {
 		printf("test_puzzle failed for 0x%07x:\n", ts);
@@ -122,8 +127,8 @@ test_puzzle(tileset ts, const struct puzzle *p)
 		return (0);
 	}
 
-	cmb = combine_index(ts, NULL, &idx);
-	split_index(ts, NULL, &idxsplit, cmb);
+	cmb = combine_index(ts, idxt, &idx);
+	split_index(ts, idxt, &idxsplit, cmb);
 	if (!index_equal(ts, &idx, &idxsplit)) {
 		printf("test_puzzle failed for 0x%07x:\n", ts);
 		puzzle_string(puzzle_str, p);
@@ -147,18 +152,18 @@ test_puzzle(tileset ts, const struct puzzle *p)
  * if we don't.
  */
 static int
-test_index(tileset ts, const struct index *idx)
+test_index(tileset ts, const struct index_table *idxt, const struct index *idx)
 {
 	char puzzle_str[PUZZLE_STR_LEN], index_str[INDEX_STR_LEN];
 	struct index idx2, idx3;
 	struct puzzle p;
 	cmbindex cmb;
 
-	invert_index(ts, NULL, &p, idx);
-	compute_index(ts, NULL, &idx2, &p);
+	invert_index(ts, idxt, &p, idx);
+	compute_index(ts, idxt, &idx2, &p);
 
-	cmb = combine_index(ts, NULL, idx);
-	split_index(ts, NULL, &idx3, cmb);
+	cmb = combine_index(ts, idxt, idx);
+	split_index(ts, idxt, &idx3, cmb);
 
 	if (memcmp(&idx2, idx, tileset_count(ts)) != 0) {
 		printf("test_index failed for 0x%07x:\n", ts);
@@ -186,27 +191,52 @@ test_index(tileset ts, const struct index *idx)
 	return (1);
 }
 
+static void
+usage(char *argv0)
+{
+	printf("Usage: %s [-i iterations] [-t tile,tile,...]\n", argv0);
+}
+
 extern int
 main(int argc, char *argv[])
 {
 	size_t i, n = 10000;
 	struct puzzle p;
 	struct index idx;
+	struct index_table *idxt;
+	tileset ts = TEST_TS;
+	int optchar;
 
-	if (argc == 2)
-		n = atol(argv[1]);
+	while (optchar = getopt(argc, argv, "i:t:"), optchar != -1)
+		switch (optchar) {
+		case 'i':
+			n = atol(optarg);
+			break;
+
+		case 't':
+			if (tileset_parse(&ts, optarg) != 0) {
+				printf("Invald tileset: %s\n", optarg);
+				usage(argv[0]);
+			}
+
+			break;
+
+		default:
+			usage(argv[0]);
+		}
 
 	random_seed = time(NULL);
+	idxt = make_index_table(ts);
 
 	for (i = 0; i < n; i++) {
 		random_puzzle(&p);
-		if (!test_puzzle(TEST_TS, &p))
+		if (!test_puzzle(ts, idxt, &p))
 			return (EXIT_FAILURE);
 	}
 
 	for (i = 0; i < n; i++) {
-		random_index(&idx);
-		if (!test_index(TEST_TS, &idx))
+		random_index(&idx, ts);
+		if (!test_index(ts, idxt, &idx))
 			return (EXIT_FAILURE);
 	}
 
