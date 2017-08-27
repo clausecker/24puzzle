@@ -1,5 +1,5 @@
 CC=clang
-CFLAGS=-march=native -mpopcnt -O3 -Wall -Wno-missing-braces -Wno-parentheses -I. -g
+CFLAGS=-march=native -O3 -Wall -Wno-missing-braces -Wno-parentheses -I. -g
 LDLIBS=-lpthread
 
 #OBJ=index.o puzzle.o tileset.o validation.o pdbgen.o pdbverify.o parallel.o \
@@ -7,7 +7,7 @@ LDLIBS=-lpthread
 #BINARIES=test/indextest test/tiletest cmd/genpdb cmd/verifypdb cmd/reducepdb \
 #	cmd/pdbstats util/rankgen test/ranktest
 OBJ=index.o puzzle.o tileset.o validation.o ranktbl.o rank.o
-BINARIES=test/indextest test/tiletest util/rankgen test/ranktest
+BINARIES=cmd/pdbstats test/indextest test/tiletest util/rankgen test/ranktest
 
 all: $(BINARIES) 24puzzle.a
 
