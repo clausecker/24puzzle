@@ -141,4 +141,8 @@ eqclass_from_index(tileset ts, const struct index_table *idxt, const struct inde
 #endif /* __AVX2__ */
 }
 
+/* random.c */
+extern unsigned random_seed;
+extern void	random_index(tileset, const struct index_table *, struct index *);
+
 #endif /* INDEX_H */

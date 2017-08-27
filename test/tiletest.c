@@ -8,27 +8,6 @@
 #include "puzzle.h"
 #include "tileset.h"
 
-/*
- * Set p to a random puzzle configuration.  This function uses the
- * rand() random number generator to generate mediocre randomness.
- */
-static void
-random_puzzle(struct puzzle *p)
-{
-	size_t i, j;
-
-	memset(p, 0, sizeof *p);
-
-	for (i = 0; i < TILE_COUNT; i++) {
-		j = rand() % (i + 1);
-		p->tiles[i] = p->tiles[j];
-		p->tiles[j] = i;
-	}
-
-	for (i = 0; i < TILE_COUNT; i++)
-		p->grid[p->tiles[i]] = i;
-}
-
 extern int
 main()
 {
@@ -36,7 +15,8 @@ main()
 	tileset ts;
 	char tsstr[TILESET_STR_LEN], puzzlestr[PUZZLE_STR_LEN];
 
-	srand(time(NULL));
+	random_seed = time(NULL);
+
 	ts = rand() & FULL_TILESET | 1;
 	random_puzzle(&p);
 

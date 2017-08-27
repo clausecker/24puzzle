@@ -12,58 +12,6 @@
 
 #define TEST_TS 0x00000fe
 
-static unsigned random_seed;
-
-/*
- * Run the xorshift random number generator for one iteration on
- * random_seed and return a random number.
- */
-static unsigned
-xorshift(void)
-{
-	unsigned state = random_seed;
-
-	state ^= state << 13;
-	state ^= state >> 17;
-	state ^= state << 5;
-
-	random_seed = state;
-
-	return (state);
-}
-
-/*
- * Set p to a random puzzle configuration.  This function uses the
- * rand() random number generator to generate mediocre randomness.
- */
-static void
-random_puzzle(struct puzzle *p)
-{
-	size_t i, j;
-
-	for (i = 0; i < TILE_COUNT; i++) {
-		j = xorshift() % (i + 1);
-		p->tiles[i] = p->tiles[j];
-		p->tiles[j] = i;
-	}
-
-	for (i = 0; i < TILE_COUNT; i++)
-		p->grid[p->tiles[i]] = i;
-}
-
-/*
- * Set i to a random index.  This function also uses rand().
- */
-static void
-random_index(struct index *idx, tileset ts)
-{
-	tileset tsnz = tileset_remove(ts, ZERO_TILE);
-
-	idx->pidx = xorshift() % factorials[tileset_count(tsnz)];
-	idx->maprank = xorshift() % combination_count[tileset_count(tsnz)];
-	idx->eqidx = 0; /* TODO */
-}
-
 /*
  * Check if p1 and p2 are the same configuration with respect to the
  * tiles in ts.  Return 1 if they are, 0 if they are not.
@@ -235,7 +183,7 @@ main(int argc, char *argv[])
 	}
 
 	for (i = 0; i < n; i++) {
-		random_index(&idx, ts);
+		random_index(ts, idxt, &idx);
 		if (!test_index(ts, idxt, &idx))
 			return (EXIT_FAILURE);
 	}
