@@ -20,38 +20,26 @@ update_pdb_entry(struct patterndb *pdb, const struct index *idx,
     const struct move *moves, size_t n_move, int round)
 {
 	struct puzzle p;
-	struct index didx, didx_prev;
+	struct index dist[MAX_MOVES];
 	size_t i, zloc;
 	cmbindex count = 0;
 
 	invert_index(&pdb->aux, &p, idx);
 	zloc = zero_location(&p);
 
-	/* process one entry in advance so we can prefetch */
-	move(&p, moves[0].zloc);
-	move(&p, moves[0].dest);
-
-	compute_index(&pdb->aux, &didx, &p);
-	pdb_prefetch(pdb, &didx);
-	didx_prev = didx;
-
-	move(&p, moves[0].zloc);
-	move(&p, zloc);
-
-	for (i = 1; i < n_move; i++) {
+	for (i = 0; i < n_move; i++) {
 		move(&p, moves[i].zloc);
 		move(&p, moves[i].dest);
 
-		compute_index(&pdb->aux, &didx, &p);
-		pdb_prefetch(pdb, &didx);
-		count += pdb_conditional_update(pdb, &didx_prev, round);
-		didx_prev = didx;
+		compute_index(&pdb->aux, dist + i, &p);
+		pdb_prefetch(pdb, dist + i);
 
 		move(&p, moves[i].zloc);
 		move(&p, zloc);
 	}
 
-	count += pdb_conditional_update(pdb, &didx_prev, round);
+	for (i = 0; i < n_move; i++)
+		count += pdb_conditional_update(pdb, dist + i, round);
 
 	return (count);
 }
@@ -78,8 +66,18 @@ generate_cohort(void *cfgarg, struct index *idx)
 	struct patterndb *pdb = cfg->pcfg.pdb;
 	size_t eqidx, pidx, n_eqclass = eqclass_count(&pdb->aux, idx->maprank),
 	    n_perm = pdb->aux.n_perm, n_move;
-	int round = cfg->round;
 	cmbindex count = 0;
+	int round = cfg->round;
+	tileset map = tileset_unrank(pdb->aux.n_tile, idx->maprank);
+
+	/*
+	 * Every move flips the parity of the partial configuration's
+	 * map.  Thus, when generating tables, we only need to scan
+	 * through half the table in each round.  This saves us a lot of
+	 * time.
+	 */
+	if ((tileset_parity(map) ^ pdb->aux.solved_parity) == (round & 1))
+		return;
 
 	for (eqidx = 0; eqidx < n_eqclass; eqidx++) {
 		idx->eqidx = eqidx;

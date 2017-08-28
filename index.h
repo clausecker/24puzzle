@@ -71,6 +71,7 @@ struct index_aux {
 	unsigned n_tile; /* number of tiles not including the zero tile */
 	unsigned n_maprank; /* number of different maprank values */
 	unsigned n_perm; /* number of permutations */
+	unsigned solved_parity; /* parity of the solved configuration */
 	struct index_table *idxt;
 };
 

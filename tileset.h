@@ -133,6 +133,16 @@ tileset_least(unsigned n)
 }
 
 /*
+ * Return the parity of a tileset.  This is whether the number of
+ * odd-numbered tiles is even or odd.
+ */
+static inline tileset
+tileset_parity(tileset ts)
+{
+	return (tileset_count(ts & 0x1555555) & 1);
+}
+
+/*
  * Given a tileset and a puzzle configuration, compute a tileset
  * representing the squares occupied by tiles in the tileset.
  *

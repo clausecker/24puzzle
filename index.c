@@ -256,6 +256,7 @@ make_index_aux(struct index_aux *aux, tileset ts)
 	aux->n_tile = tileset_count(tileset_remove(ts, ZERO_TILE));
 	aux->n_maprank = combination_count[aux->n_tile];
 	aux->n_perm = factorials[aux->n_tile];
+	aux->solved_parity = tileset_parity(tileset_map(tileset_remove(ts, ZERO_TILE), &solved_puzzle));
 	aux->idxt = make_index_table(ts);
 }
 
