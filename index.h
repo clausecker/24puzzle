@@ -41,21 +41,34 @@ struct index {
 };
 
 /*
- * For the indexing and unindexing operations we use this lookup table.
- * It contains for each possible map an array eqclasses that assigns to
- * each empty grid position the index of its equivalence class (-1 for
- * occupied grid positions) and a member offset that contains the sum of
- * number of equivalence classes in all preceding array entries, i.e.
- * the index the first equivalence class in this array would have when
- * all equivalence classes for all possible maps for a given tileset are
- * stored sequentially.  Note that this auxillary structure is valid for
- * all tilesets with the same amount of tiles and can thus be shared
- * between threads.
+ * For the indexing and unindexing operations we use this auxillary
+ * structure.  It contains everything we need to quickly compute and
+ * reverse tilesets for a given tile set.  It also contains a lookup
+ * table containing for each possible map an array eqclasses assigning
+ * to each empty grid position the index of its equivalence class (-1
+ * for occupied grid positions) and a member offset that contains the
+ * sum of number of equivalence classes in all preceding array entries,
+ * i.e. the index the first equivalence class in this array would have
+ * when all equivalence classes for all possible maps for a given
+ * tileset are stored sequentially.  Note that this auxillary structure
+ * is valid for all tilesets with the same amount of tiles and can thus
+ * be shared between threads.
  */
 struct index_table {
 	unsigned offset;
 	signed char eqclasses[TILE_COUNT];
 	unsigned char n_eqclass;
+};
+
+/*
+ * For the indexing and unindexing operations we use this auxillary
+ * structure.  It contains everything we need to quickly compute and
+ * reverse tilesets for a given tile set, including a pointer to an
+ * appropriate strzct index_table.
+ */
+struct index_aux {
+	tileset ts;
+	struct index_table *idxt;
 };
 
 /*
@@ -72,12 +85,12 @@ enum {
 	INDEX_STR_LEN = 28, /* (########## ########## ##)\n\0 */
 };
 
-extern void	compute_index(tileset, const struct index_table*, struct index*, const struct puzzle*);
-extern void	invert_index(tileset, const struct index_table*, struct puzzle*, const struct index*);
-extern cmbindex	combine_index(tileset, const struct index_table*, const struct index*);
-extern void	split_index(tileset, const struct index_table*, struct index*, cmbindex);
+extern void	compute_index(const struct index_aux*, struct index*, const struct puzzle*);
+extern void	invert_index(const struct index_aux*, struct puzzle*, const struct index*);
+extern cmbindex	combine_index(const struct index_aux*, const struct index*);
+extern void	split_index(const struct index_aux*, struct index*, cmbindex);
 extern void	index_string(tileset, char[INDEX_STR_LEN], const struct index*);
-extern struct index_table	*make_index_table(tileset);
+extern void	make_index_aux(struct index_aux*, tileset);
 
 extern const unsigned factorials[INDEX_MAX_TILES + 1];
 
@@ -104,15 +117,15 @@ search_space_size(tileset ts, const struct index_table *idxt)
  * a map of all grid spots zboccupied.  idxt may be NULL in this case.
  */
 static inline tileset
-eqclass_from_index(tileset ts, const struct index_table *idxt, const struct index *idx)
+eqclass_from_index(const struct index_aux *aux, const struct index *idx)
 {
-	if (!tileset_has(ts, ZERO_TILE))
-		return (tileset_complement(tileset_unrank(tileset_count(ts), idx->maprank)));
+	if (!tileset_has(aux->ts, ZERO_TILE))
+		return (tileset_complement(tileset_unrank(tileset_count(aux->ts), idx->maprank)));
 
 #ifdef __AVX2__
 	/* load overshoots eqclasses, should be fine */
 	__m256i eqidx = _mm256_set1_epi8(idx->eqidx);
-	__m256i map = _mm256_loadu_si256((const __m256i*)idxt[idx->maprank].eqclasses);
+	__m256i map = _mm256_loadu_si256((const __m256i*)aux->idxt[idx->maprank].eqclasses);
 
 	map = _mm256_cmpeq_epi8(map, eqidx);
 
@@ -120,8 +133,8 @@ eqclass_from_index(tileset ts, const struct index_table *idxt, const struct inde
 #elif defined(__SSE2__)
 	/* the second load overshoots eqclasses, should be fine, too */
 	__m128i eqidx = _mm_set1_epi8(idx->eqidx);
-	__m128i lo = _mm_loadu_si128((const __m128i*)idxt[idx->maprank].eqclasses + 0);
-	__m128i hi = _mm_loadu_si128((const __m128i*)idxt[idx->maprank].eqclasses + 1);
+	__m128i lo = _mm_loadu_si128((const __m128i*)aux->idxt[idx->maprank].eqclasses + 0);
+	__m128i hi = _mm_loadu_si128((const __m128i*)aux->idxt[idx->maprank].eqclasses + 1);
 	tileset eq;
 
 	lo = _mm_cmpeq_epi8(lo, eqidx);
@@ -134,7 +147,7 @@ eqclass_from_index(tileset ts, const struct index_table *idxt, const struct inde
 	tileset eq = EMPTY_TILESET;
 
 	for (i = 0; i < TILE_COUNT; i++)
-		if (idxt[idx->maprank].eqclasses[i] == idx->eqidx)
+		if (aux->idxt[idx->maprank].eqclasses[i] == idx->eqidx)
 			eq = tileset_add(eq, i);
 
 	return (eq);
@@ -143,6 +156,6 @@ eqclass_from_index(tileset ts, const struct index_table *idxt, const struct inde
 
 /* random.c */
 extern unsigned random_seed;
-extern void	random_index(tileset, const struct index_table *, struct index *);
+extern void	random_index(const struct index_aux *, struct index *);
 
 #endif /* INDEX_H */

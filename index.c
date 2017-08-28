@@ -73,22 +73,21 @@ index_permutation(tileset ts, tileset map, const struct puzzle *p)
 
 /*
  * Compute the structured index for the equivalence class of p by the
- * tiles selected by ts and store it in idx.  Use index_table to lookup
- * the equivalence class if needed.  If ts does not account for the zero
- * tile, it may be NULL.  See index.h for details on the algorithm.
+ * tiles selected by aux->ts and store it in idx.  Use aux to lookup
+ * other bits and pieces if needed.  See index.h for details on the
+ * algorithm.
  */
 extern void
-compute_index(tileset ts, const struct index_table *idxt,
-    struct index *idx, const struct puzzle *p)
+compute_index(const struct index_aux *aux, struct index *idx, const struct puzzle *p)
 {
-	tileset map = tileset_map(tileset_remove(ts, ZERO_TILE), p);
+	tileset tsnz = tileset_remove(aux->ts, ZERO_TILE), map = tileset_map(tsnz, p);
 
 	idx->maprank = tileset_rank(map);
-	prefetch(idxt + idx->maprank);
-	idx->pidx = index_permutation(tileset_remove(ts, ZERO_TILE), map, p);
+	prefetch(aux->idxt + idx->maprank);
+	idx->pidx = index_permutation(tsnz, map, p);
 
-	if (tileset_has(ts, ZERO_TILE))
-		idx->eqidx = idxt[idx->maprank].eqclasses[zero_location(p)];
+	if (tileset_has(aux->ts, ZERO_TILE))
+		idx->eqidx = aux->idxt[idx->maprank].eqclasses[zero_location(p)];
 	else
 		idx->eqidx = -1; /* mark as invalid */
 }
@@ -96,18 +95,18 @@ compute_index(tileset ts, const struct index_table *idxt,
 /*
  * Return the grid location in which we want to place the zero tile
  * during decoding.  We make the arbitrary choice of putting it into the
- * lowest numbered tile in the complement map.
+ * lowest numbered tile in the equivalence class.
  */
 static unsigned
-canonical_zero_location(tileset ts, const struct index_table *idxt, const struct index *idx)
+canonical_zero_location(const struct index_aux *aux, const struct index *idx)
 {
-	return (tileset_get_least(eqclass_from_index(ts, idxt, idx)));
+	return (tileset_get_least(eqclass_from_index(aux, idx)));
 }
 
 /*
  * Given a permutation index p, a tileset ts and a tileset map
  * indicating the spots on the grid we want to place the tiles in ts
- * onto, fill in the grid as indicated.
+ * onto, fill in the grid as indicated by pidx.
  */
 static void
 unindex_permutation(struct puzzle *p, tileset ts, tileset map, permindex pidx)
@@ -138,17 +137,17 @@ unindex_permutation(struct puzzle *p, tileset ts, tileset map, permindex pidx)
  * corresponding equivalence class and store it in p.
  */
 extern void
-invert_index(tileset ts, const struct index_table *idxt, struct puzzle *p, const struct index *idx)
+invert_index(const struct index_aux *aux, struct puzzle *p, const struct index *idx)
 {
-	tileset tsnz = tileset_remove(ts, ZERO_TILE);
+	tileset tsnz = tileset_remove(aux->ts, ZERO_TILE);
 	tileset map = tileset_unrank(tileset_count(tsnz), idx->maprank);
 
 	memset(p, 0, sizeof *p);
-	prefetch(idxt + idx->maprank);
+	prefetch(aux->idxt + idx->maprank);
 	unindex_permutation(p, tsnz, map, idx->pidx);
 
-	if (tileset_has(ts, ZERO_TILE))
-		move(p, canonical_zero_location(ts, idxt, idx));
+	if (tileset_has(aux->ts, ZERO_TILE))
+		move(p, canonical_zero_location(aux, idx));
 }
 
 /*
@@ -157,16 +156,16 @@ invert_index(tileset ts, const struct index_table *idxt, struct puzzle *p, const
  * components in an appropriate compound base.
  */
 extern cmbindex
-combine_index(tileset ts, const struct index_table *idxt, const struct index *idx)
+combine_index(const struct index_aux *aux, const struct index *idx)
 {
 	cmbindex moffset;
 
-	if (tileset_has(ts, ZERO_TILE))
-		moffset = idxt[idx->maprank].offset + idx->eqidx;
+	if (tileset_has(aux->ts, ZERO_TILE))
+		moffset = aux->idxt[idx->maprank].offset + idx->eqidx;
 	else
 		moffset = idx->maprank;
 
-	return (moffset * factorials[tileset_count(tileset_remove(ts, ZERO_TILE))] + idx->pidx);
+	return (moffset * factorials[tileset_count(tileset_remove(aux->ts, ZERO_TILE))] + idx->pidx);
 }
 
 /*
@@ -175,16 +174,16 @@ combine_index(tileset ts, const struct index_table *idxt, const struct index *id
  * pdb_iterate_parallel() to split the PDB into equally-sized pieces.
  */
 extern void
-split_index(tileset ts, const struct index_table *idxt, struct index *idx, cmbindex cmb)
+split_index(const struct index_aux *aux, struct index *idx, cmbindex cmb)
 {
-	size_t count = tileset_count(tileset_remove(ts, ZERO_TILE)), l, m, r;
+	size_t count = tileset_count(tileset_remove(aux->ts, ZERO_TILE)), l, m, r;
 	cmbindex fac = factorials[count];
 	unsigned offset;
 
 	idx->pidx = cmb % fac;
 	offset = cmb / fac;
 
-	if (!tileset_has(ts, ZERO_TILE)) {
+	if (!tileset_has(aux->ts, ZERO_TILE)) {
 		idx->maprank = offset;
 		idx->eqidx = -1;
 
@@ -195,12 +194,12 @@ split_index(tileset ts, const struct index_table *idxt, struct index *idx, cmbin
 	for (l = 0, r = combination_count[count]; r != 0; r >>= 1) {
 		m = l + (r >> 1);
 
-		if (offset >= idxt[m].offset + idxt[m].n_eqclass) {
+		if (offset >= aux->idxt[m].offset + aux->idxt[m].n_eqclass) {
 			l = m + 1;
 			r--;
-		} else if (offset >= idxt[m].offset) {
+		} else if (offset >= aux->idxt[m].offset) {
 			idx->maprank = m;
-			idx->eqidx = offset - idxt[m].offset;
+			idx->eqidx = offset - aux->idxt[m].offset;
 			return;
 		} /* else move left */
 	}
@@ -211,7 +210,7 @@ split_index(tileset ts, const struct index_table *idxt, struct index *idx, cmbin
  * tileset ts.  If storage is insufficient, abort the program.  If ts
  * does not account for the zero tile, return NULL.
  */
-extern struct index_table *
+static struct index_table *
 make_index_table(tileset ts)
 {
 	struct index_table *idxt;
@@ -244,6 +243,18 @@ make_index_table(tileset ts)
 
 	index_tables[tscount] = idxt;
 	return (idxt);
+}
+
+/*
+ * Initialize aux with the correct values to compute indices for the
+ * tileset ts.  Allocate tables as needed.  If storage is insufficient
+ * for the required tables, abort the program.
+ */
+extern void
+make_index_aux(struct index_aux *aux, tileset ts)
+{
+	aux->ts = ts;
+	aux->idxt = make_index_table(ts);
 }
 
 /*

@@ -53,19 +53,19 @@ random_puzzle(struct puzzle *p)
 }
 
 /*
- * Set i to a random index.  This function also uses rand().  If ts
- * contains the zero tile, idxt must not be NULL.
+ * Set i to a random index relative to aux.  This function also draws
+ * its randomness from random_seed.
  */
 extern void
-random_index(tileset ts, const struct index_table *idxt, struct index *idx)
+random_index(const struct index_aux *aux, struct index *idx)
 {
-	tileset tsnz = tileset_remove(ts, ZERO_TILE);
+	tileset tsnz = tileset_remove(aux->ts, ZERO_TILE);
 
 	idx->pidx = xorshift() % factorials[tileset_count(tsnz)];
 	idx->maprank = xorshift() % combination_count[tileset_count(tsnz)];
 
-	if (tileset_has(ts, ZERO_TILE))
-		idx->eqidx = xorshift() % idxt[idx->maprank].n_eqclass;
+	if (tileset_has(aux->ts, ZERO_TILE))
+		idx->eqidx = xorshift() % aux->idxt[idx->maprank].n_eqclass;
 	else
 		idx->eqidx = -1;
 }
