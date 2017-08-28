@@ -45,14 +45,14 @@ update_pdb_entry(struct patterndb *pdb, const struct index *idx, int round)
 
 		compute_index(&pdb->aux, &didx, &p);
 		pdb_prefetch(pdb, &didx);
-		count += pdb_conditional_update(pdb, &didx_prev, UNREACHED, round);
+		count += pdb_conditional_update(pdb, &didx_prev, round);
 		didx_prev = didx;
 
 		move(&p, moves[i].zloc);
 		move(&p, zloc);
 	}
 
-	count += pdb_conditional_update(pdb, &didx_prev, UNREACHED, round);
+	count += pdb_conditional_update(pdb, &didx_prev, round);
 
 	return (count);
 }

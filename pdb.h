@@ -101,17 +101,20 @@ pdb_update(struct patterndb *pdb, const struct index *idx, unsigned dist)
 }
 
 /*
- * Compare the PDB entry for idx with expected.  If it is equal, set it
- * to desired and return 1.  Otherwise, return 0.  This is an atomic
- * operation.
+ * Compare the PDB entry for idx with UNREACHED.  If it is equal, set it
+ * to desired and return 1.  Otherwise, return 0.  This operation can be
+ * executed concurrently with itself given that the value of desired is
+ * equal in all calls.
  */
 static inline int
-pdb_conditional_update(struct patterndb *pdb, const struct index *idx,
-    unsigned expected, unsigned desired)
+pdb_conditional_update(struct patterndb *pdb, const struct index *idx, unsigned desired)
 {
-	unsigned char exp = expected;
+	atomic_uchar *entry = pdb_entry_pointer(pdb, idx);
 
-	return (atomic_compare_exchange_strong(pdb_entry_pointer(pdb, idx), &exp, desired));
+	if (*entry != UNREACHED)
+		return (0);
+
+	return (atomic_exchange(entry, desired) == UNREACHED);
 }
 
 /*
