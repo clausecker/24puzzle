@@ -11,26 +11,6 @@
 #include "pdb.h"
 
 /*
- * Return the number of tables a PDB for ts would have.
- */
-static size_t
-pdb_table_count(tileset ts)
-{
-	return (combination_count[tileset_count(tileset_remove(ts, ZERO_TILE))]);
-}
-
-/*
- * Return the number entries in table i in pdb.
- */
-static size_t
-pdb_table_size(struct patterndb *pdb, size_t i)
-{
-	size_t n = factorials[tileset_count(tileset_remove(pdb->aux.ts, ZERO_TILE))];
-
-	return (n * (tileset_has(pdb->aux.ts, ZERO_TILE) ? pdb->aux.idxt[i].n_eqclass : 1));
-}
-
-/*
  * Allocate storage for a pattern database representing ts.  If storage
  * is insufficient, return NULL and set errno.  The entries in PDB are
  * undefined initially.  Use pdb_clear() to set the patterndb to a
@@ -39,7 +19,7 @@ pdb_table_size(struct patterndb *pdb, size_t i)
 extern struct patterndb *
 pdb_allocate(tileset ts)
 {
-	size_t i, n_tables = pdb_table_count(ts);
+	size_t i, n_tables = maprank_count(ts);
 	struct patterndb *pdb = malloc(sizeof *pdb + sizeof *pdb->tables * n_tables);
 
 	if (pdb == NULL)
@@ -67,7 +47,7 @@ pdb_allocate(tileset ts)
 extern void
 pdb_free(struct patterndb *pdb)
 {
-	size_t i, n_tables = pdb_table_count(pdb->aux.ts);
+	size_t i, n_tables = maprank_count(pdb->aux.ts);
 
 	for (i = 0; i < n_tables; i++)
 		free(pdb->tables[i]);
@@ -81,7 +61,7 @@ pdb_free(struct patterndb *pdb)
 extern void
 pdb_clear(struct patterndb *pdb)
 {
-	size_t i, n_tables = pdb_table_count(pdb->aux.ts);
+	size_t i, n_tables = maprank_count(pdb->aux.ts);
 
 	for (i = 0; i < n_tables; i++) {
 		memset((void *)pdb->tables[i], UNREACHED, pdb_table_size(pdb, i));
@@ -100,7 +80,7 @@ extern struct patterndb *
 pdb_load(tileset ts, FILE *pdbfile)
 {
 	struct patterndb *pdb = pdb_allocate(ts);
-	size_t i, n_tables = pdb_table_count(ts), count, tblsize;
+	size_t i, n_tables = maprank_count(ts), count, tblsize;
 
 	if (pdb == NULL)
 		return (NULL);
@@ -130,7 +110,7 @@ pdb_load(tileset ts, FILE *pdbfile)
 extern int
 pdb_store(FILE *pdbfile, struct patterndb *pdb)
 {
-	size_t i, n_tables = pdb_table_count(pdb->aux.ts), count, tblsize;
+	size_t i, n_tables = maprank_count(pdb->aux.ts), count, tblsize;
 
 	for (i = 0; i < n_tables; i++) {
 		tblsize = pdb_table_size(pdb, i);

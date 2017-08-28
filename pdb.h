@@ -115,4 +115,16 @@ pdb_conditional_update(struct patterndb *pdb, const struct index *idx,
 	return (atomic_compare_exchange_strong(pdb_entry_pointer(pdb, idx), &exp, desired));
 }
 
+/*
+ * Return the number entries in table i in pdb.
+ */
+static inline size_t
+pdb_table_size(struct patterndb *pdb, size_t i)
+{
+	size_t n = factorials[tileset_count(tileset_remove(pdb->aux.ts, ZERO_TILE))];
+
+	return (n * (tileset_has(pdb->aux.ts, ZERO_TILE) ? pdb->aux.idxt[i].n_eqclass : 1));
+}
+
+
 #endif /* PDB_H */

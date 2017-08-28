@@ -111,6 +111,16 @@ search_space_size(tileset ts, const struct index_table *idxt)
 }
 
 /*
+ * Given a tile set ts, compute the number of different values for
+ * maprank indices for this tile set can have.
+ */
+static inline tsrank
+maprank_count(tileset ts)
+{
+	return (combination_count[tileset_count(tileset_remove(ts, ZERO_TILE))]);
+}
+
+/*
  * Given a permutation index, compute the corresponding equivalence
  * class map by forming a map from the appropriate entry in idxt and
  * return it.  If the zero tile is not accounted for, instead return
