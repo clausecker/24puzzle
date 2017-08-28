@@ -23,18 +23,19 @@ static void *
 parallel_worker(void *cfgarg)
 {
 	struct parallel_config *cfg = cfgarg;
-	cmbindex i, n;
+	struct index idx;
 
 	for (;;) {
 		/* pick up chunk */
-		i = atomic_fetch_add(&cfg->offset, PDB_CHUNK_SIZE);
+		idx.maprank = atomic_fetch_add(&cfg->nextrank, 1);
 
 		/* any work left to do? */
-		if (i >= cfg->pdb_size)
+		if (idx.maprank >= maprank_count(cfg->pdb->aux.ts))
 			break;
 
-		n = i + PDB_CHUNK_SIZE <= cfg->pdb_size ? PDB_CHUNK_SIZE : cfg->pdb_size - i;
-		cfg->worker(cfgarg, i, n);
+		idx.pidx = 0;
+		idx.eqidx = 0;
+		cfg->worker(cfgarg, &idx);
 	}
 
 	return (NULL);
@@ -54,12 +55,20 @@ pdb_iterate_parallel(struct parallel_config *cfg)
 
 	int i, jobs = pdb_jobs, error;
 
-	cfg->offset = 0;
-	cfg->pdb_size = search_space_size(cfg->ts);
+	cfg->nextrank = 0;
 
 	/* for easier debugging, don't multithread when jobs == 1 */
 	if (jobs == 1) {
-		cfg->worker(cfg, 0, cfg->pdb_size);
+		struct index idx;
+		size_t j, n_rank = maprank_count(cfg->pdb->aux.ts);
+
+		for (j = 0; j < n_rank; j++) {
+			idx.pidx = 0;
+			idx.maprank = j;
+			idx.eqidx = 0;
+			cfg->worker(cfg, &idx);
+		}
+
 		return;
 	}
 
