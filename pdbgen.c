@@ -16,16 +16,15 @@
  * then setting them to round.  Return the number of entries updated.
  */
 static cmbindex
-update_pdb_entry(struct patterndb *pdb, const struct index *idx, int round)
+update_pdb_entry(struct patterndb *pdb, const struct index *idx,
+    const struct move *moves, size_t n_move, int round)
 {
 	struct puzzle p;
 	struct index didx, didx_prev;
-	struct move moves[MAX_MOVES];
-	size_t i, n_move, zloc;
+	size_t i, zloc;
 	cmbindex count = 0;
 
 	invert_index(&pdb->aux, &p, idx);
-	n_move = generate_moves(moves, eqclass_from_index(&pdb->aux, idx));
 	zloc = zero_location(&p);
 
 	/* process one entry in advance so we can prefetch */
@@ -74,21 +73,24 @@ struct pdbgen_config {
 static void
 generate_cohort(void *cfgarg, struct index *idx)
 {
+	struct move moves[MAX_MOVES];
 	struct pdbgen_config *cfg = cfgarg;
 	struct patterndb *pdb = cfg->pcfg.pdb;
 	size_t eqidx, pidx, n_eqclass = eqclass_count(&pdb->aux, idx->maprank),
-	    n_perm = pdb->aux.n_perm;
+	    n_perm = pdb->aux.n_perm, n_move;
 	int round = cfg->round;
 	cmbindex count = 0;
 
 	for (eqidx = 0; eqidx < n_eqclass; eqidx++) {
 		idx->eqidx = eqidx;
+		n_move = generate_moves(moves, eqclass_from_index(&pdb->aux, idx));
+
 		for (pidx = 0; pidx < n_perm; pidx++) {
 			idx->pidx = pidx;
 			if (pdb_lookup(pdb, idx) != round - 1)
 				continue;
 
-			count += update_pdb_entry(pdb, idx, round);
+			count += update_pdb_entry(pdb, idx, moves, n_move, round);
 		}
 	}
 
