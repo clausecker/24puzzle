@@ -67,8 +67,7 @@ static inline atomic_uchar *
 pdb_entry_pointer(struct patterndb *pdb, const struct index *idx)
 {
 	if (tileset_has(pdb->aux.ts, ZERO_TILE))
-		return (pdb->tables[idx->maprank] +
-		    idx->pidx * pdb->aux.idxt[idx->maprank].n_eqclass + idx->eqidx);
+		return (pdb->tables[idx->maprank] + idx->eqidx * pdb->aux.n_perm + idx->pidx);
 	else
 		return (pdb->tables[idx->maprank] + idx->pidx);
 }
@@ -121,9 +120,9 @@ pdb_conditional_update(struct patterndb *pdb, const struct index *idx,
 static inline size_t
 pdb_table_size(struct patterndb *pdb, size_t i)
 {
-	size_t n = factorials[tileset_count(tileset_remove(pdb->aux.ts, ZERO_TILE))];
 
-	return (n * (tileset_has(pdb->aux.ts, ZERO_TILE) ? pdb->aux.idxt[i].n_eqclass : 1));
+	return (pdb->aux.n_perm * (tileset_has(pdb->aux.ts, ZERO_TILE) ?
+	    pdb->aux.idxt[i].n_eqclass : 1));
 }
 
 

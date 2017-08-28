@@ -47,7 +47,7 @@ pdb_allocate(tileset ts)
 extern void
 pdb_free(struct patterndb *pdb)
 {
-	size_t i, n_tables = maprank_count(pdb->aux.ts);
+	size_t i, n_tables = pdb->aux.n_maprank;
 
 	for (i = 0; i < n_tables; i++)
 		free(pdb->tables[i]);
@@ -61,7 +61,7 @@ pdb_free(struct patterndb *pdb)
 extern void
 pdb_clear(struct patterndb *pdb)
 {
-	size_t i, n_tables = maprank_count(pdb->aux.ts);
+	size_t i, n_tables = pdb->aux.n_maprank;
 
 	for (i = 0; i < n_tables; i++) {
 		memset((void *)pdb->tables[i], UNREACHED, pdb_table_size(pdb, i));
@@ -80,7 +80,7 @@ extern struct patterndb *
 pdb_load(tileset ts, FILE *pdbfile)
 {
 	struct patterndb *pdb = pdb_allocate(ts);
-	size_t i, n_tables = maprank_count(ts), count, tblsize;
+	size_t i, n_tables = pdb->aux.n_maprank, count, tblsize;
 
 	if (pdb == NULL)
 		return (NULL);
@@ -110,7 +110,7 @@ pdb_load(tileset ts, FILE *pdbfile)
 extern int
 pdb_store(FILE *pdbfile, struct patterndb *pdb)
 {
-	size_t i, n_tables = maprank_count(pdb->aux.ts), count, tblsize;
+	size_t i, n_tables = pdb->aux.n_maprank, count, tblsize;
 
 	for (i = 0; i < n_tables; i++) {
 		tblsize = pdb_table_size(pdb, i);

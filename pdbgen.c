@@ -19,7 +19,7 @@ static cmbindex
 update_pdb_entry(struct patterndb *pdb, const struct index *idx, int round)
 {
 	struct puzzle p;
-	struct index didx;
+	struct index didx, didx_prev;
 	struct move moves[MAX_MOVES];
 	size_t i, n_move, zloc;
 	cmbindex count = 0;
@@ -61,27 +61,24 @@ generate_cohort(void *cfgarg, struct index *idx)
 {
 	struct pdbgen_config *cfg = cfgarg;
 	struct patterndb *pdb = cfg->pcfg.pdb;
-	tileset ts = pdb->aux.ts;
-	tsrank maprank = idx->maprank;
-	size_t i, n_table = pdb_table_size(pdb, maprank);
+	size_t eqidx, pidx, n_eqclass, n_perm = pdb->aux.n_perm;
 	int round = cfg->round;
 	cmbindex count = 0;
 
+	if (tileset_has(pdb->aux.ts, ZERO_TILE))
+		n_eqclass = pdb->aux.idxt[idx->maprank].n_eqclass;
+	else
+		n_eqclass = 1;
 
-	for (i = 0; i < n_table; i++) {
-		if (pdb->tables[maprank][i] != round - 1)
-			continue;
+	for (eqidx = 0; eqidx < n_eqclass; eqidx++) {
+		idx->eqidx = eqidx;
+		for (pidx = 0; pidx < n_perm; pidx++) {
+			idx->pidx = pidx;
+			if (pdb_lookup(pdb, idx) != round - 1)
+				continue;
 
-		/* find out the pidx / eqidx combination that made up i */
-		if (tileset_has(ts, ZERO_TILE)) {
-			idx->pidx = i / pdb->aux.idxt[maprank].n_eqclass;
-			idx->eqidx = i % pdb->aux.idxt[maprank].n_eqclass;
-		} else {
-			idx->pidx = i;
-			idx->eqidx = -1;
+			count += update_pdb_entry(pdb, idx, round);
 		}
-
-		count += update_pdb_entry(pdb, idx, round);
 	}
 
 	cfg->count += count;

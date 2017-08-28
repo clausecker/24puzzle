@@ -30,7 +30,7 @@ parallel_worker(void *cfgarg)
 		idx.maprank = atomic_fetch_add(&cfg->nextrank, 1);
 
 		/* any work left to do? */
-		if (idx.maprank >= maprank_count(cfg->pdb->aux.ts))
+		if (idx.maprank >= cfg->pdb->aux.n_maprank)
 			break;
 
 		idx.pidx = 0;

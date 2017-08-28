@@ -165,7 +165,7 @@ combine_index(const struct index_aux *aux, const struct index *idx)
 	else
 		moffset = idx->maprank;
 
-	return (moffset * factorials[tileset_count(tileset_remove(aux->ts, ZERO_TILE))] + idx->pidx);
+	return (moffset * aux->n_perm + idx->pidx);
 }
 
 /*
@@ -176,12 +176,11 @@ combine_index(const struct index_aux *aux, const struct index *idx)
 extern void
 split_index(const struct index_aux *aux, struct index *idx, cmbindex cmb)
 {
-	size_t count = tileset_count(tileset_remove(aux->ts, ZERO_TILE)), l, m, r;
-	cmbindex fac = factorials[count];
+	size_t l, m, r;
 	unsigned offset;
 
-	idx->pidx = cmb % fac;
-	offset = cmb / fac;
+	idx->pidx = cmb % aux->n_perm;
+	offset = cmb / aux->n_perm;
 
 	if (!tileset_has(aux->ts, ZERO_TILE)) {
 		idx->maprank = offset;
@@ -191,7 +190,7 @@ split_index(const struct index_aux *aux, struct index *idx, cmbindex cmb)
 	}
 
 	/* do a binary search through idxt */
-	for (l = 0, r = combination_count[count]; r != 0; r >>= 1) {
+	for (l = 0, r = aux->n_maprank; r != 0; r >>= 1) {
 		m = l + (r >> 1);
 
 		if (offset >= aux->idxt[m].offset + aux->idxt[m].n_eqclass) {
@@ -254,6 +253,9 @@ extern void
 make_index_aux(struct index_aux *aux, tileset ts)
 {
 	aux->ts = ts;
+	aux->n_tile = tileset_count(tileset_remove(ts, ZERO_TILE));
+	aux->n_maprank = combination_count[aux->n_tile];
+	aux->n_perm = factorials[aux->n_tile];
 	aux->idxt = make_index_table(ts);
 }
 

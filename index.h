@@ -68,6 +68,9 @@ struct index_table {
  */
 struct index_aux {
 	tileset ts;
+	unsigned n_tile; /* number of tiles not including the zero tile */
+	unsigned n_maprank; /* number of different maprank values */
+	unsigned n_perm; /* number of permutations */
 	struct index_table *idxt;
 };
 
