@@ -267,5 +267,5 @@ index_string(tileset ts, char str[INDEX_STR_LEN], const struct index *idx)
 
 	(void)ts;
 
-	snprintf(str, INDEX_STR_LEN, "(%u %u %d)\n", idx->pidx, idx->maprank, idx->eqidx);
+	snprintf(str, INDEX_STR_LEN, "(%u %u %d)", idx->pidx, idx->maprank, idx->eqidx);
 }

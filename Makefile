@@ -7,9 +7,9 @@ LDLIBS=-lpthread
 #BINARIES=test/indextest test/tiletest cmd/genpdb cmd/verifypdb cmd/reducepdb \
 #	cmd/pdbstats util/rankgen test/ranktest
 OBJ=index.o puzzle.o tileset.o validation.o ranktbl.o rank.o random.o pdb.o \
-	moves.o parallel.o pdbgen.o
+	moves.o parallel.o pdbgen.o pdbverify.o
 BINARIES=cmd/pdbstats test/indextest test/tiletest util/rankgen test/ranktest \
-	cmd/genpdb
+	cmd/genpdb cmd/verifypdb
 
 all: $(BINARIES) 24puzzle.a
 

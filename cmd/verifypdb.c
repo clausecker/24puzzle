@@ -20,12 +20,10 @@ usage(const char *argv0)
 extern int
 main(int argc, char *argv[])
 {
-	tileset ts = 0x00000e7; /* 0 1 2 5 6 7 */
-	size_t count, size;
+	struct patterndb *pdb;
+	tileset ts = DEFAULT_TILESET;
 	int optchar;
 	const char *fname = NULL;
-
-	patterndb pdb;
 	FILE *f = NULL;
 
 	while (optchar = getopt(argc, argv, "f:j:t:"), optchar != -1)
@@ -75,25 +73,13 @@ main(int argc, char *argv[])
 		return (EXIT_FAILURE);
 	}
 
-	size = search_space_size(ts);
-
-	pdb = malloc(size);
+	pdb = pdb_load(ts, f);
 	if (pdb == NULL) {
-		perror("malloc");
-		return (EXIT_FAILURE);
-	}
-
-	count = fread(pdb, 1, size, f);
-	if (count < size) {
-		if (ferror(f))
-			perror("fread");
-		else
-			fprintf(stderr, "PDB too short.\n");
-
+		perror("pdb_load");
 		return (EXIT_FAILURE);
 	}
 
 	fclose(f);
 
-	return (verify_patterndb(pdb, ts, stderr));
+	return (pdb_verify(pdb, stderr));
 }

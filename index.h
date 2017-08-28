@@ -82,7 +82,7 @@ enum {
 	INDEX_MAX_TILES = 12,
 
 	/* buffer length for index_string() */
-	INDEX_STR_LEN = 28, /* (########## ########## ##)\n\0 */
+	INDEX_STR_LEN = 27, /* (########## ########## ##)\0 */
 };
 
 extern void	compute_index(const struct index_aux*, struct index*, const struct puzzle*);

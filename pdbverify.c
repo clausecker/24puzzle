@@ -1,6 +1,5 @@
 /* pdbcheck.c -- validate a pattern database */
 
-#include <stdatomic.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -11,62 +10,14 @@
 #include "parallel.h"
 
 /*
- * Verify some of the invariants from verify_eqclass() for the moves
- * from one configuration within an equivalence class.  pdist is the
- * distance of p, *has_progress is set to one if we find a move that
- * lowers the distance.  Returns zero if the configuration was found
- * to be valid, 1 otherwise.  If f is not NULL, diagnostic messages
- * are printed to f if an inconsistency is found.
- */
-static int
-verify_configuration(patterndb pdb, tileset ts, struct puzzle *p, tileset eq,
-    int pdist, int *has_progress, FILE *f)
-{
-	size_t i, zloc = zero_location(p), nmove = move_count(zloc);
-	int dist, result = 0;
-	char pstr[PUZZLE_STR_LEN];
-	const signed char *moves = get_moves(zloc);
-
-	for (i = 0; i < nmove; i++) {
-		/* we already check this in the caller */
-		if (tileset_has(eq, moves[i]))
-			continue;
-
-		move(p, moves[i]);
-		dist = pdb[full_index(ts, p)];
-		move(p, zloc);
-
-
-		/* invariant 2 */
-		if (abs(dist - pdist) > 1) {
-			if (f != NULL) {
-				puzzle_string(pstr, p);
-				fprintf(f, "Move to %d has distance %u, not within 1 of %u\n%s\n",
-				    moves[i], dist, pdist, pstr);
-			}
-
-			result = 1;
-		}
-
-		/* invariant 4 */
-		if (pdist == dist + 1)
-			*has_progress = 1;
-	}
-
-	return (result);
-}
-
-/*
  * Verify if p's entry pdist in a zero-aware pattern database pdb is
  * internally consistent with the remaining entries, checking the whole
  * equivalence class of p.  The following invariants must hold:
  *
  * 1. no entry has distance UNREACHED as each configuration can be solved
  * 2. each configuration directly reachable from p's equivalence class
- *    has a distance that differs by at most 1 from p's distance
- * 3. all configurations in the same equivalence class have the same
- *    distance
- * 4. there must be a configuration whose distance is exactly one lower
+ *    has a distance that differs by 1 from p's distance.
+ * 3. there must be a configuration whose distance is exactly one lower
  *    than p's distance, i.e. progress must be possible
  *
  * If all invariants are fulfilled for all positions in the PDB, the
@@ -78,72 +29,68 @@ verify_configuration(patterndb pdb, tileset ts, struct puzzle *p, tileset eq,
  * Return zero if the configuration is valid, nonzero if it is not.
  */
 static int
-verify_eqclass(patterndb pdb, tileset ts, struct puzzle *p, int pdist, FILE *f)
+verify_entry(struct patterndb *pdb, struct index *idx, FILE *f)
 {
-	size_t zloc = zero_location(p);
-	tileset eq = tileset_eqclass(ts, p), map;
-	int dist, result = 0, has_progress = 0;
-	char pstr[PUZZLE_STR_LEN];
+	struct puzzle p;
+	struct index didx;
+	struct move moves[MAX_MOVES];
+	size_t i, n_move, zloc;
+	int srcentry, progress = 0, dstentry;;
+	char indexstr1[INDEX_STR_LEN], indexstr2[INDEX_STR_LEN];
 
 	/* invariant 1 */
-	if (pdist == UNREACHED) {
+	srcentry = pdb_lookup(pdb, idx);
+	if (srcentry == UNREACHED) {
 		if (f != NULL) {
-			puzzle_string(pstr, p);
-			fprintf(f, "Configuration has distance UNREACHED:\n%s\n", pstr);
+			index_string(pdb->aux.ts, indexstr1, idx);
+			fprintf(f, "Entry has value UNREACHED: %s\n", indexstr1);
 		}
 
 		return (1);
 	}
 
-	/* quick exit so we consider each equivalence class only once */
-	if (!tileset_is_canonical(ts, eq, p))
-		return (0);
+	invert_index(&pdb->aux, &p, idx);
+	n_move = generate_moves(moves, eqclass_from_index(&pdb->aux, idx));
+	zloc = zero_location(&p);
 
-	/* verify all positions in the same equivalence class */
-	for (map = eq; !tileset_empty(map); map = tileset_remove_least(map)) {
-		move(p, tileset_get_least(map));
+	for (i = 0; i < n_move; i++) {
+		move(&p, moves[i].zloc);
+		move(&p, moves[i].dest);
 
-		if (tileset_has(ts, ZERO_TILE)) {
-			dist = pdb[full_index(ts, p)];
-		} else
-			dist = pdist;
+		compute_index(&pdb->aux, &didx, &p);
+		dstentry = pdb_lookup(pdb, &didx);
 
-		/* invariant 3 */
-		if (dist != pdist) {
+		/* invariant 2 */
+		if (abs(srcentry - dstentry) > 1) {
 			if (f != NULL) {
-				puzzle_string(pstr, p);
-				fprintf(f, "Same equivalence class but"
-				    " distances %u != %u\n%s\n",
-				    dist, pdist, pstr);
+				index_string(pdb->aux.ts, indexstr1, idx);
+				index_string(pdb->aux.ts, indexstr2, &didx);
 
+				fprintf(f, "%s -> %s with entry %d -> %d invalid\n",
+				    indexstr1, indexstr2, srcentry, dstentry);
 			}
 
-			move(p, zloc);
-			if (f != NULL) {
-				puzzle_string(pstr, p);
-				fprintf(f, "%s\n", pstr);
-			}
-
-			result = 1;
-			continue;
+			return (1);
 		}
 
-		result |= verify_configuration(pdb, ts, p, eq, dist, &has_progress, f);
-		move(p, zloc);
+		if (dstentry < srcentry)
+			progress = 1;
+
+		move(&p, moves[i].zloc);
+		move(&p, zloc);
 	}
 
-	/* invariant 4 */
-	if (has_progress == 0 && pdist != 0) {
+	/* invariant 3 */
+	if (progress == 0) {
 		if (f != NULL) {
-			puzzle_string(pstr, p);
-			fprintf(f, "No progress possible from configuration with distance %d:\n%s\n",
-			    pdist, pstr);
+			index_string(pdb->aux.ts, indexstr1, idx);
+			fprintf(f, "No progress possible from %s\n", indexstr1);
 		}
 
 		return (1);
 	}
 
-	return (result);
+	return (0);
 }
 
 /*
@@ -157,45 +104,52 @@ struct verify_config {
 };
 
 /*
- * Verify one chunk sized n entries starting at i0 of the PDB.  Return 0
- * if the chunk was found to be consistent, 1 otherwise.
+ * Verify one cohort of the PDB.  Set cfg->result to 1 if the PDB was
+ * found to be inconsistent.
  */
 static void
-verify_chunk(void *cfgarg, cmbindex i0, cmbindex n)
+verify_cohort(void *cfgarg, struct index *idx)
 {
 	struct verify_config *cfg = cfgarg;
-	tileset ts = cfg->pcfg.ts;
-	patterndb pdb = cfg->pcfg.pdb;
-
-	struct puzzle p;
-	struct index idx;
-	cmbindex i;
+	struct patterndb *pdb = cfg->pcfg.pdb;
+	tsrank maprank = idx->maprank;
+	size_t i, j, n_eqclass, n_perm;
 	int result = 0;
 
-	for (i = i0; i < i0 + n; i++) {
-		split_index(ts, &idx, i);
-		invert_index(ts, &p, &idx);
-		result |= verify_eqclass(pdb, ts, &p, pdb[i], cfg->f);
+	if (tileset_has(pdb->aux.ts, ZERO_TILE)) {
+		n_eqclass = pdb->aux.idxt[maprank].n_eqclass;
+		n_perm = pdb_table_size(pdb, maprank) / n_eqclass;
+	} else {
+		n_eqclass = 1;
+		n_perm = pdb_table_size(pdb, maprank);
+	}
+
+	for (i = 0; i < n_perm; i++) {
+		idx->pidx = i;
+		for (j = 0; j < n_eqclass; j++) {
+			idx->eqidx = j;
+			result |= verify_entry(pdb, idx, cfg->f);
+		}
 	}
 
 	cfg->result |= result;
 }
 
 /*
- * Verify an entire pattern database by verifying each configuration.
- * If f is not NULL, inconsistencies are printed to f.  For further
- * details on the verification process, read the comment above the
- * function verify_zero_position().  This function returns zero if the
- * pattern database was found to be consistent, nonzero otherwise.
+ * Verify the pattern database pdb by checking if each entry is
+ * consistent with the others.  If f is not NULL, inconsistencies are
+ * printed to f.  For further details on the verification process, read
+ * the comment above the function verify_position().  This function
+ * returns zero if the pattern database was found to be consistent,
+ * nonzero otherwise.
  */
 extern int
-verify_patterndb(patterndb pdb, tileset ts, FILE *f)
+pdb_verify(struct patterndb *pdb, FILE *f)
 {
 	struct verify_config cfg;
 
 	cfg.pcfg.pdb = pdb;
-	cfg.pcfg.ts = ts;
-	cfg.pcfg.worker = verify_chunk;
+	cfg.pcfg.worker = verify_cohort;
 	cfg.result = 0;
 	cfg.f = f;
 
