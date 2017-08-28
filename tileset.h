@@ -339,4 +339,19 @@ next_combination(tileset ts)
 	return (t + 1 | (~t & -~t) - 1 >> tileset_get_least(ts) + 1);
 }
 
+/* moves.c */
+
+/*
+ * A structure indicating a move with the zero tile being in zloc and
+ * moving to dest.
+ */
+struct move {
+	unsigned zloc, dest;
+};
+
+/* The maximum number of moves generate_moves() could generate. */
+enum { MAX_MOVES = 4 * 9 + 3 * 12 + 2 * 4 }; /* TODO: a lower size is probably possible */
+
+extern size_t	generate_moves(struct move[MAX_MOVES], tileset);
+
 #endif /* TILESET_H */
