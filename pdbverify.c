@@ -112,14 +112,9 @@ verify_cohort(void *cfgarg, struct index *idx)
 {
 	struct verify_config *cfg = cfgarg;
 	struct patterndb *pdb = cfg->pcfg.pdb;
-	tsrank maprank = idx->maprank;
-	size_t i, j, n_eqclass, n_perm = pdb->aux.n_perm;
+	size_t i, j, n_eqclass = eqclass_count(&pdb->aux, idx->maprank),
+	    n_perm = pdb->aux.n_perm;
 	int result = 0;
-
-	if (tileset_has(pdb->aux.ts, ZERO_TILE))
-		n_eqclass = pdb->aux.idxt[maprank].n_eqclass;
-	else
-		n_eqclass = 1;
 
 	for (i = 0; i < n_eqclass; i++) {
 		idx->eqidx = i;

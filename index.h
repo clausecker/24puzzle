@@ -124,6 +124,20 @@ maprank_count(tileset ts)
 }
 
 /*
+ * Given an index_aux structure and a maprank within that index, return
+ * the number of equivalence classes for that map.  If the zero tile is
+ * not accounted for, this number will be 1.
+ */
+static inline unsigned
+eqclass_count(const struct index_aux *aux, tsrank maprank)
+{
+	if (tileset_has(aux->ts, ZERO_TILE))
+		return (aux->idxt[maprank].n_eqclass);
+	else
+		return (1);
+}
+
+/*
  * Given a permutation index, compute the corresponding equivalence
  * class map by forming a map from the appropriate entry in idxt and
  * return it.  If the zero tile is not accounted for, instead return

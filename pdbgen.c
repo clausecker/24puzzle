@@ -28,16 +28,31 @@ update_pdb_entry(struct patterndb *pdb, const struct index *idx, int round)
 	n_move = generate_moves(moves, eqclass_from_index(&pdb->aux, idx));
 	zloc = zero_location(&p);
 
-	for (i = 0; i < n_move; i++) {
+	/* process one entry in advance so we can prefetch */
+	move(&p, moves[0].zloc);
+	move(&p, moves[0].dest);
+
+	compute_index(&pdb->aux, &didx, &p);
+	pdb_prefetch(pdb, &didx);
+	didx_prev = didx;
+
+	move(&p, moves[0].zloc);
+	move(&p, zloc);
+
+	for (i = 1; i < n_move; i++) {
 		move(&p, moves[i].zloc);
 		move(&p, moves[i].dest);
 
 		compute_index(&pdb->aux, &didx, &p);
-		count += pdb_conditional_update(pdb, &didx, UNREACHED, round);
+		pdb_prefetch(pdb, &didx);
+		count += pdb_conditional_update(pdb, &didx_prev, UNREACHED, round);
+		didx_prev = didx;
 
 		move(&p, moves[i].zloc);
 		move(&p, zloc);
 	}
+
+	count += pdb_conditional_update(pdb, &didx_prev, UNREACHED, round);
 
 	return (count);
 }
@@ -61,14 +76,10 @@ generate_cohort(void *cfgarg, struct index *idx)
 {
 	struct pdbgen_config *cfg = cfgarg;
 	struct patterndb *pdb = cfg->pcfg.pdb;
-	size_t eqidx, pidx, n_eqclass, n_perm = pdb->aux.n_perm;
+	size_t eqidx, pidx, n_eqclass = eqclass_count(&pdb->aux, idx->maprank),
+	    n_perm = pdb->aux.n_perm;
 	int round = cfg->round;
 	cmbindex count = 0;
-
-	if (tileset_has(pdb->aux.ts, ZERO_TILE))
-		n_eqclass = pdb->aux.idxt[idx->maprank].n_eqclass;
-	else
-		n_eqclass = 1;
 
 	for (eqidx = 0; eqidx < n_eqclass; eqidx++) {
 		idx->eqidx = eqidx;
