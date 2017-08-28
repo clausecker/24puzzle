@@ -21,6 +21,7 @@ typedef unsigned tileset;
 enum {
 	EMPTY_TILESET = 0,
 	FULL_TILESET = (1 << TILE_COUNT) - 1,
+	DEFAULT_TILESET = 0x00000e7, /* 0 1 2 5 6 7 */
 
 	TILESET_STR_LEN = 3 * TILE_COUNT + 1,
 };

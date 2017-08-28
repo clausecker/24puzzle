@@ -21,12 +21,10 @@ usage(const char *argv0)
 extern int
 main(int argc, char *argv[])
 {
-	tileset ts = 0x00000e7; /* 0 1 2 5 6 7 */
-	size_t count, size;
+	struct patterndb *pdb;
+	tileset ts = DEFAULT_TILESET;
 	int optchar;
 	const char *fname = NULL;
-
-	patterndb pdb;
 	FILE *f = NULL;
 
 	while (optchar = getopt(argc, argv, "f:j:t:"), optchar != -1)
@@ -72,27 +70,22 @@ main(int argc, char *argv[])
 		}
 	}
 
-	size = search_space_size(ts);
-
-	pdb = malloc(size);
+	pdb = pdb_allocate(ts);
 	if (pdb == NULL) {
-		perror("malloc");
+		perror("pdb_allocate");
 		return (EXIT_FAILURE);
 	}
 
-	generate_patterndb(pdb, ts, stderr);
+	pdb_generate(pdb, stderr);
 
-	if (f != NULL) {
-		count = fwrite(pdb, 1, size, f);
+	if (f != NULL && pdb_store(f, pdb) != 0) {
+		perror("pdb_store");
+		return (EXIT_FAILURE);
+	}
 
-		if (count < size) {
-			if (ferror(f))
-				perror("fwrite");
-			else
-				fprintf(stderr, "End of file writing PDB.\n");
-
-			return (EXIT_FAILURE);
-		}
+	if (f != NULL && fclose(f) == EOF) {
+		perror("fclose");
+		return (EXIT_FAILURE);
 	}
 
 	return (EXIT_SUCCESS);
