@@ -128,7 +128,7 @@ rankselect(unsigned x, unsigned i)
 static inline
 void prefetch(const void *addr)
 {
-#ifdef HAS_PREFETCH
+#if HAS_PREFETCH == 1
 	__builtin_prefetch(addr);
 #else
 	(void)addr;
