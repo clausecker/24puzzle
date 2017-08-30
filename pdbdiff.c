@@ -25,6 +25,7 @@ diffcode_map(void *cfgarg, struct index *idx)
 	struct patterndb *pdb = cfg->pcfg.pdb;
 	size_t n_eqclass, offset;
 	unsigned char min, entry;
+	atomic_uchar *entryp;
 
 	n_eqclass = eqclass_count(&pdb->aux, idx->maprank);
 	if (tileset_has(pdb->aux.ts, ZERO_TILE))
@@ -45,8 +46,12 @@ diffcode_map(void *cfgarg, struct index *idx)
 		cfg->minimums[offset + idx->eqidx] = min;
 
 		/* apply differences */
-		for (idx->pidx = 0; idx->pidx < pdb->aux.n_perm; idx->pidx++)
-			*pdb_entry_pointer(pdb, idx) -= min;
+		for (idx->pidx = 0; idx->pidx < pdb->aux.n_perm; idx->pidx++) {
+			entryp = pdb_entry_pointer(pdb, idx);
+
+			if (*entryp != UNREACHED)
+				*entryp -= min;
+		}
 	}
 }
 
