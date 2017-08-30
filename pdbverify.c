@@ -81,7 +81,7 @@ verify_entry(struct patterndb *pdb, struct index *idx, FILE *f)
 	}
 
 	/* invariant 3 */
-	if (progress == 0) {
+	if (progress == 0 && srcentry != 0) {
 		if (f != NULL) {
 			index_string(pdb->aux.ts, indexstr1, idx);
 			fprintf(f, "No progress possible from %s\n", indexstr1);
