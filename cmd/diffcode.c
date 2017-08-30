@@ -96,7 +96,7 @@ main(int argc, char *argv[])
 
 	if (in_place)
 		o = f;
-	else if (oname != NULL) {
+	else {
 		o = fopen(oname, "wb");
 		if (o == NULL) {
 			perror(oname);

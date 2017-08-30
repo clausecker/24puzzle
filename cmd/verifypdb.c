@@ -55,9 +55,9 @@ main(int argc, char *argv[])
 			usage(argv[0]);
 		}
 
-	if (tileset_count(ts) >= 16) {
-		fprintf(stderr, "%d tiles are too many tiles. Up to 15 tiles allowed.\n",
-		    tileset_count(ts));
+	if (tileset_count(tileset_remove(ts, ZERO_TILE)) >= INDEX_MAX_TILES) {
+		fprintf(stderr, "%d tiles are too many tiles. Up to %d tiles allowed.\n",
+		    tileset_count(tileset_remove(ts, ZERO_TILE)), INDEX_MAX_TILES);
 		return (EXIT_FAILURE);
 	}
 
