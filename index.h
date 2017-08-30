@@ -55,9 +55,9 @@ struct index {
  * be shared between threads.
  */
 struct index_table {
-	unsigned offset;
 	signed char eqclasses[TILE_COUNT];
 	unsigned char n_eqclass;
+	unsigned offset;
 };
 
 /*
