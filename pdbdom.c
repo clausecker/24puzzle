@@ -19,13 +19,12 @@
  */
 struct vertex {
 	unsigned additions : 8; /* number of new configurations this would cover */
-	cmbindex index : 56;    /* puzzle configuration */
+	cindex index : 56;      /* puzzle configuration */
 };
 
 enum {
 	DOMINATED = UNREACHED, /* == 0xff */
 	TO_BE_DOMINATED = 0xfe,
-	REACH_LEN = 256,	/* TODO, see compute_reach() */
 };
 
 /*
@@ -183,51 +182,37 @@ remove_root(struct heap *heap)
 }
 
 /*
- * In the PDB, find entries in the neighborhood of the confinguration
+ * In the PDB, find entries in the neighborhood of the configuration
  * represented by cmb that are marked TO_BE_DOMINATED and store their
  * indices in reach.  Return the number of configurations found.  reach
  * must provide space to store up to REACH_LEN entries.
- *
- * TODO: Make this work with zero-aware PDBs.
  */
 static size_t
-compute_reach(tileset ts, patterndb pdb, cmbindex reach[REACH_LEN], cmbindex cmb)
+compute_reach(struct patterndb *pdb, struct index reach[MAX_MOVES], struct index *idx)
 {
+	struct move moves[MAX_MOVES];
 	struct puzzle p;
-	struct index idx;
-	cmbindex key;
-	tileset eq, req;
-	size_t n_reach = 0, i, zloc, n_move, least;
-	const signed char *moves;
+	size_t n_reach = 0, i, zloc, n_moves;
 
-	split_index(ts, &idx, cmb);
-	invert_index(ts, &p, &idx);
-	eq = tileset_eqclass(ts, &p);
+	invert_index(&pdb->aux, &p, idx);
 	zloc = zero_location(&p);
+	n_moves = generate_moves(moves, eqclass_from_index(&pdb->aux, idx));
 
-	for (req = tileset_reduce_eqclass(eq); !tileset_empty(req); req = tileset_remove_least(req)) {
-		least = tileset_get_least(req);
-		n_move = move_count(least);
-		moves = get_moves(least);
-		move(&p, least);
+	for (i = 0; i < n_moves; i++) {
+		move(&p, moves[i].zloc);
+		move(&p, moves[i].dest);
 
-		for (i = 0; i < n_move; i++) {
-			if (tileset_has(eq, moves[i]))
-				continue;
+		compute_index(&pdb->aux, reach + i, &p);
+		pdb_prefetch(pdb, reach + i);
 
-			move(&p, moves[i]);
-
-			key = full_index(ts, &p);
-			if (pdb[key] == TO_BE_DOMINATED)
-				reach[n_reach++] = key;
-
-			move(&p, least);
-		}
-
+		move(&p, moves[i].zloc);
 		move(&p, zloc);
 	}
 
-	assert(n_reach <= REACH_LEN);
+	/* invariant: n_reach <= i */
+	for (i = 0; i < n_moves; i++)
+		if (pdb_lookup(pdb, reach + i) == TO_BE_DOMINATED)
+			reach[n_reach++] = reach[i];
 
 	return (n_reach);
 }
@@ -241,15 +226,18 @@ compute_reach(tileset ts, patterndb pdb, cmbindex reach[REACH_LEN], cmbindex cmb
  * eqdist array is permuted as a result of this function.
  */
 static size_t
-find_dominating_set(tileset ts, patterndb pdb, struct vertex *eqdist, size_t n_eqdist, size_t n_dominatee)
+find_dominating_set(struct patterndb *pdb, struct vertex *eqdist,
+    size_t n_eqdist, size_t n_dominatee)
 {
+	struct index reach[MAX_MOVES], idx;
 	struct heap heap;
 	struct vertex *root;
 	size_t i, n_reach;
-	cmbindex reach[REACH_LEN];
 
-	for (i = 0; i < n_eqdist; i++)
-		eqdist[i].additions = compute_reach(ts, pdb, reach, eqdist[i].index);
+	for (i = 0; i < n_eqdist; i++) {
+		split_index(&pdb->aux, &idx, eqdist[i].index);
+		eqdist[i].additions = compute_reach(pdb, reach, &idx);
+	}
 
 	heap.root = eqdist;
 	heap.total = n_eqdist;
@@ -257,7 +245,8 @@ find_dominating_set(tileset ts, patterndb pdb, struct vertex *eqdist, size_t n_e
 
 	while (n_dominatee > 0 && heap.length > 0) {
 		root = get_root(&heap);
-		n_reach = compute_reach(ts, pdb, reach, root->index);
+		split_index(&pdb->aux, &idx, root->index);
+		n_reach = compute_reach(pdb, reach, &idx);
 
 		/*
 		 * If some vertices root reaches were already dominated by
@@ -274,10 +263,12 @@ find_dominating_set(tileset ts, patterndb pdb, struct vertex *eqdist, size_t n_e
 
 		/* we should never add a vertex that does not dominate anything new */
 		assert(n_reach != 0);
+
 		for (i = 0; i < n_reach; i++)
-			pdb[reach[i]] = UNREACHED;
+			pdb_update(pdb, reach + i, UNREACHED);
 
 		/* assumes that every reach[i] is a distinct element */
+		assert(n_reach <= n_dominatee);
 		n_dominatee -= n_reach;
 		root->additions = DOMINATED;
 		remove_root(&heap);
@@ -302,10 +293,11 @@ find_dominating_set(tileset ts, patterndb pdb, struct vertex *eqdist, size_t n_e
  * TODO: Consider if there is a purpose in making this parallel.
  */
 static struct vertex *
-accumulate_eqclass(patterndb pdb, tileset ts, size_t distance, size_t n_eqdist)
+accumulate_eqclass(struct patterndb *pdb, size_t distance, size_t n_eqdist)
 {
 	struct vertex *eqdist;
-	size_t i, j, n = search_space_size(ts);
+	struct index idx;
+	size_t i = 0, n_eqidx;
 
 	eqdist = malloc(n_eqdist * sizeof * eqdist);
 	if (eqdist == NULL) {
@@ -313,34 +305,39 @@ accumulate_eqclass(patterndb pdb, tileset ts, size_t distance, size_t n_eqdist)
 		abort();
 	}
 
-	for (i = j = 0; i < n; i++)
-		if (pdb[i] == distance) {
-			eqdist[j].index = i;
-			eqdist[j++].additions = 0;
-		}
+	for (idx.maprank = 0; idx.maprank < pdb->aux.n_maprank; idx.maprank++) {
+		n_eqidx = eqclass_count(&pdb->aux, idx.maprank);
+		for (idx.eqidx = 0; idx.eqidx < n_eqidx; idx.eqidx++)
+			for (idx.pidx = 0; idx.pidx < pdb->aux.n_perm; idx.pidx++)
+				if (pdb_lookup(pdb, &idx) == distance) {
+					eqdist[i].index = combine_index(&pdb->aux, &idx);
+					eqdist[i++].additions = 0;
+				}
+	}
 
 	return (eqdist);
 }
 
 /*
  * Eradicate the configurations not marked as DOMINATED in eqdist from
- * the pattern database by overwriting them with TO_BE_DOMINATED.  Then
- * move all entries not marked DOMINATED to the front and return the
- * number of entries not marked DOMINATED.
+ * the pattern database by overwriting them with TO_BE_DOMINATED.
+ * Return the number of entries eradicated.
  */
 static size_t
-eradicate_entries(patterndb pdb, struct vertex *eqdist, size_t n_eqdist)
+eradicate_entries(struct patterndb *pdb, struct vertex *eqdist, size_t n_eqdist)
 {
-	size_t i, j;
+	struct index idx;
+	size_t i, eradicated = 0;
 
 	/* invariant: j <= i */
-	for (i = j = 0; i < n_eqdist; i++)
+	for (i = 0; i < n_eqdist; i++)
 		if (eqdist[i].additions != DOMINATED) {
-			pdb[eqdist[i].index] = TO_BE_DOMINATED;
-			eqdist[j++] = eqdist[i];
+			split_index(&pdb->aux, &idx, eqdist[i].index);
+			pdb_update(pdb, &idx, TO_BE_DOMINATED);
+			eradicated++;
 		}
 
-	return (j);
+	return (eradicated);
 }
 
 /*
@@ -367,41 +364,29 @@ eradicate_entries(patterndb pdb, struct vertex *eqdist, size_t n_eqdist)
  * is written to f when f is not NULL.
  */
 extern void
-reduce_patterndb(patterndb pdb, tileset ts, FILE *f)
+pdb_reduce(struct patterndb *pdb, FILE *f)
 {
-	cmbindex histogram[PDB_HISTOGRAM_LEN], size = search_space_size(ts);
+	size_t histogram[PDB_HISTOGRAM_LEN];
 	struct vertex *near;
-	size_t n_classes, i, n_near, eradicated;
+	size_t n_classes, i, n_near, eradicated = 0;
 
-	n_classes = generate_pdb_histogram(histogram, pdb, ts);
+	n_classes = pdb_histogram(histogram, pdb);
 	if (n_classes < 2)
 		return;
 
 	if (f != NULL)
 		fprintf(f, "Histogram: %zu classes.\n\n", n_classes);
 
-	/* mark all entries in the farthest equivalence class as "to be dominated" */
-	for (i = 0; i < size; i++)
-		if (pdb[i] == n_classes - 1)
-			pdb[i] = TO_BE_DOMINATED;
-
-	eradicated = histogram[n_classes - 1];
-	if (f != NULL)
-		fprintf(f, "%3zu: %20zu/%20zu (%6.2f%%)\n", n_classes - 1,
-		    (size_t)0, eradicated, 0.0);
-
+	/* no domination is attempted for equidistance class 0 */
 	for (i = n_classes - 1; i > 0; i--) {
-		n_near = histogram[i - 1];
-		near = accumulate_eqclass(pdb, ts, i - 1, n_near);
-		find_dominating_set(ts, pdb, near, n_near, eradicated);
-
+		n_near = histogram[i];
+		near = accumulate_eqclass(pdb, i, n_near);
+		find_dominating_set(pdb, near, n_near, eradicated);
 		eradicated = eradicate_entries(pdb, near, n_near);
-		/* if this is the last round, there should be nothing left to dominate */
-		assert(i > 1 || eradicated == 0);
 		free(near);
 
 		if (f != NULL)
-			fprintf(f, "%3zu: %20zu/%20zu (%6.2f%%)\n", i - 1,
+			fprintf(f, "%3zu: %20zu/%20zu (%6.2f%%)\n", i,
 			    (n_near - eradicated), n_near, (100.0 * (n_near - eradicated)) / n_near);
 	}
 }

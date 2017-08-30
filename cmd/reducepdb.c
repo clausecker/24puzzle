@@ -21,12 +21,10 @@ usage(const char *argv0)
 extern int
 main(int argc, char *argv[])
 {
-	tileset ts = 0x00000e7; /* 0 1 2 5 6 7 */
-	size_t count, size;
+	struct patterndb *pdb;
+	tileset ts = DEFAULT_TILESET;
 	int optchar, in_place = 0;
 	const char *fname = NULL, *oname = NULL;
-
-	patterndb pdb;
 	FILE *f, *o = NULL;
 
 	while (optchar = getopt(argc, argv, "f:ij:o:t:"), optchar != -1)
@@ -96,21 +94,9 @@ main(int argc, char *argv[])
 		}
 	}
 
-	size = search_space_size(ts);
-
-	pdb = malloc(size);
+	pdb = pdb_load(ts, f);
 	if (pdb == NULL) {
-		perror("malloc");
-		return (EXIT_FAILURE);
-	}
-
-	count = fread(pdb, 1, size, f);
-	if (count < size) {
-		if (ferror(f))
-			perror("fread");
-		else
-			fprintf(stderr, "PDB too short.\n");
-
+		perror("pdb_load");
 		return (EXIT_FAILURE);
 	}
 
@@ -119,22 +105,17 @@ main(int argc, char *argv[])
 	else
 		fclose(f);
 
-	reduce_patterndb(pdb, ts, stderr);
+	pdb_reduce(pdb, stderr);
 
 	if (o != NULL) {
-		count = fwrite(pdb, 1, size, o);
-
-		if (count < size) {
-			if (ferror(o))
-				perror("fwrite");
-			else
-				fprintf(stderr, "End of file writing PDB.\n");
-
+		if (pdb_store(o, pdb) != 0) {
+			perror("pdb_store");
 			return (EXIT_FAILURE);
 		}
 
 		fclose(o);
 	}
+
 
 
 	return (EXIT_SUCCESS);
