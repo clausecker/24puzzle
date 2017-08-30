@@ -56,26 +56,6 @@ tileset_populate_eqclasses(signed char eqclasses[TILE_COUNT], tileset map)
 }
 
 /*
- * For a tileset ts which may or may not contain the zero tile
- * and a puzzle configuration p, compute a tileset representing
- * the squares we can move the zero tile to without disturbing
- * the non-zero tiles in ts.  If the zero tile is not in ts, it
- * this is just the set of squares not occupied by tiles in ts
- * as we cannot make assumptions about the position of the zero
- * tile.
- */
-extern tileset
-tileset_eqclass(tileset ts, const struct puzzle *p)
-{
-	tileset cmap = tileset_complement(tileset_map(tileset_remove(ts, ZERO_TILE), p));
-
-	if (tileset_has(ts, ZERO_TILE))
-		return (tileset_flood(cmap, zero_location(p)));
-	else
-		return (cmap);
-}
-
-/*
  * Generate a string representing ts and store it in str.
  */
 extern void
