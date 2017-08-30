@@ -75,12 +75,6 @@ struct index_aux {
 	struct index_table *idxt;
 };
 
-/*
- * This type represents all the components of struct index combined into
- * a single number.
- */
-typedef unsigned long long cmbindex;
-
 enum {
 	/* maximal number of nonzero tiles in partial index */
 	INDEX_MAX_TILES = 12,
@@ -91,8 +85,6 @@ enum {
 
 extern void	compute_index(const struct index_aux*, struct index*, const struct puzzle*);
 extern void	invert_index(const struct index_aux*, struct puzzle*, const struct index*);
-extern cmbindex	combine_index(const struct index_aux*, const struct index*);
-extern void	split_index(const struct index_aux*, struct index*, cmbindex);
 extern void	index_string(tileset, char[INDEX_STR_LEN], const struct index*);
 extern void	make_index_aux(struct index_aux*, tileset);
 
@@ -130,10 +122,10 @@ eqclass_total(const struct index_aux *aux)
  * This is one higher than the highest index combine_index() would
  * generate for an index in ts.
  */
-static inline cmbindex
+static inline size_t
 search_space_size(const struct index_aux *aux)
 {
-	return (aux->n_maprank * aux->n_perm * eqclass_total(aux));
+	return ((size_t)aux->n_maprank * (size_t)aux->n_perm * (size_t)eqclass_total(aux));
 }
 
 

@@ -151,60 +151,6 @@ invert_index(const struct index_aux *aux, struct puzzle *p, const struct index *
 }
 
 /*
- * For some purposes, it is useful to be able to combine an index into
- * a single number.  This is done by computing the representation of all
- * components in an appropriate compound base.
- */
-extern cmbindex
-combine_index(const struct index_aux *aux, const struct index *idx)
-{
-	cmbindex moffset;
-
-	if (tileset_has(aux->ts, ZERO_TILE))
-		moffset = aux->idxt[idx->maprank].offset + idx->eqidx;
-	else
-		moffset = idx->maprank;
-
-	return (moffset * aux->n_perm + idx->pidx);
-}
-
-/*
- * Split a combined index back up into its bits and pieces.  This
- * operation is quite slow, it's main purpose is to allow
- * pdb_iterate_parallel() to split the PDB into equally-sized pieces.
- */
-extern void
-split_index(const struct index_aux *aux, struct index *idx, cmbindex cmb)
-{
-	size_t l, m, r;
-	unsigned offset;
-
-	idx->pidx = cmb % aux->n_perm;
-	offset = cmb / aux->n_perm;
-
-	if (!tileset_has(aux->ts, ZERO_TILE)) {
-		idx->maprank = offset;
-		idx->eqidx = -1;
-
-		return;
-	}
-
-	/* do a binary search through idxt */
-	for (l = 0, r = aux->n_maprank; r != 0; r >>= 1) {
-		m = l + (r >> 1);
-
-		if (offset >= aux->idxt[m].offset + aux->idxt[m].n_eqclass) {
-			l = m + 1;
-			r--;
-		} else if (offset >= aux->idxt[m].offset) {
-			idx->maprank = m;
-			idx->eqidx = offset - aux->idxt[m].offset;
-			return;
-		} /* else move left */
-	}
-}
-
-/*
  * Allocate and initialize the lookup table for index generation for
  * tileset ts.  If storage is insufficient, abort the program.  If ts
  * does not account for the zero tile, return NULL.

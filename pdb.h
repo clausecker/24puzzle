@@ -57,7 +57,7 @@ extern int	pdb_store(FILE *, struct patterndb *);
 /* various */
 extern int	pdb_generate(struct patterndb *, FILE *);
 extern int	pdb_verify(struct patterndb *, FILE *);
-extern int	pdb_histogram(cmbindex[PDB_HISTOGRAM_LEN], struct patterndb *);
+extern int	pdb_histogram(size_t[PDB_HISTOGRAM_LEN], struct patterndb *);
 extern void	pdb_reduce(struct patterndb *, FILE *);
 
 /*

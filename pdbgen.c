@@ -15,14 +15,13 @@
  * equivalence class represented by idx that are marked as UNREACHED and
  * then setting them to round.  Return the number of entries updated.
  */
-static cmbindex
+static size_t
 update_pdb_entry(struct patterndb *pdb, const struct index *idx,
     const struct move *moves, size_t n_move, int round)
 {
 	struct puzzle p;
 	struct index dist[MAX_MOVES];
-	size_t i, zloc;
-	cmbindex count = 0;
+	size_t i, zloc, count = 0;
 
 	invert_index(&pdb->aux, &p, idx);
 	zloc = zero_location(&p);
@@ -50,7 +49,7 @@ update_pdb_entry(struct patterndb *pdb, const struct index *idx,
  */
 struct pdbgen_config {
 	struct parallel_config pcfg;
-	_Atomic cmbindex count;
+	_Atomic size_t count;
 	int round;
 };
 
@@ -65,8 +64,7 @@ generate_cohort(void *cfgarg, struct index *idx)
 	struct pdbgen_config *cfg = cfgarg;
 	struct patterndb *pdb = cfg->pcfg.pdb;
 	size_t eqidx, pidx, n_eqclass = eqclass_count(&pdb->aux, idx->maprank),
-	    n_perm = pdb->aux.n_perm, n_move;
-	cmbindex count = 0;
+	    n_perm = pdb->aux.n_perm, n_move, count = 0;
 	int round = cfg->round;
 	tileset map = tileset_unrank(pdb->aux.n_tile, idx->maprank);
 
@@ -118,14 +116,14 @@ pdb_generate(struct patterndb *pdb, FILE *f)
 	pdb_update(pdb, &idx, 0);
 
 	if (f != NULL)
-		fprintf(f, "%3d: %20llu\n", 0, 1llu);
+		fprintf(f, "%3d: %20zu\n", 0, (size_t)1);
 
 	do {
 		cfg.count = 0;
 		cfg.round++;
 		pdb_iterate_parallel(&cfg.pcfg);
 		if (f != NULL)
-			fprintf(f, "%3d: %20llu\n", cfg.round, cfg.count);
+			fprintf(f, "%3d: %20zu\n", cfg.round, cfg.count);
 	} while (cfg.count != 0);
 
 	return (cfg.round);

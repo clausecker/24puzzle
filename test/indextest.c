@@ -57,8 +57,7 @@ test_puzzle(const struct index_aux *aux, const struct puzzle *p)
 {
 	char puzzle_str[PUZZLE_STR_LEN], index_str[INDEX_STR_LEN];
 	struct puzzle pp;
-	struct index idx, idxsplit;
-	cmbindex cmb;
+	struct index idx;
 
 	compute_index(aux, &idx, p);
 	invert_index(aux, &pp, &idx);
@@ -71,20 +70,6 @@ test_puzzle(const struct index_aux *aux, const struct puzzle *p)
 		puts(index_str);
 		puzzle_string(puzzle_str, &pp);
 		puts(puzzle_str);
-
-		return (0);
-	}
-
-	cmb = combine_index(aux, &idx);
-	split_index(aux, &idxsplit, cmb);
-	if (!index_equal(aux->ts, &idx, &idxsplit)) {
-		printf("test_puzzle failed for 0x%07x:\n", aux->ts);
-		puzzle_string(puzzle_str, p);
-		puts(puzzle_str);
-		index_string(aux->ts, index_str, &idx);
-		printf("%s\n%llu\n", index_str, cmb);
-		index_string(aux->ts, index_str, &idxsplit);
-		puts(index_str);
 
 		return (0);
 	}
@@ -103,15 +88,11 @@ static int
 test_index(const struct index_aux *aux, const struct index *idx)
 {
 	char puzzle_str[PUZZLE_STR_LEN], index_str[INDEX_STR_LEN];
-	struct index idx2, idx3;
+	struct index idx2;
 	struct puzzle p;
-	cmbindex cmb;
 
 	invert_index(aux, &p, idx);
 	compute_index(aux, &idx2, &p);
-
-	cmb = combine_index(aux, idx);
-	split_index(aux, &idx3, cmb);
 
 	if (!index_equal(aux->ts, &idx2, idx)) {
 		printf("test_index failed for 0x%07x:\n", aux->ts);
@@ -120,17 +101,6 @@ test_index(const struct index_aux *aux, const struct index *idx)
 		puzzle_string(puzzle_str, &p);
 		puts(puzzle_str);
 		index_string(aux->ts, index_str, &idx2);
-		puts(index_str);
-
-		return (0);
-	}
-
-	if (!index_equal(aux->ts, &idx3, idx)) {
-		printf("test_index failed for 0x%07x:\n", aux->ts);
-		index_string(aux->ts, index_str, idx);
-		puts(index_str);
-		printf("%llu\n\n", cmb);
-		index_string(aux->ts, index_str, &idx3);
 		puts(index_str);
 
 		return (0);
