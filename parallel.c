@@ -53,6 +53,7 @@ pdb_iterate_parallel(struct parallel_config *cfg)
 {
 	pthread_t pool[PDB_MAX_JOBS];
 
+	size_t j;
 	int i, jobs = pdb_jobs, error;
 
 	cfg->nextrank = 0;
@@ -60,9 +61,8 @@ pdb_iterate_parallel(struct parallel_config *cfg)
 	/* for easier debugging, don't multithread when jobs == 1 */
 	if (jobs == 1) {
 		struct index idx;
-		size_t j, n_rank = maprank_count(cfg->pdb->aux.ts);
 
-		for (j = 0; j < n_rank; j++) {
+		for (j = 0; j < cfg->pdb->aux.n_maprank; j++) {
 			idx.pidx = 0;
 			idx.maprank = j;
 			idx.eqidx = 0;

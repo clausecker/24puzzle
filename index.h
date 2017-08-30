@@ -99,32 +99,6 @@ extern void	make_index_aux(struct index_aux*, tileset);
 extern const unsigned factorials[INDEX_MAX_TILES + 1];
 
 /*
- * Compute the number of possible values of an index for tile set ts.
- * This is one higher than the highest index combine_index() would
- * generate for an index in ts.
- */
-static inline cmbindex
-search_space_size(tileset ts, const struct index_table *idxt)
-{
-	size_t tscount = tileset_count(ts), ccount = combination_count[tscount];
-
-	if (tileset_has(ts, ZERO_TILE))
-		return ((idxt[ccount - 1].offset + idxt[ccount - 1].n_eqclass) * factorials[tscount]);
-	else
-		return (ccount * factorials[tscount]);
-}
-
-/*
- * Given a tile set ts, compute the number of different values for
- * maprank indices for this tile set can have.
- */
-static inline tsrank
-maprank_count(tileset ts)
-{
-	return (combination_count[tileset_count(tileset_remove(ts, ZERO_TILE))]);
-}
-
-/*
  * Given an index_aux structure and a maprank within that index, return
  * the number of equivalence classes for that map.  If the zero tile is
  * not accounted for, this number will be 1.
@@ -137,6 +111,32 @@ eqclass_count(const struct index_aux *aux, tsrank maprank)
 	else
 		return (1);
 }
+
+/*
+ * Return the total number of equivalence class for all possible maps of
+ * the index described by aux.
+ */
+static inline unsigned
+eqclass_total(const struct index_aux *aux)
+{
+	if (tileset_has(aux->ts, ZERO_TILE))
+		return (aux->idxt[aux->n_maprank - 1].offset + aux->idxt[aux->n_maprank - 1].n_eqclass);
+	else
+		return (aux->n_maprank);
+}
+
+/*
+ * Compute the number of possible values of an index in aux.
+ * This is one higher than the highest index combine_index() would
+ * generate for an index in ts.
+ */
+static inline cmbindex
+search_space_size(const struct index_aux *aux)
+{
+	return (aux->n_maprank * aux->n_perm * eqclass_total(aux));
+}
+
+
 
 /*
  * Given a permutation index, compute the corresponding equivalence

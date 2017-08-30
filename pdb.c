@@ -19,18 +19,21 @@
 extern struct patterndb *
 pdb_allocate(tileset ts)
 {
-	size_t i, n_tables = maprank_count(ts);
-	struct patterndb *pdb = malloc(sizeof *pdb + sizeof *pdb->tables * n_tables);
+	size_t i;
+	struct index_aux aux;
+	struct patterndb *pdb;
 
+	make_index_aux(&aux, ts);
+	pdb = malloc(sizeof *pdb + sizeof *pdb->tables * aux.n_maprank);
 	if (pdb == NULL)
 		return (NULL);
 
-	make_index_aux(&pdb->aux, ts);
+	pdb->aux = aux;
 
 	/* allow us to simply call pdb_free() if we run out of memory */
-	memset(pdb->tables, 0, sizeof *pdb->tables * n_tables);
+	memset(pdb->tables, 0, sizeof *pdb->tables * aux.n_maprank);
 
-	for (i = 0; i < n_tables; i++) {
+	for (i = 0; i < aux.n_maprank; i++) {
 		pdb->tables[i] = malloc(pdb_table_size(pdb, i));
 		if (pdb->tables[i] == NULL) {
 			pdb_free(pdb);
