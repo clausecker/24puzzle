@@ -1,14 +1,6 @@
 #ifndef TILESET_H
 #define TILESET_H
 
-#ifdef __SSE__
-# include <immintrin.h>
-#endif
-
-#ifdef __SSE4__
-# include <nmmintrin.h>
-#endif
-
 #include "builtins.h"
 #include "puzzle.h"
 
@@ -139,113 +131,6 @@ static inline tileset
 tileset_parity(tileset ts)
 {
 	return (tileset_count(ts & 0x1555555) & 1);
-}
-
-/*
- * Given a tileset and a puzzle configuration, compute a tileset
- * representing the squares occupied by tiles in the tileset.
- *
- * TODO: Use SSE4.2 instruction pcmpestrm to compute this quickly.
- */
-static inline tileset
-tileset_map(tileset ts, const struct puzzle *p)
-{
-
-#ifdef __AVX2__
-	/*
-	 * first, create a mask of those spots we are not interested in.
-	 * We mark spots beyond the end of the tiles array as "interesting"
-	 * under the assumption that they are zero.  This allows us to use
-	 * pcmpistrm instead of the more expensive pcmpestrm.
-	 */
-	__m256i shufmask = _mm256_set_epi64x(0x0303030303030303ULL,0x0202020202020202ULL,
-	    0x0101010101010101,0x0000000000000000ULL);
-	__m256i mask = _mm256_set1_epi32(tileset_complement(ts));
-	__m256i bitmask = _mm256_set1_epi64x(0x8040201008040201ULL);
-	mask = _mm256_shuffle_epi8(mask, shufmask);
-	mask = _mm256_cmpeq_epi8(_mm256_and_si256(mask, bitmask), bitmask);
-
-	/* create sets of grid positions from the masks */
-	__m256i tilemsk = _mm256_set_epi64x(0x0000000000000098ULL, 0x9796959493929190ULL,
-	    0x8f8e8d8c8b8a8988ULL, 0x8786858483828180ULL);
-	mask = _mm256_or_si256(mask, tilemsk);
-
-	/* load the tiles in the grid */
-	/* set the MSB of each entry to circumvent pcmpistri's string termination check */
-	__m256i msbmsk = _mm256_set_epi64x(0x0000000000000080ULL, 0x8080808080808080ULL,
-	    0x8080808080808080ULL, 0x8080808080808080ULL);
-	__m256i grid = _mm256_or_si256(msbmsk, _mm256_loadu_si256((const __m256i*)p->grid));
-	__m128i gridlo = _mm256_castsi256_si128(grid), gridhi = _mm256_extracti128_si256(grid, 1);
-	__m128i masklo = _mm256_castsi256_si128(mask), maskhi = _mm256_extracti128_si256(mask, 1);
-
-	/* compute the bitmasks with some shuffling */
-#define OPERATION (_SIDD_UBYTE_OPS|_SIDD_CMP_EQUAL_ANY|_SIDD_BIT_MASK)
-	__m128i maplolo = _mm_cmpistrm(masklo, gridlo, OPERATION);
-	__m128i maphilo = _mm_cmpistrm(masklo, gridhi, OPERATION);
-	maplolo = _mm_unpacklo_epi16(maplolo, maphilo);
-	__m128i maplohi = _mm_cmpistrm(maskhi, gridlo, OPERATION);
-	__m128i maphihi = _mm_cmpistrm(maskhi, gridhi, OPERATION);
-	maplohi = _mm_unpacklo_epi16(maplohi, maphihi);
-	maplolo = _mm_or_si128(maplolo, maplohi);
-#undef OPERATION
-
-	return (_mm_cvtsi128_si32(maplolo));
-#elif defined(__SSE4_2__)
-	/*
-	 * this code is very similar to the AVX code except for the more
-	 * complex masking in the beginning due to the lack of 256 bit
-	 * registers.
-	 */
-
-	/*
-	 * first, create a mask of those spots we are not interested in.
-	 * We mark spots beyond the end of the tiles array as "interesting"
-	 * under the assumption that they are zero.  This allows us to use
-	 * pcmpistrm instead of the more expensive pcmpestrm.
-	 */
-	__m128i shufmasklo = _mm_set_epi64x(0x0101010101010101ULL,0x0000000000000000ULL);
-	__m128i shufmaskhi = _mm_set_epi64x(0x0303030303030303ULL,0x0202020202020202ULL);
-	__m128i bitmask = _mm_set1_epi64x(0x8040201008040201ULL);
-	__m128i masklo = _mm_cvtsi32_si128(tileset_complement(ts)), maskhi;
-	maskhi = _mm_shuffle_epi8(masklo, shufmaskhi);
-	masklo = _mm_shuffle_epi8(masklo, shufmasklo);
-	masklo = _mm_cmpeq_epi8(_mm_and_si128(masklo, bitmask), bitmask);
-	maskhi = _mm_cmpeq_epi8(_mm_and_si128(maskhi, bitmask), bitmask);
-
-	/* create sets of grid positions from the masks */
-	__m128i tilemsklo = _mm_set_epi64x(0x8f8e8d8c8b8a8988ULL, 0x8786858483828180ULL);
-	__m128i tilemskhi = _mm_set_epi64x(0x0000000000000098ULL, 0x9796959493929190ULL);
-	masklo = _mm_or_si128(masklo, tilemsklo);
-	maskhi = _mm_or_si128(maskhi, tilemskhi);
-
-	/* load the tiles in the grid */
-	/* set the MSB of each entry to circumvent pcmpistri's string termination check */
-	__m128i lomsbmsk = _mm_set_epi64x(0x8080808080808080ULL, 0x8080808080808080ULL);
-	__m128i himsbmsk = _mm_set_epi64x(0x0000000000000080ULL, 0x8080808080808080ULL);
-
-	__m128i gridlo = _mm_or_si128(lomsbmsk, _mm_loadu_si128((const __m128i*)p->grid + 0));
-	__m128i gridhi = _mm_or_si128(himsbmsk, _mm_loadu_si128((const __m128i*)p->grid + 1));
-
-	/* compute the bitmasks */
-#define OPERATION (_SIDD_UBYTE_OPS|_SIDD_CMP_EQUAL_ANY|_SIDD_BIT_MASK)
-	__m128i maplolo = _mm_cmpistrm(masklo, gridlo, OPERATION);
-	__m128i maphilo = _mm_cmpistrm(masklo, gridhi, OPERATION);
-	maplolo = _mm_unpacklo_epi16(maplolo, maphilo);
-	__m128i maplohi = _mm_cmpistrm(maskhi, gridlo, OPERATION);
-	__m128i maphihi = _mm_cmpistrm(maskhi, gridhi, OPERATION);
-	maplohi = _mm_unpacklo_epi16(maplohi, maphihi);
-	maplolo = _mm_or_si128(maplolo, maplohi);
-#undef OPERATION
-
-	return (_mm_cvtsi128_si32(maplolo));
-#else
-	tileset map = EMPTY_TILESET;
-
-	for (; !tileset_empty(ts); ts = tileset_remove_least(ts))
-		map |= 1 << p->tiles[tileset_get_least(ts)];
-
-	return (map);
-#endif
 }
 
 /*

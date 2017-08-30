@@ -1,5 +1,5 @@
 CC=clang
-CFLAGS=-march=native -O3 -Wall -Wno-missing-braces -Wno-parentheses -I. -g
+CFLAGS=-std=c11 -march=native -O3 -Wall -Wno-missing-braces -Wno-parentheses -I. -g
 LDLIBS=-lpthread
 
 #OBJ=index.o puzzle.o tileset.o validation.o pdbgen.o pdbverify.o parallel.o \

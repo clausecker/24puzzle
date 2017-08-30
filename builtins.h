@@ -55,6 +55,8 @@
 # endif
 #endif
 
+#include <stddef.h>
+
 /*
  * Compute the number of bits set in x.
  */

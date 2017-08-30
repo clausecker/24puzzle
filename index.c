@@ -5,6 +5,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#ifdef __SSE__
+# include <immintrin.h>
+#endif
+
+#ifdef __SSE4__
+# include <nmmintrin.h>
+#endif
+
 #include "builtins.h"
 #include "tileset.h"
 #include "index.h"
@@ -28,6 +36,64 @@ const unsigned factorials[INDEX_MAX_TILES + 1] = {
 	2 * 3 * 4 * 5 * 6 * 7 * 8 * 9 * 10 * 11,
 	2 * 3 * 4 * 5 * 6 * 7 * 8 * 9 * 10 * 11 * 12,
 };
+
+/*
+ * Return a tileset specifying which grid locations in p are occupied by
+ * nonzero tiles in aux->ts.
+ */
+static tileset
+tile_map(const struct index_aux *aux, const struct puzzle *p)
+{
+
+#ifdef __AVX2__
+	/* load complemented tiles */
+	__m128i tiles = _mm_loadu_si128((const __m128i*)aux->tiles);
+
+	/* load grid and complement to circumvent pcmpistri's string termination check */
+	__m256i grid = _mm256_andnot_si256(_mm256_loadu_si256((const __m256i*)p->grid),
+	    _mm256_set_epi64x(0xffull, -1ull, -1ull, -1ull));
+
+	/* compute the bitmasks */
+#define OPERATION (_SIDD_UBYTE_OPS|_SIDD_CMP_EQUAL_ANY|_SIDD_BIT_MASK)
+	__m128i maplo = _mm_cmpistrm(tiles, _mm256_castsi256_si128(grid), OPERATION);
+	__m128i maphi = _mm_cmpistrm(tiles, _mm256_extracti128_si256(grid, 1), OPERATION);
+	maplo = _mm_unpacklo_epi16(maplo, maphi);
+#undef OPERATION
+
+	return (_mm_cvtsi128_si32(maplo));
+#elif defined(__SSE4_2__)
+	/*
+	 * this code is very similar to the AVX code except for the more
+	 * complex masking in the beginning due to the lack of 256 bit
+	 * registers.
+	 */
+
+	/* load complemented tiles */
+	__m128i tiles = _mm_loadu_si128((const __m128i*)aux->tiles);
+
+	/* load grid and complement to circumvent pcmpistri's string termination check */
+	__m128i gridmask = _mm_set1_epi8(0xff);
+	__m128i gridlo = _mm_andnot_si128(_mm_loadu_si128((const __m128i*)p->grid + 0), gridmask);
+	__m128i gridhi = _mm_andnot_si128(_mm_loadu_si128((const __m128i*)p->grid + 1), _mm_bsrli_si128(gridmask, 7));
+
+	/* compute the bitmasks */
+#define OPERATION (_SIDD_UBYTE_OPS|_SIDD_CMP_EQUAL_ANY|_SIDD_BIT_MASK)
+	__m128i maplo = _mm_cmpistrm(tiles, gridlo, OPERATION);
+	__m128i maphi = _mm_cmpistrm(tiles, gridhi, OPERATION);
+	maplo = _mm_unpacklo_epi16(maplo, maphi);
+#undef OPERATION
+
+	return (_mm_cvtsi128_si32(maplo));
+#else
+	tileset ts = aux->ts, map = EMPTY_TILESET;
+
+	for (; !tileset_empty(ts); ts = tileset_remove_least(ts))
+		map |= 1 << p->tiles[tileset_get_least(ts)];
+
+	return (map);
+#endif
+}
+
 
 /*
  * This table stores pointers to the index_table structures generated
@@ -80,7 +146,7 @@ index_permutation(tileset ts, tileset map, const struct puzzle *p)
 extern void
 compute_index(const struct index_aux *aux, struct index *idx, const struct puzzle *p)
 {
-	tileset tsnz = tileset_remove(aux->ts, ZERO_TILE), map = tileset_map(tsnz, p);
+	tileset tsnz = tileset_remove(aux->ts, ZERO_TILE), map = tile_map(aux, p);
 
 	idx->maprank = tileset_rank(map);
 	prefetch(aux->idxt + idx->maprank);
@@ -198,12 +264,21 @@ make_index_table(tileset ts)
 extern void
 make_index_aux(struct index_aux *aux, tileset ts)
 {
+	tileset tsnz = tileset_remove(ts, ZERO_TILE);
+	size_t i = 0;
+
 	aux->ts = ts;
-	aux->n_tile = tileset_count(tileset_remove(ts, ZERO_TILE));
+	aux->n_tile = tileset_count(tsnz);
 	aux->n_maprank = combination_count[aux->n_tile];
 	aux->n_perm = factorials[aux->n_tile];
-	aux->solved_parity = tileset_parity(tileset_map(tileset_remove(ts, ZERO_TILE), &solved_puzzle));
-	aux->idxt = make_index_table(ts);
+
+	/* see tileset_map() for details */
+	memset(aux->tiles, 0, sizeof aux->tiles);
+	for (; !tileset_empty(tsnz); tsnz = tileset_remove_least(tsnz))
+		aux->tiles[i++] = ~tileset_get_least(tsnz);
+
+	aux->solved_parity = tileset_parity(tile_map(aux, &solved_puzzle));
+	aux->idxt = make_index_table(aux->ts);
 }
 
 /*

@@ -5,6 +5,8 @@
 # include <immintrin.h>
 #endif
 
+#include <stdalign.h>
+
 #include "puzzle.h"
 #include "tileset.h"
 
@@ -67,11 +69,13 @@ struct index_table {
  * appropriate strzct index_table.
  */
 struct index_aux {
-	tileset ts;
 	unsigned n_tile; /* number of tiles not including the zero tile */
 	unsigned n_maprank; /* number of different maprank values */
 	unsigned n_perm; /* number of permutations */
 	unsigned solved_parity; /* parity of the solved configuration */
+	alignas(16) unsigned char tiles[16]; /* for use with the SSE 4.2 tileset_map() */
+
+	tileset ts;
 	struct index_table *idxt;
 };
 
