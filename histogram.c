@@ -12,22 +12,23 @@
  */
 struct histogram_config {
 	struct parallel_config pcfg;
-	_Atomic cmbindex histogram[PDB_HISTOGRAM_LEN];
+	_Atomic size_t histogram[PDB_HISTOGRAM_LEN];
 };
 
 /*
- * Generate one chunk of the histogram.
+ * Generate the histogram for one map.
  */
 static void
-histogram_worker(void *cfgarg, cmbindex i0, cmbindex n)
+histogram_worker(void *cfgarg, struct index *idx)
 {
 	struct histogram_config *cfg = cfgarg;
-	cmbindex i, histogram[PDB_HISTOGRAM_LEN];
+	size_t i, n = pdb_table_size(cfg->pcfg.pdb, idx->maprank);
+	size_t histogram[PDB_HISTOGRAM_LEN];
 
 	memset(histogram, 0, sizeof histogram);
 
-	for (i = i0; i < i0 + n; i++)
-		histogram[cfg->pcfg.pdb[i]]++;
+	for (i = 0; i < n; i++)
+		histogram[cfg->pcfg.pdb->tables[idx->maprank][i]]++;
 
 	for (i = 0; i < PDB_HISTOGRAM_LEN; i++)
 		cfg->histogram[i] += histogram[i];
@@ -40,14 +41,13 @@ histogram_worker(void *cfgarg, cmbindex i0, cmbindex n)
  * nonzero entries in histogram.
  */
 extern int
-generate_pdb_histogram(cmbindex histogram[PDB_HISTOGRAM_LEN], patterndb pdb,
-    tileset ts)
+pdb_histogram(size_t histogram[PDB_HISTOGRAM_LEN],
+    struct patterndb *pdb)
 {
 	struct histogram_config cfg;
 	int i;
 
 	cfg.pcfg.pdb = pdb;
-	cfg.pcfg.ts = ts;
 	cfg.pcfg.worker = histogram_worker;
 	memset((void*)cfg.histogram, 0, sizeof cfg.histogram);
 
