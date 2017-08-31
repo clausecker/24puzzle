@@ -93,29 +93,26 @@ pdb_prefetch(struct patterndb *pdb, const struct index *idx)
 }
 
 /*
- * Unconditionally update the PDB entry for idx to dist.
+ * Unconditionally update the PDB entry for idx to dist.  The update is
+ * performed with memory_order_relaxed.
  */
 static inline void
 pdb_update(struct patterndb *pdb, const struct index *idx, unsigned dist)
 {
-	*pdb_entry_pointer(pdb, idx) = dist;
+	atomic_store_explicit(pdb_entry_pointer(pdb, idx), dist, memory_order_relaxed);
 }
 
 /*
- * Compare the PDB entry for idx with UNREACHED.  If it is equal, set it
- * to desired and return 1.  Otherwise, return 0.  This operation can be
- * executed concurrently with itself given that the value of desired is
- * equal in all calls.
+ * Update the PDB entry idx to desired if it is equal to UNREACHED.
+ * This is done with memory_order_relaxed.
  */
-static inline int
+static inline void
 pdb_conditional_update(struct patterndb *pdb, const struct index *idx, unsigned desired)
 {
 	atomic_uchar *entry = pdb_entry_pointer(pdb, idx);
 
-	if (*entry != UNREACHED)
-		return (0);
-
-	return (atomic_exchange(entry, desired) == UNREACHED);
+	if (atomic_load_explicit(entry, memory_order_relaxed) == UNREACHED)
+		atomic_store_explicit(entry, desired, memory_order_relaxed);
 }
 
 /*

@@ -13,15 +13,15 @@
 /*
  * Update PDB entry idx by finding all positions we can move to from the
  * equivalence class represented by idx that are marked as UNREACHED and
- * then setting them to round.  Return the number of entries updated.
+ * then setting them to round.
  */
-static size_t
+static void
 update_pdb_entry(struct patterndb *pdb, const struct index *idx,
     const struct move *moves, size_t n_move, int round)
 {
 	struct puzzle p;
 	struct index dist[MAX_MOVES];
-	size_t i, zloc, count = 0;
+	size_t i, zloc;
 
 	invert_index(&pdb->aux, &p, idx);
 	zloc = zero_location(&p);
@@ -38,9 +38,7 @@ update_pdb_entry(struct patterndb *pdb, const struct index *idx,
 	}
 
 	for (i = 0; i < n_move; i++)
-		count += pdb_conditional_update(pdb, dist + i, round);
-
-	return (count);
+		pdb_conditional_update(pdb, dist + i, round);
 }
 
 /*
@@ -63,8 +61,8 @@ generate_cohort(void *cfgarg, struct index *idx)
 	struct move moves[MAX_MOVES];
 	struct pdbgen_config *cfg = cfgarg;
 	struct patterndb *pdb = cfg->pcfg.pdb;
-	size_t eqidx, pidx, n_eqclass = eqclass_count(&pdb->aux, idx->maprank),
-	    n_perm = pdb->aux.n_perm, n_move, count = 0;
+	size_t n_eqclass = eqclass_count(&pdb->aux, idx->maprank),
+	    n_move, count = 0;
 	int round = cfg->round;
 	tileset map = tileset_unrank(pdb->aux.n_tile, idx->maprank);
 
@@ -77,17 +75,13 @@ generate_cohort(void *cfgarg, struct index *idx)
 	if ((tileset_parity(map) ^ pdb->aux.solved_parity) == (round & 1))
 		return;
 
-	for (eqidx = 0; eqidx < n_eqclass; eqidx++) {
-		idx->eqidx = eqidx;
+	for (idx->eqidx = 0; idx->eqidx < n_eqclass; idx->eqidx++) {
 		n_move = generate_moves(moves, eqclass_from_index(&pdb->aux, idx));
-
-		for (pidx = 0; pidx < n_perm; pidx++) {
-			idx->pidx = pidx;
-			if (pdb_lookup(pdb, idx) != round - 1)
-				continue;
-
-			count += update_pdb_entry(pdb, idx, moves, n_move, round);
-		}
+		for (idx->pidx = 0; idx->pidx < pdb->aux.n_perm; idx->pidx++)
+			if (pdb_lookup(pdb, idx) == round - 1) {
+				count++;
+				update_pdb_entry(pdb, idx, moves, n_move, round);
+			}
 	}
 
 	cfg->count += count;
@@ -115,15 +109,12 @@ pdb_generate(struct patterndb *pdb, FILE *f)
 	compute_index(&pdb->aux, &idx, &solved_puzzle);
 	pdb_update(pdb, &idx, 0);
 
-	if (f != NULL)
-		fprintf(f, "%3d: %20zu\n", 0, (size_t)1);
-
 	do {
 		cfg.count = 0;
 		cfg.round++;
 		pdb_iterate_parallel(&cfg.pcfg);
 		if (f != NULL)
-			fprintf(f, "%3d: %20zu\n", cfg.round, cfg.count);
+			fprintf(f, "%3d: %20zu\n", cfg.round - 1, cfg.count);
 	} while (cfg.count != 0);
 
 	return (cfg.round);
