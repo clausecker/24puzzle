@@ -18,6 +18,7 @@
  */
 struct patterndb {
 	struct index_aux aux;
+	int mapped; /* true if PDB has been allocated using mmap() */
 	atomic_uchar *tables[];
 };
 
@@ -35,7 +36,16 @@ enum {
 
 	/* maximum number of entries in a PDB histogram */
 	PDB_HISTOGRAM_LEN = 256,
+
+	/* constants for pdb_mmap */
+	PDB_MAP_RDONLY = 0,
+	PDB_MAP_RDWR = 1,
+	PDB_MAP_SHARED = 2,
 };
+
+/*
+ * Bitmap for pdb_mmap().
+ */
 
 /*
  * The number of threads to use.  This must be between 1 and
@@ -52,6 +62,7 @@ extern struct patterndb	*pdb_allocate(tileset);
 extern void	pdb_free(struct patterndb *);
 extern void	pdb_clear(struct patterndb *);
 extern struct patterndb *pdb_load(tileset, FILE *);
+extern struct patterndb *pdb_mmap(tileset, int, int);
 extern int	pdb_store(FILE *, struct patterndb *);
 
 /* various */

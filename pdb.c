@@ -1,9 +1,11 @@
 /* pdb.c -- PDB utility functions */
 
+#define _POSIX_C_SOURCE 200809L
 #include <errno.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <sys/mman.h>
 
 #include "tileset.h"
 #include "index.h"
@@ -29,6 +31,7 @@ pdb_allocate(tileset ts)
 		return (NULL);
 
 	pdb->aux = aux;
+	pdb->mapped = 0;
 
 	/* allow us to simply call pdb_free() if we run out of memory */
 	memset(pdb->tables, 0, sizeof *pdb->tables * aux.n_maprank);
@@ -52,8 +55,13 @@ pdb_free(struct patterndb *pdb)
 {
 	size_t i, n_tables = pdb->aux.n_maprank;
 
-	for (i = 0; i < n_tables; i++)
-		free(pdb->tables[i]);
+	if (pdb->mapped)
+		for (i = 0; i < n_tables; i++)
+			if (pdb->tables[i] != NULL)
+				munmap(pdb->tables[i], pdb_table_size(pdb, i));
+	else
+		for (i = 0; i < n_tables; i++)
+			free(pdb->tables[i]);
 
 	free(pdb);
 }
@@ -128,4 +136,64 @@ pdb_store(FILE *pdbfile, struct patterndb *pdb)
 	}
 
 	return (0);
+}
+
+/*
+ * Load a PDB from file descriptor fd by mapping it into RAM.  This
+ * might perform better than pdb_load().  Use flags to decide what
+ * protection the mapping has and whether changes are written back to
+ * the input file.
+ */
+extern struct patterndb *
+pdb_mmap(tileset ts, int pdbfd, int mapflags)
+{
+	struct index_aux aux;
+	struct patterndb *pdb;
+	off_t offset = 0;
+	size_t i;
+	int prot, flags;
+
+	switch (mapflags) {
+	case PDB_MAP_RDONLY:
+		prot = PROT_READ;
+		flags = MAP_SHARED;
+		break;
+
+	case PDB_MAP_RDWR:
+		prot = PROT_READ | PROT_WRITE;
+		flags = MAP_PRIVATE;
+		break;
+
+	case PDB_MAP_SHARED:
+		prot = PROT_READ | PROT_WRITE;
+		flags = MAP_SHARED;
+		break;
+
+	default:
+		errno = EINVAL;
+		return (NULL);
+	}
+
+	make_index_aux(&aux, ts);
+	pdb = malloc(sizeof *pdb + sizeof *pdb->tables * aux.n_maprank);
+	if (pdb == NULL)
+		return (NULL);
+
+	pdb->aux = aux;
+	pdb->mapped = 1;
+
+	/* allow us to simply call pdb_free() if we run out of memory */
+	memset(pdb->tables, 0, sizeof *pdb->tables * aux.n_maprank);
+
+	for (i = 0; i < aux.n_maprank; i++) {
+		pdb->tables[i] = mmap(NULL, pdb_table_size(pdb, i), prot, flags, pdbfd, offset);
+		offset += pdb_table_size(pdb, i);
+		if (pdb->tables[i] == MAP_FAILED) {
+			pdb->tables[i] = NULL;
+			pdb_free(pdb);
+			return (NULL);
+		}
+	}
+
+	return (pdb);
 }
