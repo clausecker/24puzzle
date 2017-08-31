@@ -89,6 +89,8 @@ enum {
 
 extern void	compute_index(const struct index_aux*, struct index*, const struct puzzle*);
 extern void	invert_index(const struct index_aux*, struct puzzle*, const struct index*);
+extern void	invert_index_map(const struct index_aux*, struct puzzle*, const struct index*);
+extern void	invert_index_rest(const struct index_aux*, struct puzzle*, const struct index*);
 extern void	index_string(tileset, char[INDEX_STR_LEN], const struct index*);
 extern void	make_index_aux(struct index_aux*, tileset);
 

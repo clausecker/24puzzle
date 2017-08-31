@@ -11,30 +11,28 @@
 #include "parallel.h"
 
 /*
- * Update PDB entry idx by finding all positions we can move to from the
- * equivalence class represented by idx that are marked as UNREACHED and
- * then setting them to round.
+ * Update the PDB for configuration p by finding all positions we can
+ * move to from the equivalence class represented by idx that are marked
+ * as UNREACHED and then setting them to round.
  */
 static void
-update_pdb_entry(struct patterndb *pdb, const struct index *idx,
+update_pdb_entry(struct patterndb *pdb, struct puzzle *p,
     const struct move *moves, size_t n_move, int round)
 {
-	struct puzzle p;
 	struct index dist[MAX_MOVES];
 	size_t i, zloc;
 
-	invert_index(&pdb->aux, &p, idx);
-	zloc = zero_location(&p);
+	zloc = zero_location(p);
 
 	for (i = 0; i < n_move; i++) {
-		move(&p, moves[i].zloc);
-		move(&p, moves[i].dest);
+		move(p, moves[i].zloc);
+		move(p, moves[i].dest);
 
-		compute_index(&pdb->aux, dist + i, &p);
+		compute_index(&pdb->aux, dist + i, p);
 		pdb_prefetch(pdb, dist + i);
 
-		move(&p, moves[i].zloc);
-		move(&p, zloc);
+		move(p, moves[i].zloc);
+		move(p, zloc);
 	}
 
 	for (i = 0; i < n_move; i++)
@@ -61,6 +59,7 @@ generate_cohort(void *cfgarg, struct index *idx)
 	struct move moves[MAX_MOVES];
 	struct pdbgen_config *cfg = cfgarg;
 	struct patterndb *pdb = cfg->pcfg.pdb;
+	struct puzzle p;
 	size_t n_eqclass = eqclass_count(&pdb->aux, idx->maprank),
 	    n_move, count = 0;
 	int round = cfg->round;
@@ -75,12 +74,15 @@ generate_cohort(void *cfgarg, struct index *idx)
 	if ((tileset_parity(map) ^ pdb->aux.solved_parity) == (round & 1))
 		return;
 
+	invert_index_map(&pdb->aux, &p, idx);
+
 	for (idx->eqidx = 0; idx->eqidx < n_eqclass; idx->eqidx++) {
 		n_move = generate_moves(moves, eqclass_from_index(&pdb->aux, idx));
 		for (idx->pidx = 0; idx->pidx < pdb->aux.n_perm; idx->pidx++)
 			if (pdb_lookup(pdb, idx) == round - 1) {
 				count++;
-				update_pdb_entry(pdb, idx, moves, n_move, round);
+				invert_index_rest(&pdb->aux, &p, idx);
+				update_pdb_entry(pdb, &p, moves, n_move, round);
 			}
 	}
 

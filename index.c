@@ -170,6 +170,25 @@ canonical_zero_location(const struct index_aux *aux, const struct index *idx)
 }
 
 /*
+ * Given a tileset ts and a map m, fill in all tiles not in ts into the
+ * spots not on m.
+ */
+static void
+fill_cmap(struct puzzle *p, tileset ts, tileset map)
+{
+	size_t i;
+	tileset cmap = tileset_complement(map), cts;
+
+	for (cts = tileset_complement(ts); !tileset_empty(cts); cts = tileset_remove_least(cts)) {
+		i = tileset_get_least(cts);
+		p->tiles[i] = tileset_get_least(cmap);
+		cmap = tileset_remove_least(cmap);
+		p->grid[p->tiles[i]] = i;
+	}
+
+}
+
+/*
  * Given a permutation index p, a tileset ts and a tileset map
  * indicating the spots on the grid we want to place the tiles in ts
  * onto, fill in the grid as indicated by pidx.
@@ -177,24 +196,55 @@ canonical_zero_location(const struct index_aux *aux, const struct index *idx)
 static void
 unindex_permutation(struct puzzle *p, tileset ts, tileset map, permindex pidx)
 {
-	size_t i, cmp;
-	permindex n_tiles = tileset_count(ts);
-	tileset cmap = tileset_complement(map), tile;
+	size_t i;
+	permindex cmp, n_tiles;
+	tileset tile;
 
-	for (i = 0; i < TILE_COUNT; i++) {
-		if (tileset_has(ts, i)) {
-			cmp = pidx % n_tiles;
-			pidx /= n_tiles--;
-			tile = rankselect(map, cmp);
-			map = tileset_difference(map, tile);
-			p->tiles[i] = tileset_get_least(tile);
-		} else {
-			p->tiles[i] = tileset_get_least(cmap);
-			cmap = tileset_remove_least(cmap);
-		}
-
+	for (n_tiles = tileset_count(ts); n_tiles > 0; n_tiles--) {
+		cmp = pidx % n_tiles;
+		pidx /= n_tiles;
+		i = tileset_get_least(ts);
+		ts = tileset_remove_least(ts);
+		tile = rankselect(map, cmp);
+		p->tiles[i] = tileset_get_least(tile);
+		map = tileset_difference(map, tile);
 		p->grid[p->tiles[i]] = i;
 	}
+}
+
+/*
+ * Half of the work of inverting an index depends on the map only.  This
+ * function does this first part only to speed up index inversion for
+ * multiple indices in the same map which can re-use the partially
+ * generated index returned by this function.
+ */
+extern void
+invert_index_map(const struct index_aux *aux, struct puzzle *p, const struct index *idx)
+{
+	tileset tsnz = tileset_remove(aux->ts, ZERO_TILE);
+	tileset map = tileset_unrank(tileset_count(tsnz), idx->maprank);
+
+	memset(p, 0, sizeof *p);
+	fill_cmap(p, tsnz, map);
+}
+
+/*
+ * This function does the other half of the work begun by
+ * invert_index_map().  p must be the result of invert_index_map() for
+ * an index within the same cohort as idx, but it is okay to arbitrarily
+ * permute tiles not in aux->ts including the zero tile.
+ */
+extern void
+invert_index_rest(const struct index_aux *aux, struct puzzle *p, const struct index *idx)
+{
+	tileset tsnz = tileset_remove(aux->ts, ZERO_TILE);
+	tileset map = tileset_unrank(tileset_count(tsnz), idx->maprank);
+
+	prefetch(aux->idxt + idx->maprank);
+	unindex_permutation(p, tsnz, map, idx->pidx);
+
+	if (tileset_has(aux->ts, ZERO_TILE))
+		move(p, canonical_zero_location(aux, idx));
 }
 
 /*
@@ -205,15 +255,8 @@ unindex_permutation(struct puzzle *p, tileset ts, tileset map, permindex pidx)
 extern void
 invert_index(const struct index_aux *aux, struct puzzle *p, const struct index *idx)
 {
-	tileset tsnz = tileset_remove(aux->ts, ZERO_TILE);
-	tileset map = tileset_unrank(tileset_count(tsnz), idx->maprank);
-
-	memset(p, 0, sizeof *p);
-	prefetch(aux->idxt + idx->maprank);
-	unindex_permutation(p, tsnz, map, idx->pidx);
-
-	if (tileset_has(aux->ts, ZERO_TILE))
-		move(p, canonical_zero_location(aux, idx));
+	invert_index_map(aux, p, idx);
+	invert_index_rest(aux, p, idx);
 }
 
 /*
