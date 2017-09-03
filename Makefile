@@ -6,7 +6,7 @@ OBJ=index.o puzzle.o tileset.o validation.o ranktbl.o rank.o random.o pdb.o \
 	moves.o parallel.o pdbgen.o pdbverify.o pdbdiff.o histogram.o \
 	cindex.o pdbdom.o
 BINARIES=cmd/pdbstats test/indextest util/rankgen test/ranktest \
-	cmd/genpdb cmd/verifypdb cmd/diffcode cmd/reducepdb
+	cmd/genpdb cmd/verifypdb cmd/diffcode cmd/reducepdb test/qualitytest
 
 all: $(BINARIES) 24puzzle.a
 
@@ -23,6 +23,7 @@ ranktbl.c: util/rankgen
 test/indextest: test/indextest.o 24puzzle.a
 test/tiletest: test/tiletest.o 24puzzle.a
 test/ranktest: test/ranktest.o 24puzzle.a
+test/qualitytest: test/qualitytest.o 24puzzle.a
 cmd/genpdb: cmd/genpdb.o 24puzzle.a
 cmd/verifypdb: cmd/verifypdb.o 24puzzle.a
 cmd/reducepdb: cmd/reducepdb.o 24puzzle.a
