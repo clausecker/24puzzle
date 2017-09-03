@@ -20,19 +20,16 @@ update_pdb_entry(struct patterndb *pdb, struct puzzle *p,
     const struct move *moves, size_t n_move, int round)
 {
 	struct index dist[MAX_MOVES];
-	size_t i, zloc;
-
-	zloc = zero_location(p);
+	size_t i;
 
 	for (i = 0; i < n_move; i++) {
 		move(p, moves[i].zloc);
 		move(p, moves[i].dest);
 
 		compute_index(&pdb->aux, dist + i, p);
-		pdb_prefetch(pdb, dist + i);
 
 		move(p, moves[i].zloc);
-		move(p, zloc);
+		pdb_prefetch(pdb, dist + i);
 	}
 
 	for (i = 0; i < n_move; i++)
