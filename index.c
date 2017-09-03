@@ -85,10 +85,10 @@ tile_map(const struct index_aux *aux, const struct puzzle *p)
 
 	return (_mm_cvtsi128_si32(maplo));
 #else
-	tileset ts = aux->ts, map = EMPTY_TILESET;
+	tileset tsnz = tileset_remove(aux->ts, ZERO_TILE), map = EMPTY_TILESET;
 
-	for (; !tileset_empty(ts); ts = tileset_remove_least(ts))
-		map |= 1 << p->tiles[tileset_get_least(ts)];
+	for (; !tileset_empty(tsnz); tsnz = tileset_remove_least(tsnz))
+		map |= 1 << p->tiles[tileset_get_least(tsnz)];
 
 	return (map);
 #endif
