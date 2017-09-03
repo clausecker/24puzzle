@@ -197,3 +197,16 @@ pdb_mmap(tileset ts, int pdbfd, int mapflags)
 
 	return (pdb);
 }
+
+/*
+ * Lookup puzzle configuration p in the pattern database pdb and return
+ * the distance found.
+ */
+extern int
+pdb_lookup_puzzle(struct patterndb *pdb, const struct puzzle *p)
+{
+	struct index idx;
+
+	compute_index(&pdb->aux, &idx, p);
+	return (pdb_lookup(pdb, &idx));
+}

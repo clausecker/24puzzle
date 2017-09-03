@@ -64,6 +64,7 @@ extern void	pdb_clear(struct patterndb *);
 extern struct patterndb *pdb_load(tileset, FILE *);
 extern struct patterndb *pdb_mmap(tileset, int, int);
 extern int	pdb_store(FILE *, struct patterndb *);
+extern int	pdb_lookup_puzzle(struct patterndb *, const struct puzzle *);
 
 /* various */
 extern int	pdb_generate(struct patterndb *, FILE *);
