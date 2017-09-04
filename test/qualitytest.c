@@ -24,15 +24,12 @@ usage(const char *argv0)
 }
 
 /*
- * Control structure for the parallel histogram generation.  random_lock
- * locks the functions from random.c so we get the same random numbers
- * in every run of the program with the same seed.  histogram is the
- * histogram we accumulate our data into, n_puzzle is the number of
+ * Control structure for the parallel histogram generation. histogram is
+ * the histogram we accumulate our data into, n_puzzle is the number of
  * puzzles we want to check against the pattern databases, progress is
  * the number of puzzles already generated.
  */
 struct qualitytest_config {
-	pthread_mutex_t random_lock;
 	_Atomic size_t histogram[PDB_HISTOGRAM_LEN], progress;
 	size_t n_pdb, n_puzzle;
 	struct patterndb **pdbs;
@@ -48,7 +45,7 @@ qualitytest_worker(void *qtcfg_arg)
 	struct puzzle p;
 	size_t histogram[PDB_HISTOGRAM_LEN] = {};
 	size_t i, j, n, old_progress;
-	int dist, result;
+	int dist;
 
 	for (;;) {
 		old_progress = atomic_fetch_add(&qtcfg->progress, CHUNK_SIZE);
@@ -60,20 +57,7 @@ qualitytest_worker(void *qtcfg_arg)
 			n = CHUNK_SIZE;
 
 		for (i = 0; i < n; i++) {
-			result = pthread_mutex_lock(&qtcfg->random_lock);
-			if (result != 0) {
-				errno = result;
-				perror("pthread_mutex_lock");
-				abort();
-			}
-
 			random_puzzle(&p);
-			result = pthread_mutex_unlock(&qtcfg->random_lock);
-			if (result != 0) {
-				errno = result;
-				perror("pthread_mutex_unlock");
-				abort();
-			}
 
 			dist = 0;
 			for (j = 0; j < qtcfg->n_pdb; j++)
@@ -102,14 +86,7 @@ random_puzzle_histograms(size_t histogram[PDB_HISTOGRAM_LEN], size_t n_puzzle,
 	struct qualitytest_config qtcfg;
 	pthread_t pool[PDB_MAX_JOBS];
 	size_t i;
-	int j, result, jobs = pdb_jobs, error;
-
-	result = pthread_mutex_init(&qtcfg.random_lock, NULL);
-	if (result != 0) {
-		errno = result;
-		perror("pthread_mutex_init");
-		abort();
-	}
+	int j, jobs = pdb_jobs, error;
 
 	for (i = 0; i < PDB_HISTOGRAM_LEN; i++)
 		qtcfg.histogram[i] = 0;
@@ -168,7 +145,7 @@ print_statistics(size_t histogram[PDB_HISTOGRAM_LEN], size_t n_puzzle)
 	for (i = 0; i < PDB_HISTOGRAM_LEN; i++)
 		sum += histogram[i] * i;
 
-	sfactor = 100.0 / sum;
+	sfactor = 1.0 / sum;
 
 	for (i = 0; i < PDB_HISTOGRAM_LEN; i++) {
 		if (histogram[i] == 0)
