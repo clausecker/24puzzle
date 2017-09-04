@@ -13,7 +13,7 @@
 static void
 usage(const char *argv0)
 {
-	fprintf(stderr, "Usage: %s [-f file] [-t tile,tile,...] [-j nproc]\n", argv0);
+	fprintf(stderr, "Usage: %s [-i] [-f file] [-t tile,tile,...] [-j nproc]\n", argv0);
 
 	exit(EXIT_FAILURE);
 }
@@ -23,14 +23,18 @@ main(int argc, char *argv[])
 {
 	struct patterndb *pdb;
 	tileset ts = DEFAULT_TILESET;
-	int optchar;
+	int optchar, identify = 0;
 	const char *fname = NULL;
 	FILE *f = NULL;
 
-	while (optchar = getopt(argc, argv, "f:j:t:"), optchar != -1)
+	while (optchar = getopt(argc, argv, "f:ij:t:"), optchar != -1)
 		switch (optchar) {
 		case 'f':
 			fname = optarg;
+			break;
+
+		case 'i':
+			identify = 1;
 			break;
 
 		case 'j':
@@ -62,6 +66,9 @@ main(int argc, char *argv[])
 		return (EXIT_FAILURE);
 	}
 
+	if (identify)
+		ts = tileset_add(ts, ZERO_TILE);
+
 	if (fname != NULL) {
 		f = fopen(fname, "wb");
 		if (f == NULL) {
@@ -77,6 +84,10 @@ main(int argc, char *argv[])
 	}
 
 	pdb_generate(pdb, stderr);
+	if (identify) {
+		fprintf(stderr, "Identifying PDB...\n");
+		pdb_identify(pdb);
+	}
 
 	if (f != NULL && pdb_store(f, pdb) != 0) {
 		perror("pdb_store");

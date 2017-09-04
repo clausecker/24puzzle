@@ -18,7 +18,7 @@ enum { PDB_MAX_COUNT = 24, CHUNK_SIZE = 1024 };
 static void
 usage(const char *argv0)
 {
-	fprintf(stderr, "Usage: %s [-n n_puzzle] [-s seed] [-j nproc] tileset ...\n", argv0);
+	fprintf(stderr, "Usage: %s [-i] [-j nproc] [-n n_puzzle] [-s seed] tileset ...\n", argv0);
 
 	exit(EXIT_FAILURE);
 }
@@ -198,17 +198,13 @@ main(int argc, char *argv[])
 	size_t histogram[PDB_HISTOGRAM_LEN];
 	size_t i, n_puzzle = 1000, n_pdb;
 	unsigned seed = 0xfb0c4683;
-	int optchar;
+	int optchar, identify = 0;
 	tileset ts;
 
 	while (optchar = getopt(argc, argv, "j:n:s:"), optchar != -1)
 		switch (optchar) {
-		case 'n':
-			n_puzzle = strtol(optarg, NULL, 0);
-			break;
-
-		case 's':
-			seed = strtol(optarg, NULL, 0);
+		case 'i':
+			identify = 1;
 			break;
 
 		case 'j':
@@ -219,6 +215,14 @@ main(int argc, char *argv[])
 				return (EXIT_FAILURE);
 			}
 
+			break;
+
+		case 'n':
+			n_puzzle = strtol(optarg, NULL, 0);
+			break;
+
+		case 's':
+			seed = strtol(optarg, NULL, 0);
 			break;
 
 		default:
@@ -248,7 +252,12 @@ main(int argc, char *argv[])
 	for (i = 0; i < n_pdb; i++) {
 		fprintf(stderr, "Generating PDB for tiles %s\n", argv[optind + i]);
 		pdb_generate(pdbs[i], stderr);
-		puts("");
+		if (identify) {
+			fprintf(stderr, "\nIdentifying PDB...\n");
+			pdb_identify(pdbs[i]);
+		}
+
+		fputs("\n", stderr);
 	}
 
 	random_seed = seed;
