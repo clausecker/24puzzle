@@ -73,7 +73,7 @@ qualitytest_worker(void *qtcfg_arg)
 				errno = result;
 				perror("pthread_mutex_unlock");
 				abort();
-			}	
+			}
 
 			dist = 0;
 			for (j = 0; j < qtcfg->n_pdb; j++)
@@ -201,7 +201,7 @@ main(int argc, char *argv[])
 	int optchar, identify = 0;
 	tileset ts;
 
-	while (optchar = getopt(argc, argv, "j:n:s:"), optchar != -1)
+	while (optchar = getopt(argc, argv, "ij:n:s:"), optchar != -1)
 		switch (optchar) {
 		case 'i':
 			identify = 1;
@@ -240,6 +240,9 @@ main(int argc, char *argv[])
 			fprintf(stderr, "Invalid tileset: %s\n", argv[optind + i]);
 			return (EXIT_FAILURE);
 		}
+
+		if (identify)
+			ts = tileset_add(ts, ZERO_TILE);
 
 		pdbs[i] = pdb_allocate(ts);
 		if (pdbs[i] == NULL) {
