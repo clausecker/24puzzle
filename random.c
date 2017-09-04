@@ -67,10 +67,11 @@ random_index(const struct index_aux *aux, struct index *idx)
 
 	idx->pidx = rnd % factorials[tileset_count(tsnz)];
 	rnd /= factorials[tileset_count(tsnz)];
-	idx->maprank = xorshift() % combination_count[tileset_count(tsnz)];
+	idx->maprank = rnd % combination_count[tileset_count(tsnz)];
+	rnd /= combination_count[tileset_count(tsnz)];
 
 	if (tileset_has(aux->ts, ZERO_TILE))
-		idx->eqidx = xorshift() % aux->idxt[idx->maprank].n_eqclass;
+		idx->eqidx = rnd % aux->idxt[idx->maprank].n_eqclass;
 	else
 		idx->eqidx = -1;
 }
