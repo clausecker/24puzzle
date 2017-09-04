@@ -6,6 +6,7 @@
 #endif
 
 #include <stdalign.h>
+#include <stdatomic.h>
 
 #include "puzzle.h"
 #include "tileset.h"
@@ -181,7 +182,7 @@ eqclass_from_index(const struct index_aux *aux, const struct index *idx)
 }
 
 /* random.c */
-extern unsigned long long random_seed;
+extern atomic_ullong random_seed;
 extern void	random_index(const struct index_aux *, struct index *);
 
 /* cindex.c */

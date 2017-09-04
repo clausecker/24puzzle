@@ -10,23 +10,25 @@
  * variable is updated by all functions generating random objects.  Its
  * initial value has been drawn from /dev/random.
  */
-unsigned long long random_seed = 0x70184fb2;
+atomic_ullong random_seed = 0x70184fb2;
 
 /*
  * Use the xorshift random number generator to generate a random number
- * between 0 and 2^32 - 1.
+ * between 0 and 2^32 - 1.  We use an atomic exchange operation to make
+ * sure that each result of the RNG is consumed exactly once.
  */
 static unsigned long long
 xorshift(void)
 {
-	unsigned long long state = random_seed;
+	unsigned long long seed = random_seed, state;
 
-	state ^= state >> 13;
-	state ^= state << 7;
-	state &= 0xffffffffffffffffull;
-	state ^= state >> 17;
-
-	random_seed = state;
+	do {
+		state = seed;
+		state ^= state >> 13;
+		state ^= state << 7;
+		state &= 0xffffffffffffffffull;
+		state ^= state >> 17;
+	} while (!atomic_compare_exchange_weak(&random_seed, &seed, state));
 
 	return (state);
 }
