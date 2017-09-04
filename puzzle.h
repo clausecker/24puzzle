@@ -101,7 +101,7 @@ get_moves(size_t z)
 extern int	puzzle_valid(const struct puzzle*);
 
 /* random.c */
-extern unsigned random_seed;
+extern unsigned long long random_seed;
 extern void	random_puzzle(struct puzzle *);
 
 #endif /* PUZZLE_H */

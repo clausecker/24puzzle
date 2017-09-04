@@ -181,7 +181,7 @@ eqclass_from_index(const struct index_aux *aux, const struct index *idx)
 }
 
 /* random.c */
-extern unsigned random_seed;
+extern unsigned long long random_seed;
 extern void	random_index(const struct index_aux *, struct index *);
 
 /* cindex.c */
