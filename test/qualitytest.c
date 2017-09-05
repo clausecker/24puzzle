@@ -174,7 +174,7 @@ main(int argc, char *argv[])
 	struct patterndb *pdbs[PDB_MAX_COUNT];
 	size_t histogram[PDB_HISTOGRAM_LEN];
 	size_t i, n_puzzle = 1000, n_pdb;
-	unsigned seed = 0xfb0c4683;
+	unsigned long long seed = random_seed;
 	int optchar, identify = 0;
 	tileset ts;
 
@@ -199,7 +199,7 @@ main(int argc, char *argv[])
 			break;
 
 		case 's':
-			seed = strtol(optarg, NULL, 0);
+			seed = strtoll(optarg, NULL, 0);
 			break;
 
 		default:
