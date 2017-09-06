@@ -53,11 +53,30 @@ extern void
 random_puzzle(struct puzzle *p)
 {
 	unsigned long long rnd1 = xorshift(), rnd2 = xorshift_step(rnd1);
-	size_t i, j, zloc, parity = 0;
+	__uint128_t rnd;
+	size_t i, j, parity = 0;
 	int ipos, jpos;
 
 	/* silence valgrind as we technically read uninitialized values */
 	memset(p, 0, sizeof *p);
+
+	/*
+	 * Since we consume many of the 128 bits of entropy we get, we
+	 * must be careful to avoid modulo bias.  This is done by
+	 * capping the range of random numbers we admit upwards to get a
+	 * clean multiple of the range we are interested in.
+	 */
+	do {
+		rnd1 = xorshift();
+		rnd2 = xorshift_step(rnd1);
+		rnd = (__uint128_t)rnd1 << 64 | rnd2;
+
+		/* 23 * 24 * 25! */
+	while (rnd >= (__uint128_t)39742454749 * 23 * 24 *
+		    2432902008176640000ULL * 6375600ULL /* 25! */);
+
+	rnd1 = rnd % 2432902008176640000ULL; /* 1 * 2 * ... * 20 */
+	rnd2 = rnd / 2432902008176640000ULL;
 
 	/* consumes log2(1 * 2 * 3 * ... * 20) = 61.0774 bits of entropy */
 	for (i = 0; i < 20; i++) {
