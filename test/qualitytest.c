@@ -27,12 +27,14 @@ usage(const char *argv0)
  * Control structure for the parallel histogram generation. histogram is
  * the histogram we accumulate our data into, n_puzzle is the number of
  * puzzles we want to check against the pattern databases, progress is
- * the number of puzzles already generated.
+ * the number of puzzles already generated.  If transpose is 1, compute
+ * the maximum of the PDB entrie of each puzzle and its transposition.
  */
 struct qualitytest_config {
 	_Atomic size_t histogram[PDB_HISTOGRAM_LEN], progress;
 	size_t n_pdb, n_puzzle;
 	struct patterndb **pdbs;
+	int transpose;
 };
 
 /*
@@ -45,7 +47,7 @@ qualitytest_worker(void *qtcfg_arg)
 	struct puzzle p;
 	size_t histogram[PDB_HISTOGRAM_LEN] = {};
 	size_t i, j, n, old_progress;
-	int dist;
+	int dist, tdist;
 
 	for (;;) {
 		old_progress = atomic_fetch_add(&qtcfg->progress, CHUNK_SIZE);
@@ -63,6 +65,17 @@ qualitytest_worker(void *qtcfg_arg)
 			for (j = 0; j < qtcfg->n_pdb; j++)
 				dist += pdb_lookup_puzzle(qtcfg->pdbs[j], &p);
 
+			if (qtcfg->transpose) {
+				transpose(&p);
+
+				tdist = 0;
+				for (j = 0; j < qtcfg->n_pdb; j++)
+					tdist += pdb_lookup_puzzle(qtcfg->pdbs[j], &p);
+
+				if (tdist > dist)
+					dist = tdist;
+			}
+
 			histogram[dist]++;
 		}
 	}
@@ -77,11 +90,12 @@ qualitytest_worker(void *qtcfg_arg)
 /*
  * Generate a histogram indicating what distance the pattern databases
  * pdbs predicted for n_puzzle random puzzles.  Use up to pdb_jobs
- * threads for the computation.
+ * threads for the computation.  If transpose is nonzero, lookup each
+ * puzzle and its transposition and use the maximum of both entries.
  */
 static void
 random_puzzle_histograms(size_t histogram[PDB_HISTOGRAM_LEN], size_t n_puzzle,
-    struct patterndb **pdbs, size_t n_pdb)
+    struct patterndb **pdbs, size_t n_pdb, int transpose)
 {
 	struct qualitytest_config qtcfg;
 	pthread_t pool[PDB_MAX_JOBS];
@@ -95,6 +109,7 @@ random_puzzle_histograms(size_t histogram[PDB_HISTOGRAM_LEN], size_t n_puzzle,
 	qtcfg.n_pdb = n_pdb;
 	qtcfg.n_puzzle = n_puzzle;
 	qtcfg.pdbs = pdbs;
+	qtcfg.transpose = transpose;
 
 	/* this code is very similar to pdb_iterate_parallel() */
 	if (jobs == 1) {
@@ -175,10 +190,10 @@ main(int argc, char *argv[])
 	size_t histogram[PDB_HISTOGRAM_LEN];
 	size_t i, n_puzzle = 1000, n_pdb;
 	unsigned long long seed = random_seed;
-	int optchar, identify = 0;
+	int optchar, identify = 0, transpose = 0;
 	tileset ts;
 
-	while (optchar = getopt(argc, argv, "ij:n:s:"), optchar != -1)
+	while (optchar = getopt(argc, argv, "ij:n:s:t"), optchar != -1)
 		switch (optchar) {
 		case 'i':
 			identify = 1;
@@ -200,6 +215,10 @@ main(int argc, char *argv[])
 
 		case 's':
 			seed = strtoll(optarg, NULL, 0);
+			break;
+
+		case 't':
+			transpose = 1;
 			break;
 
 		default:
@@ -243,7 +262,7 @@ main(int argc, char *argv[])
 	random_seed = seed;
 	fprintf(stderr, "Looking up %zu random instances...\n\n", n_puzzle);
 
-	random_puzzle_histograms(histogram, n_puzzle, pdbs, n_pdb);
+	random_puzzle_histograms(histogram, n_puzzle, pdbs, n_pdb, transpose);
 	print_statistics(histogram, n_puzzle);
 
 	return (EXIT_SUCCESS);

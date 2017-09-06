@@ -40,7 +40,9 @@ extern const struct puzzle solved_puzzle;
 extern const signed char movetab[TILE_COUNT][4];
 
 enum { PUZZLE_STR_LEN = 151 };
-extern void puzzle_string(char[PUZZLE_STR_LEN], const struct puzzle*);
+
+extern void transpose(struct puzzle *);
+extern void puzzle_string(char[PUZZLE_STR_LEN], const struct puzzle *);
 
 /*
  * Return the location of the zero tile in p.
@@ -99,7 +101,7 @@ get_moves(size_t z)
 }
 
 /* validation.c */
-extern int	puzzle_valid(const struct puzzle*);
+extern int	puzzle_valid(const struct puzzle *);
 
 /* random.c */
 extern atomic_ullong	random_seed;
