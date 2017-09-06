@@ -72,7 +72,7 @@ random_puzzle(struct puzzle *p)
 		rnd = (__uint128_t)rnd1 << 64 | rnd2;
 
 		/* 23 * 24 * 25! */
-	while (rnd >= (__uint128_t)39742454749 * 23 * 24 *
+	} while (rnd >= (__uint128_t)39742454749 * 23 * 24 *
 		    2432902008176640000ULL * 6375600ULL /* 25! */);
 
 	rnd1 = rnd % 2432902008176640000ULL; /* 1 * 2 * ... * 20 */
