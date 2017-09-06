@@ -98,14 +98,14 @@ transpose(struct puzzle *p)
 	__m256i tmaskhi = _mm256_sub_epi8(tmask, sixteen);
 
 	/* shuffle masks around to get them in the right order */
-	__m256i tileslomsk = _mm256_permute2x128_si256(tileslo, tileshi, 0x20);
-	__m256i tileshimsk = _mm256_permute2x128_si256(tileslo, tileshi, 0x31);
+	__m256i tmasklolo = _mm256_permute2x128_si256(tmask, tmask, 0x00);
+	__m256i tmaskhihi = _mm256_permute2x128_si256(tmask, tmask, 0x11);
 
-	__m256i tmasklomsk = _mm256_permute2x128_si256(tmasklo, tmaskhi, 0x20);
-	__m256i tmaskhimsk = _mm256_permute2x128_si256(tmasklo, tmaskhi, 0x31);
+	__m256i gridlolo = _mm256_permute2x128_si256(grid, grid, 0x00);
+	__m256i gridhihi = _mm256_permute2x128_si256(grid, grid, 0x11);
 
-	ttiles = _mm256_or_si256(_mm256_shuffle_epi8(tmask, tileslomsk), _mm256_shuffle_epi8(tmask, tileshimsk));
-	tgrid = _mm256_or_si256(_mm256_shuffle_epi8(grid, tmasklomsk), _mm256_shuffle_epi8(grid, tmaskhimsk));
+	ttiles = _mm256_or_si256(_mm256_shuffle_epi8(tmasklolo, tileslo), _mm256_shuffle_epi8(tmaskhihi, tileshi));
+	tgrid = _mm256_or_si256(_mm256_shuffle_epi8(gridlolo, tmasklo), _mm256_shuffle_epi8(gridhihi, tmaskhi));
 
 	_mm256_storeu_si256((__m256i*)p->tiles, ttiles);
 	_mm256_storeu_si256((__m256i*)p->grid, tgrid);
