@@ -1,5 +1,6 @@
 /* tileset.c -- dealing with sets of tiles */
 
+#include <ctype.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -96,6 +97,9 @@ tileset_parse(tileset *ts, const char *str)
 			return (-1);
 
 		*ts = tileset_add(*ts, component);
+
+		while (isspace(*str))
+			str++;
 
 		if (*str == '\0')
 			break;

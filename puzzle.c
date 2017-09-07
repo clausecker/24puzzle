@@ -1,7 +1,10 @@
 /* puzzle.c -- manipulating struct puzzle */
 
 #include <assert.h>
+#include <ctype.h>
+#include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 
 #ifdef __SSSE3__
 # include <immintrin.h>
@@ -188,4 +191,41 @@ puzzle_string(char str[PUZZLE_STR_LEN], const struct puzzle *p)
 
 	str[3 * TILE_COUNT - 1] = '\n';
 	str[2 * 3 * TILE_COUNT - 1] = '\n';
+}
+
+/*
+ * Parse a puzzle configuration from str and store it in p.  Return 0
+ * if parsing was succesful, -1 otherwise.  In case of failure, *p is
+ * undefined.
+ */
+extern int
+puzzle_parse(struct puzzle *p, const char *str)
+{
+	size_t i;
+	long component;
+
+	memset(p, 0, sizeof *p);
+	memset(p->tiles, 0xff, TILE_COUNT);
+
+	for (i = 0; i < TILE_COUNT; i++) {
+		component = strtol(str, (char **)&str, 10);
+		if (component < 0 || component >= TILE_COUNT)
+			return (-1);
+
+		if (p->tiles[component] != 0xff)
+			return (-1);
+
+		while (isspace(*str))
+			str++;
+
+		if (*str != ',' && i < TILE_COUNT - 1)
+			return (-1);
+
+		p->grid[i] = component;
+		p->tiles[component] = i;
+
+		str++;
+	}
+
+	return (0);
 }
