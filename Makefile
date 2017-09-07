@@ -1,5 +1,6 @@
 CC=clang
-CFLAGS=-std=c11 -march=native -O3 -Wall -Wno-missing-braces -Wno-parentheses -I. -g
+CFLAGS=-march=native -O3 -g
+COPTS=-std=c11 -I. -Wall -Wno-missing-braces -Wno-parentheses
 LDLIBS=-lpthread
 
 OBJ=index.o puzzle.o tileset.o validation.o ranktbl.o rank.o random.o pdb.o \
@@ -11,14 +12,17 @@ BINARIES=cmd/pdbstats test/indextest util/rankgen test/ranktest \
 all: $(BINARIES) 24puzzle.a
 
 .o:
-	$(CC) $(LDFLAGS) -o $@ $^ $(LDLIBS)
+	@echo "CCLD	$@"
+	@$(CC) $(LDFLAGS) -o $@ $^ $(LDLIBS)
 
 24puzzle.a: $(OBJ)
-	ar -src $@ $?
+	@echo "AR	$@"
+	@ar -src $@ $?
 
 util/rankgen: util/rankgen.o
 ranktbl.c: util/rankgen
-	util/rankgen >$@
+	@echo "RANKGEN	$@"
+	@util/rankgen >$@
 
 test/indextest: test/indextest.o 24puzzle.a
 test/tiletest: test/tiletest.o 24puzzle.a
@@ -29,9 +33,15 @@ cmd/verifypdb: cmd/verifypdb.o 24puzzle.a
 cmd/reducepdb: cmd/reducepdb.o 24puzzle.a
 cmd/diffcode: cmd/diffcode.o 24puzzle.a
 cmd/pdbstats: cmd/pdbstats.o 24puzzle.a
-	$(CC) $(LDFLAGS) -o $@ $^ $(LDLIBS) -lm
+	@echo "CCLD	$@"
+	@$(CC) $(LDFLAGS) -o $@ $^ $(LDLIBS) -lm
+
+.c.o:
+	@echo "CC	$<"
+	@$(CC) $(COPTS) $(CFLAGS) -c -o $@ $<
 
 clean:
-	rm -f *.a *.o test/*.o cmd/*.o util/*.o ranktbl.c $(BINARIES)
+	@echo "CLEAN"
+	@rm -f *.a *.o test/*.o cmd/*.o util/*.o ranktbl.c $(BINARIES)
 
 .PHONY: all clean
