@@ -6,12 +6,14 @@ core
 *.pdb
 
 # binaries
+cmd/diffcode
 cmd/genpdb
 cmd/verifypdb
 cmd/reducepdb
 cmd/pdbstats
+cmd/pdbsearch
 test/indextest
-test/tiletest
+test/qualitytest
 test/ranktest
 util/rankgen
 

@@ -7,7 +7,8 @@ OBJ=index.o puzzle.o tileset.o validation.o ranktbl.o rank.o random.o pdb.o \
 	moves.o parallel.o pdbgen.o pdbverify.o pdbdiff.o histogram.o \
 	cindex.o pdbdom.o pdbident.o ida.o search.o
 BINARIES=cmd/pdbstats test/indextest util/rankgen test/ranktest \
-	cmd/genpdb cmd/verifypdb cmd/diffcode cmd/reducepdb test/qualitytest
+	cmd/genpdb cmd/verifypdb cmd/diffcode cmd/reducepdb test/qualitytest \
+	cmd/pdbsearch
 
 all: $(BINARIES) 24puzzle.a
 
@@ -35,6 +36,7 @@ cmd/diffcode: cmd/diffcode.o 24puzzle.a
 cmd/pdbstats: cmd/pdbstats.o 24puzzle.a
 	@echo "CCLD	$@"
 	@$(CC) $(LDFLAGS) -o $@ $^ $(LDLIBS) -lm
+cmd/pdbsearch: cmd/pdbsearch.o 24puzzle.a
 
 .c.o:
 	@echo "CC	$<"
