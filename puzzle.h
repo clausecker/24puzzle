@@ -38,6 +38,7 @@ struct puzzle {
 /* puzzle.c */
 extern const struct puzzle solved_puzzle;
 extern const signed char movetab[TILE_COUNT][4];
+extern const unsigned char transpositions[TILE_COUNT];
 
 enum { PUZZLE_STR_LEN = 151 };
 
