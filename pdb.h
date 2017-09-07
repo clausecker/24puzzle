@@ -41,6 +41,9 @@ enum {
 	PDB_MAP_RDONLY = 0,
 	PDB_MAP_RDWR = 1,
 	PDB_MAP_SHARED = 2,
+
+	/* the maximal amount of PDBs used at once */
+	PDB_MAX_COUNT = TILE_COUNT - 1,
 };
 
 /*

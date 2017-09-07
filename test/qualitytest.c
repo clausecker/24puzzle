@@ -13,7 +13,7 @@
 #include "puzzle.h"
 #include "tileset.h"
 
-enum { PDB_MAX_COUNT = 24, CHUNK_SIZE = 1024 };
+enum { CHUNK_SIZE = 1024 };
 
 static void
 usage(const char *argv0)
