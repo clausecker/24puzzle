@@ -15,6 +15,7 @@
 enum {
 	SEARCH_PATH_LEN = 512 - sizeof(size_t),
 	SEARCH_NO_PATH = -1,
+	PATH_STR_LEN = SEARCH_PATH_LEN * 3,
 };
 
 struct path {
@@ -22,6 +23,10 @@ struct path {
 	unsigned char moves[SEARCH_PATH_LEN];
 };
 
+/* search.c */
+extern void	path_string(char[PATH_STR_LEN], const struct path *);
+
+/* various */
 extern size_t	search_ida(struct patterndb **, size_t, const struct puzzle *, struct path *, FILE *);
 
 #endif /* SEARCH_H */
