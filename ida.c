@@ -241,8 +241,8 @@ search_ida(struct patterndb **pdbs, size_t n_pdb,
 		fprintf(f, "Expanded %llu nodes in total.\n", total_expanded);
 
 	/* copy spath to path */
-	path->pathlen = bound - 1;
-	for (i = 1; i < bound; i++)
+	path->pathlen = bound;
+	for (i = 0; i < bound; i++)
 		path->moves[i] = spath[i + 2].zloc;
 
 	return (bound);
