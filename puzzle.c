@@ -87,7 +87,7 @@ compose_avx(__m256i p, __m256i q)
 	qlo = _mm256_or_si256(q, _mm256_cmpgt_epi8(q, fifteen));
 	qhi = _mm256_sub_epi8(q, sixteen);
 
-	return (_mm256_or_si256(_mm256_shuffle_epi8(plo, qlo), _mm256_shuffle_epi(phi, qhi));
+	return (_mm256_or_si256(_mm256_shuffle_epi8(plo, qlo), _mm256_shuffle_epi8(phi, qhi)));
 }
 #endif
 
