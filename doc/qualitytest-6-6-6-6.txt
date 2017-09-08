@@ -1,0 +1,90 @@
+Index qualities for 6-6-6-6 PDBs.
+
+Reinefeld et al.
+0 A B B B
+A A B B B
+A A A C C
+D D D C C
+D D D C C
+avg = 80.97
+tavg = 81.82
+
+0 A A B B
+A A C C B
+A A C C B
+D D D C B
+D D D C B
+avg = 80.93
+tavg = 81.79
+
+0 A A A A
+B B C C A
+B B C C A
+B B C C D
+D D D D D
+avg = 78.79
+tavg = 79.62
+
+0 A A B B
+A A B B B
+A A B C C
+D D D C C
+D D D C C
+avg = 80.26
+tavg = 81.57
+
+0 A A B B
+A A C B B
+A C C B B
+A C C C D
+D D D D D
+avg = 80.87
+tavg = 81.69
+
+0 A A A B
+A A C C B
+A D C C B
+D D C C B
+D D D B B
+avg = 80.89
+tavg = 81.67
+
+0 A B A D
+A B A B C
+B A B C D
+A B C D C
+D C D C D
+avg = 78.95
+tavg = 78.95
+
+0 A A A A
+A A B B B
+C C B D D
+C C D D B
+C C D B D
+avg = 79.93
+tavg = 80.66
+
+0 A A B B
+A A B B B
+A A B C C
+D D D C C
+D D D C C
+avg = 81.35
+tavg = 82.06
+
+0 A B B B
+A A B B B
+A A C D D
+A C C D D
+C C C D D
+avg = 80.86
+tavg = 81.76
+
+0 A B B B
+A A B B B
+A A C C C
+D A C C C
+D D D D D
+avg = 80.50
+tavg = 81.40
