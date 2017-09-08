@@ -56,9 +56,7 @@ pdb_free(struct patterndb *pdb)
 	size_t i, n_tables = pdb->aux.n_maprank;
 
 	if (pdb->mapped)
-		for (i = 0; i < n_tables; i++)
-			if (pdb->tables[i] != NULL)
-				munmap(pdb->tables[i], pdb_table_size(pdb, i));
+		munmap(pdb->tables[0], search_space_size(&pdb->aux));
 	else
 		for (i = 0; i < n_tables; i++)
 			free(pdb->tables[i]);
@@ -149,8 +147,7 @@ pdb_mmap(tileset ts, int pdbfd, int mapflags)
 {
 	struct index_aux aux;
 	struct patterndb *pdb;
-	off_t offset = 0;
-	size_t i;
+	size_t i, offset = 0;
 	int prot, flags;
 
 	switch (mapflags) {
@@ -181,18 +178,16 @@ pdb_mmap(tileset ts, int pdbfd, int mapflags)
 
 	pdb->aux = aux;
 	pdb->mapped = 1;
+	pdb->tables[0] = mmap(NULL, search_space_size(&pdb->aux), prot, flags, pdbfd, 0);
+	if (pdb->tables[0] == MAP_FAILED) {
+		pdb->tables[0] = NULL;
+		free(pdb);
+		return (NULL);
+	}
 
-	/* allow us to simply call pdb_free() if we run out of memory */
-	memset(pdb->tables, 0, sizeof *pdb->tables * aux.n_maprank);
-
-	for (i = 0; i < aux.n_maprank; i++) {
-		pdb->tables[i] = mmap(NULL, pdb_table_size(pdb, i), prot, flags, pdbfd, offset);
+	for (i = 1; i < aux.n_maprank; i++) {
 		offset += pdb_table_size(pdb, i);
-		if (pdb->tables[i] == MAP_FAILED) {
-			pdb->tables[i] = NULL;
-			pdb_free(pdb);
-			return (NULL);
-		}
+		pdb->tables[i] = pdb->tables[0] + offset;
 	}
 
 	return (pdb);
