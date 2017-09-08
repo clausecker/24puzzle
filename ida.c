@@ -67,8 +67,6 @@ path_push(struct search_node *path, int *dist, struct patterndb **pdbs, size_t n
 		break;
 	}
 
-	assert(i != n_pdb);
-
 	for (i = 0; i < n_pdb; i++) {
 		if (!tileset_has(pdbs[i]->aux.ts, ttile))
 			continue;
@@ -80,8 +78,6 @@ path_push(struct search_node *path, int *dist, struct patterndb **pdbs, size_t n
 
 		break;
 	}
-
-	assert (i != n_pdb);
 }
 
 /*
@@ -96,7 +92,9 @@ path_pop(struct search_node *path, int *dist, struct patterndb **pdbs, size_t n_
 	size_t tile, ttile;
 	size_t i;
 
-	--*dist;
+	if (--*dist < 0)
+		return;
+
 	tile = p->grid[path[*dist].zloc];
 	ttile = pt->grid[transpositions[path[*dist].zloc]];
 
@@ -115,8 +113,6 @@ path_pop(struct search_node *path, int *dist, struct patterndb **pdbs, size_t n_
 		break;
 	}
 
-	assert (i != n_pdb);
-
 	for (i = 0; i < n_pdb; i++) {
 		if (!tileset_has(pdbs[i]->aux.ts, ttile))
 			continue;
@@ -127,8 +123,6 @@ path_pop(struct search_node *path, int *dist, struct patterndb **pdbs, size_t n_
 
 		break;
 	}
-
-	assert (i != n_pdb);
 }
 
 /*
@@ -145,7 +139,7 @@ search_to_bound(struct patterndb **pdbs, size_t n_pdb, const struct puzzle *parg
 	struct puzzle pt = p;
 	size_t i, newbound = -1;
 	unsigned char hparts[PDB_MAX_COUNT], htparts[PDB_MAX_COUNT];
-	unsigned h, ht, hmax, dest;
+	unsigned h = 0, ht = 0, hmax, dest;
 	int dist;
 
 	transpose(&pt);
