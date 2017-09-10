@@ -105,6 +105,36 @@ ctz(unsigned x)
 }
 
 /*
+ * dito but for unsigned long long.
+ */
+static inline int
+ctzll(unsigned long long x)
+{
+#if HAS_CTZ == 1
+	return (__builtin_ctzll(x));
+#else
+	int r = 63;
+
+	x &= -x;
+
+	if (x & 0x00000000ffffffffull)
+		r -= 32;
+	if (x & 0x0000ffff0000ffffull)
+		r -= 16;
+	if (x & 0x00ff00ff00ff00ffull)
+		r -=  8;
+	if (x & 0x0f0f0f0f0f0f0f0full)
+		r -=  4;
+	if (x & 0x3333333333333333ull)
+		r -=  2;
+	if (x & 0x5555555555555555ull)
+		r -=  1;
+
+	return (r);
+#endif
+}
+
+/*
  * From x, select the n'th least-significant set bit and return a bit
  * mask containing just that bit.
  */

@@ -235,3 +235,39 @@ earlyfail:
 	errno = error;
 	return (NULL);
 }
+
+/*
+ * Fill in a struct partial_hvals with values for puzzle configuration p
+ * relative to PDB catalogue cat.  Return the best h value found in all
+ * heuristics defined in cat.
+ */
+extern unsigned
+catalogue_partial_hvals(struct partial_hvals *ph,
+    struct pdb_catalogue *cat, const struct puzzle *p)
+{
+	size_t i;
+	unsigned long long parts;
+	unsigned max = 0, sum;
+
+	ph->fake_entries = 0;
+	ph->maximums = 0;
+
+	for (i = 0; i < cat->n_pdbs; i++)
+		ph->hvals[i] = pdb_lookup_puzzle(cat->pdbs[i], p);
+
+	for (i = 0; i < cat->n_heuristics; i++) {
+		sum = 0;
+		for (parts = cat->parts[i]; parts != 0; parts &= parts - 1)
+			sum += ph->hvals[ctzll(parts)];
+
+		if (sum > max) {
+			max = sum;
+			ph->maximums = 0;
+		}
+
+		if (sum == max)
+			ph->maximums |= cat->parts[i];
+	}
+
+	return (max);
+}
