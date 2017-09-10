@@ -67,7 +67,6 @@ extern void	pdb_clear(struct patterndb *);
 extern struct patterndb *pdb_load(tileset, FILE *);
 extern struct patterndb *pdb_mmap(tileset, int, int);
 extern int	pdb_store(FILE *, struct patterndb *);
-extern int	pdb_lookup_puzzle(struct patterndb *, const struct puzzle *);
 
 /* various */
 extern int	pdb_generate(struct patterndb *, FILE *);
@@ -142,5 +141,18 @@ pdb_table_size(struct patterndb *pdb, size_t i)
 	    pdb->aux.idxt[i].n_eqclass : 1));
 }
 
+/*
+ * Lookup puzzle configuration p in the pattern database pdb and return
+ * the distance found.  This is a convenience function so callers do not
+ * have to deal with indices manually.
+ */
+static inline int
+pdb_lookup_puzzle(struct patterndb *pdb, const struct puzzle *p)
+{
+	struct index idx;
+
+	compute_index(&pdb->aux, &idx, p);
+	return (pdb_lookup(pdb, &idx));
+}
 
 #endif /* PDB_H */
