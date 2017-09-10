@@ -89,9 +89,7 @@ compose_avx(__m256i p, __m256i q)
 
 	return (_mm256_or_si256(_mm256_shuffle_epi8(plo, qlo), _mm256_shuffle_epi8(phi, qhi)));
 }
-#endif
-
-#ifdef __SSSE3__
+#elif defined(__SSSE3__)
 /*
  * Compose permutations p and q using pshufb.  This is similar to
  * compose_avx, but we store the parts to rlo and rhi as we cannot
