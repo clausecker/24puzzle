@@ -8,7 +8,7 @@ OBJ=index.o puzzle.o tileset.o validation.o ranktbl.o rank.o random.o pdb.o \
 	cindex.o pdbdom.o pdbident.o ida.o search.o catalogue.o
 BINARIES=cmd/pdbstats test/indextest util/rankgen test/ranktest \
 	cmd/genpdb cmd/verifypdb cmd/diffcode cmd/reducepdb test/qualitytest \
-	cmd/pdbsearch
+	cmd/pdbsearch test/hitanalysis
 
 all: $(BINARIES) 24puzzle.a
 
@@ -25,6 +25,7 @@ ranktbl.c: util/rankgen
 	@echo "RANKGEN	$@"
 	@util/rankgen >$@
 
+test/hitanalysis: test/hitanalysis.o 24puzzle.a
 test/indextest: test/indextest.o 24puzzle.a
 test/tiletest: test/tiletest.o 24puzzle.a
 test/ranktest: test/ranktest.o 24puzzle.a

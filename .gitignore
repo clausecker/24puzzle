@@ -12,6 +12,7 @@ cmd/verifypdb
 cmd/reducepdb
 cmd/pdbstats
 cmd/pdbsearch
+test/hitanalysis
 test/indextest
 test/qualitytest
 test/ranktest
