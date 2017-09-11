@@ -3,12 +3,10 @@
 #define _POSIX_C_SOURCE 200809L
 #include <assert.h>
 #include <errno.h>
-#include <fcntl.h>
 #include <limits.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include <unistd.h>
 
 #include "catalogue.h"
 #include "pdb.h"
@@ -75,7 +73,7 @@ catalogue_load(const char *catfile, const char *pdbdir, FILE *f)
 			continue;
 
 		/* empty lines demark groups of PDBs forming a heuristic */
-		if (linebuf[0] == '\n') {
+		if (linebuf[0] == '\0') {
 			if (!had_empty_line)
 				cat->n_heuristics++;
 
@@ -200,6 +198,8 @@ catalogue_load(const char *catfile, const char *pdbdir, FILE *f)
 			cat->pdbs[cat->n_pdbs] = pdb;
 		}
 
+		cat->heuristics[cat->n_pdbs] |= 1 << cat->n_heuristics;
+		cat->parts[cat->n_heuristics] |= 1 << cat->n_pdbs;
 		cat->n_pdbs++;
 
 	continue_outer:
@@ -216,6 +216,10 @@ catalogue_load(const char *catfile, const char *pdbdir, FILE *f)
 
 	if (!had_empty_line)
 		cat->n_heuristics++;
+
+	if (f != NULL)
+		fprintf(f, "Loaded %zu PDBs and %zu heuristics from %s\n",
+		    cat->n_pdbs, cat->n_heuristics, catfile);
 
 	fclose(catcfg);
 
