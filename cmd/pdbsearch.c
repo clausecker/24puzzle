@@ -19,7 +19,7 @@ enum { CHUNK_SIZE = 1024 };
 static void
 usage(const char *argv0)
 {
-	fprintf(stderr, "Usage: %s [-i] [-j nproc] tileset ...\n", argv0);
+	fprintf(stderr, "Usage: %s [-j nproc] [-d pdbdir] catalogue\n", argv0);
 
 	exit(EXIT_FAILURE);
 }
@@ -27,18 +27,16 @@ usage(const char *argv0)
 extern int
 main(int argc, char *argv[])
 {
-	struct patterndb *pdbs[PDB_MAX_COUNT];
+	struct pdb_catalogue *cat;
 	struct path path;
 	struct puzzle p;
-	size_t i, n_pdb;
-	int optchar, identify = 0;
-	tileset ts;
-	char linebuf[1024], pathstr[PATH_STR_LEN];
+	int optchar;
+	char linebuf[1024], pathstr[PATH_STR_LEN], *pdbdir = NULL;
 
-	while (optchar = getopt(argc, argv, "ij:"), optchar != -1)
+	while (optchar = getopt(argc, argv, "d:j:"), optchar != -1)
 		switch (optchar) {
-		case 'i':
-			identify = 1;
+		case 'd':
+			pdbdir = optarg;
 			break;
 
 		case 'j':
@@ -55,38 +53,13 @@ main(int argc, char *argv[])
 			usage(argv[0]);
 		}
 
-	n_pdb = argc - optind;
-	if (n_pdb > PDB_MAX_COUNT) {
-		fprintf(stderr, "Up to %d PDBs are allowed.\n", PDB_MAX_COUNT);
+	if (argc != optind + 1)
+		usage(argv[0]);
+
+	cat = catalogue_load(argv[optind], pdbdir, stderr);
+	if (cat == NULL) {
+		perror("catalogue_load");
 		return (EXIT_FAILURE);
-	}
-
-	for (i = 0; i < n_pdb; i++) {
-		if (tileset_parse(&ts, argv[optind + i]) != 0) {
-			fprintf(stderr, "Invalid tileset: %s\n", argv[optind + i]);
-			return (EXIT_FAILURE);
-		}
-
-		if (identify)
-			ts = tileset_add(ts, ZERO_TILE);
-
-		pdbs[i] = pdb_allocate(ts);
-		if (pdbs[i] == NULL) {
-			perror("pdb_allocate");
-			return (EXIT_FAILURE);
-		}
-	}
-
-	/* split up allocation and generation so we know up front if we have enough RAM */
-	for (i = 0; i < n_pdb; i++) {
-		fprintf(stderr, "Generating PDB for tiles %s\n", argv[optind + i]);
-		pdb_generate(pdbs[i], stderr);
-		if (identify) {
-			fprintf(stderr, "\nIdentifying PDB...\n");
-			pdb_identify(pdbs[i]);
-		}
-
-		fputs("\n", stderr);
 	}
 
 	for (;;) {
@@ -101,8 +74,8 @@ main(int argc, char *argv[])
 		if (puzzle_parse(&p, linebuf) != 0)
 			continue;
 
-		fprintf(stderr, "Solving puzzle using %zu PDBs...\n", n_pdb);
-		search_ida(pdbs, n_pdb, &p, &path, stderr);
+		fprintf(stderr, "Solving puzzle...\n");
+		search_ida(cat, &p, &path, stderr);
 		path_string(pathstr, &path);
 		printf("Solution found: %s\n", pathstr);
 	}
