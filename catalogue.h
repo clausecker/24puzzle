@@ -1,7 +1,10 @@
 /* catalogue.h -- pattern database catalogues */
+#ifndef CATALOGUE_H
+#define CATALOGUE_H
 
 #include <stdio.h>
 
+#include "builtins.h"
 #include "pdb.h"
 #include "tileset.h"
 #include "puzzle.h"
@@ -37,12 +40,11 @@ struct pdb_catalogue {
  * not change change whenever we can.  The member fake_entries stores a
  * bitmap of those PDB whose entries we have not bothered to look up as
  * they do not contribute to the best heuristic for this puzzle
- * configuration.  The member maximums stores the entries that made up
- * the maximal h values.
+ * configuration.
  */
 struct partial_hvals {
 	unsigned char hvals[CATALOGUE_PDBS_LEN];
-	unsigned long long fake_entries, maximums;
+	unsigned long long fake_entries;
 };
 
 extern struct pdb_catalogue	*catalogue_load(const char *, const char *, FILE *);
@@ -61,3 +63,30 @@ catalogue_hval(struct pdb_catalogue *cat, const struct puzzle *p)
 
 	return (catalogue_partial_hvals(&ph, cat, p));
 }
+
+/*
+ * Given a struct partial_hvals, return the h value indicated
+ * by this structure.  This is the maximum of all heuristics it
+ * contains.
+ */
+static inline unsigned
+catalogue_ph_hval(struct pdb_catalogue *cat, const struct partial_hvals *ph)
+{
+	size_t i;
+	unsigned long long parts;
+	unsigned max = 0, sum;
+
+	for (i = 0; i < cat->n_heuristics; i++) {
+		sum = 0;
+		for (parts = cat->parts[i]; parts != 0; parts &= parts - 1) {
+			sum += ph->hvals[ctzll(parts)];
+
+			if (sum > max)
+				max = sum;
+		}
+	}
+
+	return (max);
+}
+
+#endif /* CATALOGUE_H */
