@@ -115,6 +115,15 @@ tileset_intersect(tileset ts1, tileset ts2)
 }
 
 /*
+ * Return the union of ts1 and ts2.
+ */
+static inline tileset
+tileset_union(tileset ts1, tileset ts2)
+{
+	return (ts1 | ts2);
+}
+
+/*
  * Return a tileset containing the lowest numbered n tiles.
  */
 static inline tileset

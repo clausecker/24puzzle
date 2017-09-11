@@ -34,9 +34,9 @@ catalogue_load(const char *catfile, const char *pdbdir, FILE *f)
 	struct pdb_catalogue *cat = malloc(sizeof *cat);
 	struct patterndb *pdb;
 	FILE *catcfg, *pdbfile = NULL;
-	size_t i, had_empty_line = 1, len;
+	size_t i, len;
 	int error, result, pdb_already_generated;
-	tileset ts;
+	tileset ts, ctiles = EMPTY_TILESET;
 	char linebuf[LINEBUF_LEN], pathbuf[PATH_MAX], *newline;
 
 	if (cat == NULL)
@@ -74,14 +74,12 @@ catalogue_load(const char *catfile, const char *pdbdir, FILE *f)
 
 		/* empty lines demark groups of PDBs forming a heuristic */
 		if (linebuf[0] == '\0') {
-			if (!had_empty_line)
+			if (!tileset_empty(ctiles))
 				cat->n_heuristics++;
 
-			had_empty_line = 1;
+			ctiles = EMPTY_TILESET;
 			continue;
 		}
-
-		had_empty_line = 0;
 
 		if (cat->n_heuristics >= HEURISTICS_LEN) {
 			if (f != NULL)
@@ -198,9 +196,15 @@ catalogue_load(const char *catfile, const char *pdbdir, FILE *f)
 			cat->pdbs[cat->n_pdbs] = pdb;
 		}
 
+		if (!tileset_empty(tileset_remove(tileset_intersect(ctiles, ts), ZERO_TILE)) && f != NULL)
+			fprintf(f, "Warning: heuristic %zu not admissible!\n", cat->n_heuristics);
+
+		ctiles = tileset_union(ctiles, ts);
+
 		cat->heuristics[cat->n_pdbs] |= 1 << cat->n_heuristics;
 		cat->parts[cat->n_heuristics] |= 1 << cat->n_pdbs;
 		cat->n_pdbs++;
+
 
 	continue_outer:
 		;
@@ -214,7 +218,8 @@ catalogue_load(const char *catfile, const char *pdbdir, FILE *f)
 		goto fail;
 	}
 
-	if (!had_empty_line)
+	/* in lieu of an empty line at EOF */
+	if (ctiles != EMPTY_TILESET)
 		cat->n_heuristics++;
 
 	if (f != NULL)
