@@ -8,6 +8,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 
+#include "catalogue.h"
 #include "pdb.h"
 #include "index.h"
 #include "puzzle.h"
@@ -18,7 +19,7 @@ enum { CHUNK_SIZE = 1024 };
 static void
 usage(const char *argv0)
 {
-	fprintf(stderr, "Usage: %s [-i] [-j nproc] [-n n_puzzle] [-s seed] tileset ...\n", argv0);
+	fprintf(stderr, "Usage: %s [-j nproc] [-n n_puzzle] [-s seed] [-d pbdir] catalogue\n", argv0);
 
 	exit(EXIT_FAILURE);
 }
@@ -32,8 +33,8 @@ usage(const char *argv0)
  */
 struct qualitytest_config {
 	_Atomic size_t histogram[PDB_HISTOGRAM_LEN], progress;
-	size_t n_pdb, n_puzzle;
-	struct patterndb **pdbs;
+	size_t n_puzzle;
+	struct pdb_catalogue *cat;
 	int transpose;
 };
 
@@ -46,7 +47,7 @@ qualitytest_worker(void *qtcfg_arg)
 	struct qualitytest_config *qtcfg = qtcfg_arg;
 	struct puzzle p;
 	size_t histogram[PDB_HISTOGRAM_LEN] = {};
-	size_t i, j, n, old_progress;
+	size_t i, n, old_progress;
 	int dist, tdist;
 
 	for (;;) {
@@ -61,16 +62,12 @@ qualitytest_worker(void *qtcfg_arg)
 		for (i = 0; i < n; i++) {
 			random_puzzle(&p);
 
-			dist = 0;
-			for (j = 0; j < qtcfg->n_pdb; j++)
-				dist += pdb_lookup_puzzle(qtcfg->pdbs[j], &p);
+			dist = catalogue_hval(qtcfg->cat, &p);
 
 			if (qtcfg->transpose) {
 				transpose(&p);
 
-				tdist = 0;
-				for (j = 0; j < qtcfg->n_pdb; j++)
-					tdist += pdb_lookup_puzzle(qtcfg->pdbs[j], &p);
+				tdist = catalogue_hval(qtcfg->cat, &p);
 
 				if (tdist > dist)
 					dist = tdist;
@@ -89,13 +86,13 @@ qualitytest_worker(void *qtcfg_arg)
 
 /*
  * Generate a histogram indicating what distance the pattern databases
- * pdbs predicted for n_puzzle random puzzles.  Use up to pdb_jobs
+ * in cat predicted for n_puzzle random puzzles.  Use up to pdb_jobs
  * threads for the computation.  If transpose is nonzero, lookup each
  * puzzle and its transposition and use the maximum of both entries.
  */
 static void
 random_puzzle_histograms(size_t histogram[PDB_HISTOGRAM_LEN], size_t n_puzzle,
-    struct patterndb **pdbs, size_t n_pdb, int transpose)
+    struct pdb_catalogue *cat, int transpose)
 {
 	struct qualitytest_config qtcfg;
 	pthread_t pool[PDB_MAX_JOBS];
@@ -106,9 +103,8 @@ random_puzzle_histograms(size_t histogram[PDB_HISTOGRAM_LEN], size_t n_puzzle,
 		qtcfg.histogram[i] = 0;
 
 	qtcfg.progress = 0;
-	qtcfg.n_pdb = n_pdb;
 	qtcfg.n_puzzle = n_puzzle;
-	qtcfg.pdbs = pdbs;
+	qtcfg.cat = cat;
 	qtcfg.transpose = transpose;
 
 	/* this code is very similar to pdb_iterate_parallel() */
@@ -186,17 +182,17 @@ print_statistics(size_t histogram[PDB_HISTOGRAM_LEN], size_t n_puzzle)
 extern int
 main(int argc, char *argv[])
 {
-	struct patterndb *pdbs[PDB_MAX_COUNT];
+	struct pdb_catalogue *cat;
 	size_t histogram[PDB_HISTOGRAM_LEN];
-	size_t i, n_puzzle = 1000, n_pdb;
+	size_t n_puzzle = 1000;
 	unsigned long long seed = random_seed;
-	int optchar, identify = 0, transpose = 0;
-	tileset ts;
+	int optchar, transpose = 0;
+	char *pdbdir = NULL;
 
-	while (optchar = getopt(argc, argv, "ij:n:s:t"), optchar != -1)
+	while (optchar = getopt(argc, argv, "d:ij:n:s:t"), optchar != -1)
 		switch (optchar) {
-		case 'i':
-			identify = 1;
+		case 'd':
+			pdbdir = optarg;
 			break;
 
 		case 'j':
@@ -225,44 +221,19 @@ main(int argc, char *argv[])
 			usage(argv[0]);
 		}
 
-	n_pdb = argc - optind;
-	if (n_pdb > PDB_MAX_COUNT) {
-		fprintf(stderr, "Up to %d PDBs are allowed.\n", PDB_MAX_COUNT);
+	if (argc != optind + 1)
+		usage(argv[0]);
+
+	cat = catalogue_load(argv[optind], pdbdir, stderr);
+	if (cat == NULL) {
+		perror("catalogue_load");
 		return (EXIT_FAILURE);
-	}
-
-	for (i = 0; i < n_pdb; i++) {
-		if (tileset_parse(&ts, argv[optind + i]) != 0) {
-			fprintf(stderr, "Invalid tileset: %s\n", argv[optind + i]);
-			return (EXIT_FAILURE);
-		}
-
-		if (identify)
-			ts = tileset_add(ts, ZERO_TILE);
-
-		pdbs[i] = pdb_allocate(ts);
-		if (pdbs[i] == NULL) {
-			perror("pdb_allocate");
-			return (EXIT_FAILURE);
-		}
-	}
-
-	/* split up allocation and generation so we know up front if we have enough RAM */
-	for (i = 0; i < n_pdb; i++) {
-		fprintf(stderr, "Generating PDB for tiles %s\n", argv[optind + i]);
-		pdb_generate(pdbs[i], stderr);
-		if (identify) {
-			fprintf(stderr, "\nIdentifying PDB...\n");
-			pdb_identify(pdbs[i]);
-		}
-
-		fputs("\n", stderr);
 	}
 
 	random_seed = seed;
 	fprintf(stderr, "Looking up %zu random instances...\n\n", n_puzzle);
 
-	random_puzzle_histograms(histogram, n_puzzle, pdbs, n_pdb, transpose);
+	random_puzzle_histograms(histogram, n_puzzle, cat, transpose);
 	print_statistics(histogram, n_puzzle);
 
 	return (EXIT_SUCCESS);
