@@ -132,7 +132,7 @@ eqclass_total(const struct index_aux *aux)
 static inline size_t
 search_space_size(const struct index_aux *aux)
 {
-	return ((size_t)aux->n_maprank * (size_t)aux->n_perm * (size_t)eqclass_total(aux));
+	return ((size_t)aux->n_perm * (size_t)eqclass_total(aux));
 }
 
 
