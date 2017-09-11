@@ -78,12 +78,11 @@ catalogue_ph_hval(struct pdb_catalogue *cat, const struct partial_hvals *ph)
 
 	for (i = 0; i < cat->n_heuristics; i++) {
 		sum = 0;
-		for (parts = cat->parts[i]; parts != 0; parts &= parts - 1) {
+		for (parts = cat->parts[i]; parts != 0; parts &= parts - 1)
 			sum += ph->hvals[ctzll(parts)];
 
-			if (sum > max)
-				max = sum;
-		}
+		if (sum > max)
+			max = sum;
 	}
 
 	return (max);

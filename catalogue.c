@@ -74,8 +74,13 @@ catalogue_load(const char *catfile, const char *pdbdir, FILE *f)
 
 		/* empty lines demark groups of PDBs forming a heuristic */
 		if (linebuf[0] == '\0') {
-			if (!tileset_empty(ctiles))
+			if (!tileset_empty(ctiles)) {
+				if (tileset_add(ctiles, ZERO_TILE) != FULL_TILESET && f != NULL)
+					fprintf(f, "Warning: heuristic %zu does not account for all tiles!\n",
+					    cat->n_heuristics);
+
 				cat->n_heuristics++;
+			}
 
 			ctiles = EMPTY_TILESET;
 			continue;
@@ -219,8 +224,13 @@ catalogue_load(const char *catfile, const char *pdbdir, FILE *f)
 	}
 
 	/* in lieu of an empty line at EOF */
-	if (ctiles != EMPTY_TILESET)
+	if (ctiles != EMPTY_TILESET) {
+		if (tileset_add(ctiles, ZERO_TILE) != FULL_TILESET && f != NULL)
+			fprintf(f, "Warning: heuristic %zu does not account for all tiles!\n",
+			    cat->n_heuristics);
+
 		cat->n_heuristics++;
+	}
 
 	if (f != NULL)
 		fprintf(f, "Loaded %zu PDBs and %zu heuristics from %s\n",
