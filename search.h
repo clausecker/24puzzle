@@ -5,6 +5,7 @@
 
 #include <stdio.h>
 
+#include "catalogue.h"
 #include "pdb.h"
 
 /*
@@ -27,6 +28,6 @@ struct path {
 extern void	path_string(char[PATH_STR_LEN], const struct path *);
 
 /* various */
-extern size_t	search_ida(struct patterndb **, size_t, const struct puzzle *, struct path *, FILE *);
+extern size_t	search_ida(struct pdb_catalogue *, const struct puzzle *, struct path *, FILE *);
 
 #endif /* SEARCH_H */
