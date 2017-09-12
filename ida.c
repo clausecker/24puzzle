@@ -160,10 +160,10 @@ search_to_bound(struct pdb_catalogue *cat, const struct puzzle *parg,
 /*
  * Try to find a solution for parg wit the IDA* algorithm using the
  * disjoint pattern databases pdbs as heuristic functions.  Store the
- * path found in path and return the number of nodes in the path.  If
+ * path found in path and return the number of nodes expanded.  If
  * f is not NULL, print diagnostic messages to f.
  */
-extern size_t
+extern unsigned long long
 search_ida(struct pdb_catalogue *cat, const struct puzzle *p, struct path *path, FILE *f)
 {
 	struct search_node spath[SEARCH_PATH_LEN + 2];
@@ -188,5 +188,5 @@ search_ida(struct pdb_catalogue *cat, const struct puzzle *p, struct path *path,
 	for (i = 0; i < bound; i++)
 		path->moves[i] = spath[i + 2].zloc;
 
-	return (bound);
+	return (expanded);
 }

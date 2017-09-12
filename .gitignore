@@ -14,6 +14,7 @@ cmd/pdbstats
 cmd/pdbsearch
 test/hitanalysis
 test/indextest
+test/parsearch
 test/qualitytest
 test/ranktest
 util/rankgen
