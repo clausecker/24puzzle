@@ -189,7 +189,7 @@ main(int argc, char *argv[])
 	int optchar, transpose = 0;
 	char *pdbdir = NULL;
 
-	while (optchar = getopt(argc, argv, "d:ij:n:s:t"), optchar != -1)
+	while (optchar = getopt(argc, argv, "d:j:n:s:t"), optchar != -1)
 		switch (optchar) {
 		case 'd':
 			pdbdir = optarg;

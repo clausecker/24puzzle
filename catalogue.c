@@ -282,7 +282,6 @@ catalogue_diff_hvals(struct partial_hvals *ph, struct pdb_catalogue *cat,
 {
 	size_t i;
 
-	/* fake changed entries */
 	for (i = 0; i < cat->n_pdbs; i++)
 		if (tileset_has(cat->pdbs_ts[i], tile))
 			ph->hvals[i] = pdb_lookup_puzzle(cat->pdbs[i], p);
