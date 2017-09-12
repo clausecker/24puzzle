@@ -108,6 +108,7 @@ catalogue_load(const char *catfile, const char *pdbdir, FILE *f)
 			if (cat->pdbs_ts[i] == ts) {
 				cat->heuristics[i] |= 1 << cat->n_heuristics;
 				cat->parts[cat->n_heuristics] |= 1 << i;
+				ctiles = tileset_union(ctiles, cat->pdbs_ts[i]);
 				goto continue_outer;
 			}
 
