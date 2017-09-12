@@ -6,4 +6,4 @@ clausecker-compound	81.60	82.84
 compound		81.63	82.03
 reinefeld		80.97	81.82
 clausecker		81.35	82.06
-compact-compound	82.37	83.04
+compact-compound	82.41	83.08
