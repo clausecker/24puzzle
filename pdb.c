@@ -186,7 +186,7 @@ pdb_mmap(tileset ts, int pdbfd, int mapflags)
 	}
 
 	for (i = 1; i < aux.n_maprank; i++) {
-		offset += pdb_table_size(pdb, i);
+		offset += pdb_table_size(pdb, i - 1);
 		pdb->tables[i] = pdb->tables[0] + offset;
 	}
 
