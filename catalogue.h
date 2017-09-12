@@ -43,7 +43,6 @@ struct pdb_catalogue {
  */
 struct partial_hvals {
 	unsigned char hvals[CATALOGUE_PDBS_LEN];
-	unsigned long long fake_entries;
 };
 
 extern struct pdb_catalogue	*catalogue_load(const char *, const char *, FILE *);

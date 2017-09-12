@@ -264,84 +264,28 @@ catalogue_partial_hvals(struct partial_hvals *ph,
     struct pdb_catalogue *cat, const struct puzzle *p)
 {
 	size_t i;
-	unsigned long long parts;
-	unsigned max = 0, sum;
-
-	ph->fake_entries = 0;
 
 	for (i = 0; i < cat->n_pdbs; i++)
 		ph->hvals[i] = pdb_lookup_puzzle(cat->pdbs[i], p);
 
-	for (i = 0; i < cat->n_heuristics; i++) {
-		sum = 0;
-		for (parts = cat->parts[i]; parts != 0; parts &= parts - 1)
-			sum += ph->hvals[ctzll(parts)];
-
-		if (sum > max)
-			max = sum;
-	}
-
-	return (max);
+	return (catalogue_ph_hval(cat, ph));
 }
 
 /*
  * Update ph, a struct partial_hvals for a configuration neighboring p
- * by moving tile t, to contain partial h values for p.  This function
- * is a bit complicated because we want to avoid PDB lookups whenever
- * possible.  This is achieved using the strategy outlined in the
- * following paragraph:
- *
- * First, each partial h value that is changed by moving tile is
- * incremented.  This represents the worst possible change as our PDBs
- * yield consistent h values, that is, the difference between the PDB
- * entries for two neighboring configurations is at most 1 (and here,
- * exactly 1).  All components incremented like this are marked as fake.
- * Next, a maximum is computed.  If this maximum uses any fake entries,
- * these fake entries are looked up in their PDBs and the corresponding
- * fake bits cleared.   If the maximum decreases in the process, we
- * search for a maximum anew.  This continues until we find a maximum
- * composed of non-faked bits only.
+ * by moving tile t, to contain partial h values for p.  To save time,
+ * we only look up those PDB entries that changed when moving tile.
  */
 extern unsigned
 catalogue_diff_hvals(struct partial_hvals *ph, struct pdb_catalogue *cat,
     const struct puzzle *p, unsigned tile)
 {
-	size_t i, maxheu;
-	unsigned long long parts, fakes;
-	unsigned sum, max, oldentry;
+	size_t i;
 
 	/* fake changed entries */
 	for (i = 0; i < cat->n_pdbs; i++)
-		if (tileset_has(cat->pdbs_ts[i], tile)) {
-			ph->hvals[i]++;
-			ph->fake_entries |= 1 << i;
-		}
+		if (tileset_has(cat->pdbs_ts[i], tile))
+			ph->hvals[i] = pdb_lookup_puzzle(cat->pdbs[i], p);
 
-find_maximum:
-	max = 0;
-	maxheu = 0;
-	for (i = 0; i < cat->n_heuristics; i++) {
-		sum = 0;
-		for (parts = cat->parts[i]; parts != 0; parts &= parts - 1)
-			sum += ph->hvals[ctzll(parts)];
-
-		if (sum > max) {
-			max = sum;
-			maxheu = i;
-		}
-	}
-
-	/* fix up fakes */
-	for (fakes = ph->fake_entries & cat->parts[maxheu]; fakes != 0; fakes &= fakes - 1) {
-		i = ctzll(fakes);
-		oldentry = ph->hvals[i];
-		ph->hvals[i] = pdb_lookup_puzzle(cat->pdbs[i], p);
-		ph->fake_entries &= ~(1 << i);
-
-		/* if the fake entry changed our eval, try again */
-		if (ph->hvals[i] < oldentry)
-			goto find_maximum;
-	}
-
-	return (max);
+	return (catalogue_ph_hval(cat, ph));
 }
