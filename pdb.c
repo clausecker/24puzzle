@@ -21,27 +21,21 @@
 extern struct patterndb *
 pdb_allocate(tileset ts)
 {
-	size_t i;
 	struct index_aux aux;
 	struct patterndb *pdb;
 
 	make_index_aux(&aux, ts);
-	pdb = malloc(sizeof *pdb + sizeof *pdb->tables * aux.n_maprank);
+	pdb = malloc(sizeof *pdb);
 	if (pdb == NULL)
 		return (NULL);
 
 	pdb->aux = aux;
 	pdb->mapped = 0;
 
-	/* allow us to simply call pdb_free() if we run out of memory */
-	memset(pdb->tables, 0, sizeof *pdb->tables * aux.n_maprank);
-
-	for (i = 0; i < aux.n_maprank; i++) {
-		pdb->tables[i] = malloc(pdb_table_size(pdb, i));
-		if (pdb->tables[i] == NULL) {
-			pdb_free(pdb);
-			return (NULL);
-		}
+	pdb->data = malloc(search_space_size(&pdb->aux));
+	if (pdb->data == NULL) {
+		free(pdb);
+		return (NULL);
 	}
 
 	return (pdb);
@@ -53,13 +47,11 @@ pdb_allocate(tileset ts)
 extern void
 pdb_free(struct patterndb *pdb)
 {
-	size_t i, n_tables = pdb->aux.n_maprank;
 
 	if (pdb->mapped)
-		munmap(pdb->tables[0], search_space_size(&pdb->aux));
+		munmap(pdb->data, search_space_size(&pdb->aux));
 	else
-		for (i = 0; i < n_tables; i++)
-			free(pdb->tables[i]);
+		free(pdb->data);
 
 	free(pdb);
 }
@@ -70,11 +62,8 @@ pdb_free(struct patterndb *pdb)
 extern void
 pdb_clear(struct patterndb *pdb)
 {
-	size_t i, n_tables = pdb->aux.n_maprank;
 
-	for (i = 0; i < n_tables; i++) {
-		memset((void *)pdb->tables[i], UNREACHED, pdb_table_size(pdb, i));
-	}
+	memset((void*)pdb->data, UNREACHED, search_space_size(&pdb->aux));
 }
 
 /*
@@ -89,22 +78,19 @@ extern struct patterndb *
 pdb_load(tileset ts, FILE *pdbfile)
 {
 	struct patterndb *pdb = pdb_allocate(ts);
-	size_t i, n_tables = pdb->aux.n_maprank, count, tblsize;
+	size_t count, size = search_space_size(&pdb->aux);
 
 	if (pdb == NULL)
 		return (NULL);
 
-	for (i = 0; i < n_tables; i++) {
-		tblsize = pdb_table_size(pdb, i);
-		count = fread((void *)pdb->tables[i], 1, tblsize, pdbfile);
-		if (count != tblsize) {
-			/* tell apart short read from IO error */
-			if (!ferror(pdbfile))
-				errno = EINVAL;
+	count = fread((void *)pdb->data, 1, size, pdbfile);
+	if (count != size) {
+		/* tell apart short read from IO error */
+		if (!ferror(pdbfile))
+			errno = EINVAL;
 
-			pdb_free(pdb);
-			return (NULL);
-		}
+		pdb_free(pdb);
+		return (NULL);
 	}
 
 	return (pdb);
@@ -119,18 +105,15 @@ pdb_load(tileset ts, FILE *pdbfile)
 extern int
 pdb_store(FILE *pdbfile, struct patterndb *pdb)
 {
-	size_t i, n_tables = pdb->aux.n_maprank, count, tblsize;
+	size_t count, size = search_space_size(&pdb->aux);
 
-	for (i = 0; i < n_tables; i++) {
-		tblsize = pdb_table_size(pdb, i);
-		count = fwrite((void *)pdb->tables[i], 1, tblsize, pdbfile);
-		if (count != tblsize) {
-			/* tell apart end of medium from IO error */
-			if (!ferror(pdbfile))
-				errno = ENOSPC;
+	count = fwrite((void *)pdb->data, 1, size, pdbfile);
+	if (count != size) {
+		/* tell apart end of medium from IO error */
+		if (!ferror(pdbfile))
+			errno = ENOSPC;
 
-			return (-1);
-		}
+		return (-1);
 	}
 
 	return (0);
@@ -147,7 +130,6 @@ pdb_mmap(tileset ts, int pdbfd, int mapflags)
 {
 	struct index_aux aux;
 	struct patterndb *pdb;
-	size_t i, offset = 0;
 	int prot, flags;
 
 	switch (mapflags) {
@@ -172,22 +154,16 @@ pdb_mmap(tileset ts, int pdbfd, int mapflags)
 	}
 
 	make_index_aux(&aux, ts);
-	pdb = malloc(sizeof *pdb + sizeof *pdb->tables * aux.n_maprank);
+	pdb = malloc(sizeof *pdb);
 	if (pdb == NULL)
 		return (NULL);
 
 	pdb->aux = aux;
 	pdb->mapped = 1;
-	pdb->tables[0] = mmap(NULL, search_space_size(&pdb->aux), prot, flags, pdbfd, 0);
-	if (pdb->tables[0] == MAP_FAILED) {
-		pdb->tables[0] = NULL;
+	pdb->data = mmap(NULL, search_space_size(&pdb->aux), prot, flags, pdbfd, 0);
+	if (pdb->data == MAP_FAILED) {
 		free(pdb);
 		return (NULL);
-	}
-
-	for (i = 1; i < aux.n_maprank; i++) {
-		offset += pdb_table_size(pdb, i - 1);
-		pdb->tables[i] = pdb->tables[0] + offset;
 	}
 
 	return (pdb);

@@ -24,11 +24,12 @@ histogram_worker(void *cfgarg, struct index *idx)
 	struct histogram_config *cfg = cfgarg;
 	size_t i, n = pdb_table_size(cfg->pcfg.pdb, idx->maprank);
 	size_t histogram[PDB_HISTOGRAM_LEN];
+	atomic_uchar *table = pdb_entry_pointer(cfg->pcfg.pdb, idx);
 
 	memset(histogram, 0, sizeof histogram);
 
 	for (i = 0; i < n; i++)
-		histogram[cfg->pcfg.pdb->tables[idx->maprank][i]]++;
+		histogram[table[i]]++;
 
 	for (i = 0; i < PDB_HISTOGRAM_LEN; i++)
 		cfg->histogram[i] += histogram[i];

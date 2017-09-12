@@ -12,14 +12,14 @@
  * A patterndb is an array of pointers to arrays of bytes
  * representing the distance from the represented partial puzzle
  * configuration to the solved puzzle.  The member aux describes the
- * tile set we use to compute indices.  The tables are organized first
- * by map rank, then by permutation index, and finally by equivalence
- * class.
+ * tile set we use to compute indices.  data points to the content of
+ * the PDB, organized first by map rank, then by permutation index,
+ * and finally by equivalence class.
  */
 struct patterndb {
 	struct index_aux aux;
 	int mapped; /* true if PDB has been allocated using mmap() */
-	atomic_uchar *tables[];
+	atomic_uchar *data;
 };
 
 _Static_assert(sizeof(atomic_uchar) == 1, "Machine does not support proper atomic chars.");
@@ -74,7 +74,6 @@ extern int	pdb_verify(struct patterndb *, FILE *);
 extern int	pdb_histogram(size_t[PDB_HISTOGRAM_LEN], struct patterndb *);
 extern void	pdb_reduce(struct patterndb *, FILE *);
 extern void	pdb_diffcode(struct patterndb *, unsigned char[]);
-extern void	pdb_identify(struct patterndb *);
 
 /*
  * Return a pointer to the PDB entry for idx.
@@ -83,9 +82,9 @@ static inline atomic_uchar *
 pdb_entry_pointer(struct patterndb *pdb, const struct index *idx)
 {
 	if (tileset_has(pdb->aux.ts, ZERO_TILE))
-		return (pdb->tables[idx->maprank] + idx->eqidx * pdb->aux.n_perm + idx->pidx);
+		return (pdb->data + (pdb->aux.idxt[idx->maprank].offset + idx->eqidx) * pdb->aux.n_perm + idx->pidx);
 	else
-		return (pdb->tables[idx->maprank] + idx->pidx);
+		return (pdb->data + idx->maprank * pdb->aux.n_perm + idx->pidx);
 }
 
 /*
