@@ -106,7 +106,6 @@ catalogue_load(const char *catfile, const char *pdbdir, FILE *f)
 		/* check if the PDB is already present */
 		for (i = 0; i < cat->n_pdbs; i++)
 			if (cat->pdbs_ts[i] == ts) {
-				cat->heuristics[i] |= 1 << cat->n_heuristics;
 				cat->parts[cat->n_heuristics] |= 1 << i;
 				ctiles = tileset_union(ctiles, cat->pdbs_ts[i]);
 				goto continue_outer;
@@ -207,7 +206,6 @@ catalogue_load(const char *catfile, const char *pdbdir, FILE *f)
 
 		ctiles = tileset_union(ctiles, ts);
 
-		cat->heuristics[cat->n_pdbs] |= 1 << cat->n_heuristics;
 		cat->parts[cat->n_heuristics] |= 1 << cat->n_pdbs;
 		cat->n_pdbs++;
 

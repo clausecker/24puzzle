@@ -22,12 +22,11 @@
  */
 enum {
 	CATALOGUE_PDBS_LEN = 64,
-	HEURISTICS_LEN = 16,
+	HEURISTICS_LEN = 32,
 };
 
 struct pdb_catalogue {
 	struct patterndb *pdbs[CATALOGUE_PDBS_LEN];
-	unsigned heuristics[CATALOGUE_PDBS_LEN];
 	tileset pdbs_ts[CATALOGUE_PDBS_LEN];
 	unsigned long long parts[HEURISTICS_LEN];
 	size_t n_pdbs, n_heuristics;
