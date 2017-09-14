@@ -86,4 +86,33 @@ catalogue_ph_hval(struct pdb_catalogue *cat, const struct partial_hvals *ph)
 	return (max);
 }
 
+/*
+ * Given a struct partial_hvals, return a bitmap indicating the
+ * heuristics whose h value is equal to the maximum h value for
+ * ph.
+ */
+static inline unsigned
+catalogue_max_heuristics(struct pdb_catalogue *cat, const struct partial_hvals *ph)
+{
+	size_t i;
+	unsigned long long parts;
+	unsigned max = 0, sum, heumap = 0;
+
+	for (i = 0; i < cat->n_heuristics; i++) {
+		sum = 0;
+		for (parts = cat->parts[i]; parts != 0; parts &= parts - 1)
+			sum += ph->hvals[ctzll(parts)];
+
+		if (sum > max) {
+			max = sum;
+			heumap = 0;
+		}
+
+		if (sum == max)
+			heumap |= 1 << i;
+	}
+
+	return (heumap);
+}
+
 #endif /* CATALOGUE_H */
