@@ -1,9 +1,11 @@
 # index qualities for n = 100,000,000
 
-name			h_avg	ht_avg
-reinefeld-compound	81.80	82.35
-clausecker-compound	81.60	82.84
-compound		81.63	82.03
-reinefeld		80.97	81.82
-clausecker		81.35	82.06
-compact-compound	82.47	83.12
+name			n_pdb	n_heu	h_avg	ht_avg
+reinefeld-compound	28	8	81.90	82.47
+clausecker-compound	28	8	81.66	82.29
+compound		28	8	81.83	82.23
+reinefeld		4	1	80.97	81.82
+clausecker		4	1	81.35	82.06
+compact-compound	21	17	82.47	83.12
+improved-compound	20	14	82.70	83.31
+small-compound		14	7	82.41	83.08
