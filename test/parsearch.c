@@ -173,6 +173,14 @@ main(int argc, char *argv[])
 		return (EXIT_FAILURE);
 	}
 
+	/*
+	 * Searching for solutions takes a while.  When output is
+	 * redirected to a file with normal buffering, nothing is seen
+	 * for quite some time.  By setting the buffering mode to line
+	 * buffering, we see results as soon as they are generated.
+	 */
+	setvbuf(stdout, NULL, _IOLBF, 0);
+
 	lookup_multiple(cat, puzzles);
 
 	return (EXIT_SUCCESS);
