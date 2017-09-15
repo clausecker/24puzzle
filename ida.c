@@ -15,67 +15,61 @@
  * layout contains the following parts:
  *
  * - zloc is the location of the zero tile
- * - nextmove is the next move to try
- * - ph stores our partial node evaluation.
+ * - childno indicates what number child we are of our parent
+ * - to_expand is a bitmap containg the nodes we need to expand from here.
+ * - child_ph and child_pht stores our children's partial node evaluations
+ * - child_h stores our childrens node evaluations.
  *
  * The path begins with two dummy nodes to simplify the code that
  * excludes useless moves.
  */
 struct search_node {
-	struct partial_hvals ph, pht;
-	unsigned char zloc, nextmove;
+	struct partial_hvals child_ph[4], child_pht[4];
+	unsigned zloc, childno, to_expand, child_h[4];
 };
 
 /*
- * Push a node onto the search path, update p and pt and compute heuristics
- * for the new node.  Return the new node's maximal h value.
+ * Fill in child_ph, child_pht, child_h, and to_expand in child.  Omit
+ * the node that would go back from the expansion.
  */
-static unsigned
-path_push(struct search_node *path, int *dist, struct pdb_catalogue *cat,
-    struct puzzle *p, struct puzzle *pt, unsigned dest)
+static void
+evaluate_expansions(struct search_node *path, struct puzzle *p, struct puzzle *pt,
+    struct pdb_catalogue *cat)
 {
-	/* the tiles we move */
-	size_t tile = p->grid[dest], ttile = pt->grid[transpositions[dest]];
+	size_t i, dest, tile, ttile;
+	const signed char *moves;
 	unsigned h, ht;
 
-	assert(tile != 0);
-	assert(ttile != 0);
+	path->to_expand = 0;
+	assert(path->zloc < TILE_COUNT);
+	moves = get_moves(path->zloc);
 
-	move(p, dest);
-	move(pt, transpositions[dest]);
+	for (i = 0; i < 4; i++) {
+		dest = moves[i];
 
-	++*dist;
-	path[*dist].ph = path[*dist - 1].ph;
-	path[*dist].pht = path[*dist - 1].pht;
-	path[*dist].zloc = zero_location(p);
-	path[*dist].nextmove = 0;
+		/* don't attempt to go back */
+		if (dest == -1 || dest == path[-1].zloc)
+			continue;
 
-	h = catalogue_diff_hvals(&path[*dist].ph, cat, p, tile);
-	ht = catalogue_diff_hvals(&path[*dist].pht, cat, pt, ttile);
+		path->to_expand |= 1 << i;
 
-	return (h > ht ? h : ht);
-}
+		tile = p->grid[dest];
+		ttile = pt->grid[transpositions[dest]];
 
-/*
- * Pop a node off the stack, restore p and pt and return the h value of
- * the top node.
- */
-static unsigned
-path_pop(struct search_node *path, int *dist, struct pdb_catalogue *cat,
-    struct puzzle *p, struct puzzle *pt)
-{
-	unsigned h, ht;
+		move(p, dest);
+		move(pt, transpositions[dest]);
 
-	if (--*dist < 0)
-		return (-1); /* dummy value */
+		memcpy(path->child_ph + i, path[-1].child_ph + path->childno, sizeof path->child_ph[i]);
+		memcpy(path->child_pht + i, path[-1].child_pht + path->childno, sizeof path->child_pht[i]);
 
-	move(p, path[*dist].zloc);
-	move(pt, transpositions[path[*dist].zloc]);
+		h = catalogue_diff_hvals(path->child_ph + i, cat, p, tile);
+		ht = catalogue_diff_hvals(path->child_pht + i, cat, pt, ttile);
 
-	h = catalogue_ph_hval(cat, &path[*dist].ph);
-	ht = catalogue_ph_hval(cat, &path[*dist].pht);
+		move(p, path->zloc);
+		move(pt, transpositions[path->zloc]);
 
-	return (h > ht ? h : ht);
+		path->child_h[i] = h > ht ? h : ht;
+	}
 }
 
 /*
@@ -90,24 +84,19 @@ search_to_bound(struct pdb_catalogue *cat, const struct puzzle *parg,
 {
 	struct puzzle p = *parg;
 	struct puzzle pt = p;
-	size_t newbound = -1;
+	size_t newbound = -1, dloc;
 	unsigned h, ht, hmax, dest;
 	int dist;
 
 	transpose(&pt);
 
 	/* initialize the dummy nodes */
-	path[0].zloc = -1; /* dummy value */
-	path[0].nextmove = -1; /* dummy value */
-	/* dummy values */
-	memset(&path[0].ph, -1, sizeof path[0].ph);
-	memset(&path[0].pht, -1, sizeof path[0].pht);
-
-	path[1].zloc = zero_location(&p);
-	path[1].nextmove = 0;
-	h = catalogue_partial_hvals(&path[1].ph, cat, &p);
-	ht = catalogue_partial_hvals(&path[1].pht, cat, &pt);
-	hmax = h > ht ? h : ht;
+	path[0].zloc = zero_location(&p); /* dummy value */
+	path[0].childno = -1; /* dummy value */
+	path[0].to_expand = 0; /* dummy value */
+	h = catalogue_partial_hvals(&path[0].child_ph[0], cat, &p);
+	ht = catalogue_partial_hvals(&path[0].child_pht[0], cat, &pt);
+	path[0].child_h[0] = h > ht ? h : ht;
 
 	/*
 	 * for easier programming, we want path[0] to be the root node,
@@ -116,24 +105,43 @@ search_to_bound(struct pdb_catalogue *cat, const struct puzzle *parg,
 	path += 1;
 	dist = 0;
 
+	path[0].zloc = zero_location(&p);
+	path[0].childno = 0;
+	evaluate_expansions(path, &p, &pt, cat);
+
 	/* do graph search bounded by bound */
 	do {
-		/* are we over the bound or out of moves to make? */
-		if (hmax + dist > *bound ||
-		    path[dist].nextmove >= move_count(zero_location(&p))) {
-			if (hmax + dist > *bound && hmax + dist < newbound)
-				newbound = hmax + dist;
+		hmax = path[dist - 1].child_h[path[dist].childno];
 
-			hmax = path_pop(path, &dist, cat, &p, &pt);
+		/* are we out of moves to make? */
+		if (path[dist].to_expand == 0) {
+			dist--;
+			move(&p, path[dist].zloc);
+			move(&pt, transpositions[path[dist].zloc]);
 		} else { /* make the next move */
-			dest = get_moves(zero_location(&p))[path[dist].nextmove++];
-
-			/* would we move back to the previous configuration? */
-			if (dest == path[dist - 1].zloc)
-				continue;
-
-			hmax = path_push(path, &dist, cat, &p, &pt, dest);
 			++*expanded;
+
+			dest = ctz(path[dist].to_expand);
+			hmax = path[dist].child_h[dest];
+			path[dist].to_expand &= ~(1 << dest);
+			dloc = get_moves(path[dist].zloc)[dest];
+			dist++;
+
+			/* would we go over the limit? */
+			if (hmax + dist > *bound) {
+				if (hmax + dist < newbound)
+					newbound = hmax + dist;
+
+				dist--;
+				continue;
+			}
+
+			move(&p, dloc);
+			move(&pt, transpositions[dloc]);
+
+			path[dist].childno = dest;
+			path[dist].zloc = dloc;
+			evaluate_expansions(path + dist, &p, &pt, cat);
 
 			/* have we found the solution? */
 			if (hmax == 0 && memcmp(p.tiles, solved_puzzle.tiles, TILE_COUNT) == 0) {
@@ -166,10 +174,16 @@ search_to_bound(struct pdb_catalogue *cat, const struct puzzle *parg,
 extern unsigned long long
 search_ida(struct pdb_catalogue *cat, const struct puzzle *p, struct path *path, FILE *f)
 {
-	struct search_node spath[SEARCH_PATH_LEN + 2];
+	struct search_node *spath;
 	unsigned long long expanded, total_expanded = 0;
 	size_t i, bound = 0;
 	int unfinished;
+
+	spath = malloc(sizeof *spath * (SEARCH_PATH_LEN + 2));
+	if (spath == NULL) {
+		perror("malloc");
+		abort();
+	}
 
 	do {
 		expanded = 0;
@@ -188,5 +202,7 @@ search_ida(struct pdb_catalogue *cat, const struct puzzle *p, struct path *path,
 	for (i = 0; i < bound; i++)
 		path->moves[i] = spath[i + 2].zloc;
 
-	return (expanded);
+	free(spath);
+
+	return (total_expanded);
 }
