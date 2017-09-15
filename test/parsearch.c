@@ -161,7 +161,7 @@ main(int argc, char *argv[])
 	if (argc != optind + 2)
 		usage(argv[0]);
 
-	cat = catalogue_load(argv[optind], pdbdir, stderr);
+	cat = catalogue_load(argv[optind], pdbdir, NULL);
 	if (cat == NULL) {
 		perror("catalogue_load");
 		return (EXIT_FAILURE);
