@@ -74,6 +74,11 @@ main(int argc, char *argv[])
 		if (puzzle_parse(&p, linebuf) != 0)
 			continue;
 
+		if (puzzle_parity(&p) != 0) {
+			printf("Puzzle unsolvable.\n");
+			continue;
+		}
+
 		fprintf(stderr, "Solving puzzle...\n");
 		search_ida(cat, &p, &path, stderr);
 		path_string(pathstr, &path);

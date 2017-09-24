@@ -11,6 +11,7 @@
 #endif
 
 #include "puzzle.h"
+#include "tileset.h"
 
 /*
  * A solved puzzle configuration.
@@ -133,6 +134,33 @@ transpose(struct puzzle *p)
 		p->grid[p->tiles[i]] = i;
 	}
 #endif
+}
+
+/*
+ * Return the parity of p.  This is the sign of the permutation of tiles
+ * in p->grid xor the parity of the position of the zero tile.  The
+ * solved puzzle has even (clear) parity and puzzles are solvable iff
+ * they have the same parity as the solved puzzle.
+ */
+extern int
+puzzle_parity(const struct puzzle *p)
+{
+	tileset ts = FULL_TILESET;
+	int i, start, len, parity = zero_location(p);
+
+	/* count cycle lengths */
+	while (!tileset_empty(ts)) {
+		len = 0;
+		start = i = tileset_get_least(ts);
+		do {
+			ts = tileset_remove(ts, i);
+			i = p->grid[i];
+			len++;
+		} while (i != start);
+		parity ^= len ^ 1;
+	}
+
+	return (parity & 1);
 }
 
 /*

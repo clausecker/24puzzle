@@ -43,6 +43,7 @@ extern const unsigned char transpositions[TILE_COUNT];
 enum { PUZZLE_STR_LEN = 151 };
 
 extern void	transpose(struct puzzle *);
+extern int	puzzle_parity(const struct puzzle *);
 extern void	puzzle_string(char[PUZZLE_STR_LEN], const struct puzzle *);
 extern int	puzzle_parse(struct puzzle *, const char *);
 /*
