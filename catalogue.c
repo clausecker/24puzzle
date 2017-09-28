@@ -255,6 +255,22 @@ earlyfail:
 }
 
 /*
+ * Release store associated with PDB catalogue cat.  Also release
+ * storage associated with all PDBs we opened.  *cat is undefined
+ * after this function returned and must not be used further.
+ */
+extern void
+catalogue_free(struct pdb_catalogue *cat)
+{
+	size_t i;
+
+	for (i = 0; i < cat->n_pdbs; i++)
+		pdb_free(cat->pdbs[i]);
+
+	free(cat);
+}
+
+/*
  * Fill in a struct partial_hvals with values for puzzle configuration p
  * relative to PDB catalogue cat.  Return the best h value found in all
  * heuristics defined in cat.

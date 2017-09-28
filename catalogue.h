@@ -46,6 +46,7 @@ struct partial_hvals {
 };
 
 extern struct pdb_catalogue	*catalogue_load(const char *, const char *, FILE *);
+extern void	catalogue_free(struct pdb_catalogue *);
 extern unsigned	catalogue_partial_hvals(struct partial_hvals *, struct pdb_catalogue *, const struct puzzle *);
 extern unsigned	catalogue_diff_hvals(struct partial_hvals *, struct pdb_catalogue *, const struct puzzle *, unsigned);
 
