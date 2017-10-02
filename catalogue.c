@@ -16,6 +16,115 @@
 enum { LINEBUF_LEN = 512 };
 
 /*
+ * Add a PDB for the tile set represented by string tsbuf to the last
+ * heuristic in cat.  If the PDB is not already present, load or
+ * generate it, possibly generatic files in pdbdir.  Print status
+ * information to f if f is not NULL.  On success return the index of
+ * the PDB loaded, on error set errno and return -1.
+ */
+static int
+add_pdb(struct pdb_catalogue *cat, const char *tsbuf, const char *pdbdir, FILE *f)
+{
+	FILE *pdbfile;
+	size_t pdbidx, len;
+	tileset ts;
+	int error;
+	char pathbuf[PATH_MAX];
+
+	if (tileset_parse(&ts, tsbuf) != 0) {
+		if (f != NULL)
+			fprintf(f, "Cannot parse tileset: %s\n", tsbuf);
+
+		error = EINVAL;
+		return (-1);
+	}
+
+	/* check if the PDB is already present */
+	for (pdbidx = 0; pdbidx < cat->n_pdbs; pdbidx++)
+		if (cat->pdbs_ts[pdbidx] == ts)
+			return (pdbidx);
+
+
+	/* if the PDB is not already present, allocate it */
+	pdbidx = cat->n_pdbs++;
+	if (pdbidx >= CATALOGUE_PDBS_LEN) {
+		if (f != NULL)
+			fprintf(f, "Too many PDBs, up to %d are possible.\n",
+			    CATALOGUE_PDBS_LEN);
+
+		error = ERANGE;
+		return (-1);
+	}
+
+	cat->pdbs_ts[pdbidx] = ts;
+	pdbfile = NULL;
+
+	/* build the PDB's file name */
+	if (pdbdir != NULL) {
+		len = snprintf(pathbuf, sizeof pathbuf, "%s/%s.pdb", pdbdir, tsbuf);
+		if (len >= sizeof pathbuf) {
+			error = ENAMETOOLONG;
+			return (-1);
+		}
+
+		if (f != NULL)
+			fprintf(f, "Loading PDB file %s\n", pathbuf);
+
+		pdbfile = fopen(pathbuf, "rb");
+		if (pdbfile == NULL && errno != ENOENT) {
+			error = errno;
+			if (f != NULL)
+				fprintf(f, "%s: %s\n", pathbuf, strerror(errno));
+			errno = error;
+			return (-1);
+		}
+	}
+
+
+	/* if the PDB could not be found, generate it */
+	if (pdbfile == NULL) {
+		cat->pdbs[pdbidx] = pdb_allocate(ts);
+		if (cat->pdbs[pdbidx] == NULL)
+			return (-1);
+
+		if (f != NULL)
+			fprintf(f, "Generating PDB for tileset %s\n", tsbuf);
+
+		pdb_generate(cat->pdbs[pdbidx], f);
+
+		/* write PDB to disk if requested */
+		if (pdbdir == NULL)
+			return (pdbidx);
+
+		if (f != NULL)
+			fprintf(f, "Storing PDB to %s\n", pathbuf);
+
+		pdbfile = fopen(pathbuf, "w+b");
+		if (pdbfile == NULL || pdb_store(pdbfile, cat->pdbs[pdbidx]) != 0) {
+			if (f != NULL)
+				fprintf(f, "%s: %s\nContinuing anyway\n", pathbuf, strerror(errno));
+
+			if (pdbfile != NULL)
+				fclose(pdbfile);
+
+			return (pdbidx);
+		}
+
+		rewind(pdbfile);
+		pdb_free(cat->pdbs[pdbidx]);
+	}
+
+	/* map PDB into RAM */
+	cat->pdbs[pdbidx] = pdb_mmap(ts, fileno(pdbfile), PDB_MAP_RDONLY);
+	if (cat->pdbs[pdbidx] == NULL)
+		return (-1);
+
+	fclose(pdbfile);
+
+	return (pdbidx);
+}
+
+/*
  * Load a catalogue from catfile, if pdbdir is not NULL, search for PDBs
  * in pdbdir. Generate missing PDBs and store them in pdbdir if pdbdir
  * is not NULL.  Print status information to f if f is not NULL.
@@ -32,12 +141,11 @@ extern struct pdb_catalogue *
 catalogue_load(const char *catfile, const char *pdbdir, FILE *f)
 {
 	struct pdb_catalogue *cat = malloc(sizeof *cat);
-	struct patterndb *pdb;
-	FILE *catcfg, *pdbfile = NULL;
-	size_t i, len;
-	int error, result, pdb_already_generated;
-	tileset ts, ctiles = EMPTY_TILESET;
-	char linebuf[LINEBUF_LEN], pathbuf[PATH_MAX], *newline;
+	FILE *catcfg;
+	size_t i;
+	int error, pdbidx;
+	tileset ctiles = EMPTY_TILESET;
+	char linebuf[LINEBUF_LEN], *newline;
 
 	if (cat == NULL)
 		return (NULL);
@@ -95,123 +203,19 @@ catalogue_load(const char *catfile, const char *pdbdir, FILE *f)
 			goto fail;
 		}
 
-		if (tileset_parse(&ts, linebuf) != 0) {
-			if (f != NULL)
-				fprintf(f, "Cannot parse tileset: %s\n", linebuf);
-
-			error = EINVAL;
+		pdbidx = add_pdb(cat, linebuf, pdbdir, f);
+		if (pdbidx == -1) {
+			error = errno;
 			goto fail;
 		}
 
-		/* check if the PDB is already present */
-		for (i = 0; i < cat->n_pdbs; i++)
-			if (cat->pdbs_ts[i] == ts) {
-				cat->parts[cat->n_heuristics] |= 1 << i;
-				ctiles = tileset_union(ctiles, cat->pdbs_ts[i]);
-				goto continue_outer;
-			}
-
-		/* if the PDB is not already present, allocate it */
-		if (cat->n_pdbs >= CATALOGUE_PDBS_LEN) {
-			if (f != NULL)
-				fprintf(f, "Too many PDBs, up to %d are possible.\n",
-				    CATALOGUE_PDBS_LEN);
-
-			error = ERANGE;
-			goto fail;
-		}
-
-		pdbfile = NULL;
-		pdb_already_generated = 0;
-
-		/* check if the PDB is already present */
-		if (pdbdir != NULL) {
-			len = snprintf(pathbuf, sizeof pathbuf, "%s/%s.pdb", pdbdir, linebuf);
-			if (len >= sizeof pathbuf) {
-				error = ENAMETOOLONG;
-				goto fail;
-			}
-
-			if (f != NULL)
-				fprintf(f, "Loading PDB file %s\n", pathbuf);
-
-			assert(pdbfile == NULL);
-			pdbfile = fopen(pathbuf, "rb");
-			if (pdbfile != NULL)
-				pdb_already_generated = 1;
-			else {
-				if (f != NULL)
-					fprintf(f, "%s: %s\n", pathbuf, strerror(errno));
-
-				pdbfile = fopen(pathbuf, "w+b");
-				if (pdbfile == NULL) {
-					error = errno;
-					if (f != NULL)
-						fprintf(f, "%s: %s\n", pathbuf, strerror(error));
-
-					goto fail;
-				}
-			}
-		}
-
-		/* if the PDB could not be found, generate it */
-		pdb = NULL;
-		if (!pdb_already_generated) {
-			pdb = pdb_allocate(ts);
-			if (pdb == NULL) {
-				error = errno;
-				goto fail;
-			}
-
-			if (f != NULL)
-				fprintf(f, "Generating PDB for tileset %s\n", linebuf);
-
-			pdb_generate(pdb, f);
-
-			if (pdbfile != NULL) {
-				if (f != NULL)
-					fprintf(f, "Storing PDB to %s\n", pathbuf);
-
-				result = pdb_store(pdbfile, pdb);
-				error = errno;
-				pdb_free(pdb);
-				rewind(pdbfile);
-
-				if (result != 0) {
-					if (f != NULL)
-						fprintf(f, "%s: %s\n", pathbuf, strerror(error));
-
-					goto fail;
-				}
-			}
-		}
-
-		cat->pdbs_ts[cat->n_pdbs] = ts;
-		if (pdbfile != NULL) {
-			cat->pdbs[cat->n_pdbs] = pdb_mmap(ts, fileno(pdbfile), PDB_MAP_RDONLY);
-			if (cat->pdbs[cat->n_pdbs] == NULL) {
-				error = errno;
-				goto fail;
-			}
-
-			fclose(pdbfile);
-			pdbfile = NULL;
-		} else {
-			assert(pdb != NULL);
-			cat->pdbs[cat->n_pdbs] = pdb;
-		}
-
-		if (!tileset_empty(tileset_remove(tileset_intersect(ctiles, ts), ZERO_TILE)) && f != NULL)
+		if (!tileset_empty(tileset_remove(tileset_intersect(ctiles,
+		    cat->pdbs_ts[pdbidx]), ZERO_TILE)) && f != NULL)
 			fprintf(f, "Warning: heuristic %zu not admissible!\n", cat->n_heuristics);
 
-		ctiles = tileset_union(ctiles, ts);
+		ctiles = tileset_union(ctiles, cat->pdbs_ts[pdbidx]);
 
-		cat->parts[cat->n_heuristics] |= 1 << cat->n_pdbs;
-		cat->n_pdbs++;
-
-
-	continue_outer:
-		;
+		cat->parts[cat->n_heuristics] |= 1 << pdbidx;
 	}
 
 	if (ferror(catcfg)) {
@@ -240,9 +244,6 @@ catalogue_load(const char *catfile, const char *pdbdir, FILE *f)
 	return (cat);
 
 fail:
-	if (pdbfile != NULL)
-		fclose(pdbfile);
-
 	fclose(catcfg);
 	for (i = 0; i < cat->n_pdbs; i++)
 		pdb_free(cat->pdbs[i]);
