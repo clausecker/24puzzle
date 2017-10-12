@@ -1,5 +1,6 @@
 /* hitanalysis.c -- analyze how tile sets hit tile pairs */
 
+#include <stdlib.h>
 #include <stdio.h>
 #include <unistd.h>
 
