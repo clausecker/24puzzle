@@ -164,7 +164,8 @@ puzzle_parity(const struct puzzle *p)
 }
 
 /*
- * Describe p as a string and write the result to str.
+ * Describe p as a string and write the result to str.  The format is
+ * equal to the format parsed by puzzle_parse().
  */
 extern void
 puzzle_string(char str[PUZZLE_STR_LEN], const struct puzzle *p)
@@ -172,13 +173,9 @@ puzzle_string(char str[PUZZLE_STR_LEN], const struct puzzle *p)
 	size_t i;
 
 	for (i = 0; i < TILE_COUNT; i++)
-		sprintf(str + 3 * i, "%2d ", p->tiles[i]);
+		str += sprintf(str, "%d,", p->grid[i]);
 
-	for (i = 0; i < TILE_COUNT; i++)
-		sprintf(str + 3 * TILE_COUNT + 3 * i, "%2d ", p->grid[i]);
-
-	str[3 * TILE_COUNT - 1] = '\n';
-	str[2 * 3 * TILE_COUNT - 1] = '\n';
+	str[-1] = '\n';
 }
 
 /*

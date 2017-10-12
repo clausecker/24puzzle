@@ -6,9 +6,9 @@ LDLIBS=-lpthread
 OBJ=index.o puzzle.o tileset.o validation.o ranktbl.o rank.o random.o pdb.o \
 	moves.o parallel.o pdbgen.o pdbverify.o pdbdiff.o histogram.o \
 	cindex.o pdbdom.o ida.o search.o catalogue.o pdbident.o
-BINARIES=cmd/pdbstats test/indextest util/rankgen test/ranktest \
-	cmd/genpdb cmd/verifypdb cmd/diffcode cmd/reducepdb test/qualitytest \
-	cmd/pdbsearch cmd/rankcount test/hitanalysis test/parsearch
+BINARIES=cmd/pdbstats test/indextest util/rankgen test/ranktest cmd/genpdb \
+	cmd/verifypdb cmd/reducepdb cmd/diffcode cmd/rankcount cmd/puzzlegen \
+	test/qualitytest test/hitanalysis test/parsearch cmd/pdbsearch
 
 all: $(BINARIES) 24puzzle.a
 
@@ -40,6 +40,7 @@ cmd/pdbstats: cmd/pdbstats.o 24puzzle.a
 	@echo "CCLD	$@"
 	@$(CC) $(LDFLAGS) -o $@ $^ $(LDLIBS) -lm
 cmd/pdbsearch: cmd/pdbsearch.o 24puzzle.a
+cmd/puzzlegen: cmd/puzzlegen.o 24puzzle.a
 
 .c.o:
 	@echo "CC	$<"
