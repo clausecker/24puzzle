@@ -21,7 +21,7 @@ enum { CHUNK_SIZE = 1024 };
 static void
 usage(const char *argv0)
 {
-	fprintf(stderr, "Usage: %s [-j nproc] [-n n_puzzle] [-s seed] [-d pbdir] catalogue\n", argv0);
+	fprintf(stderr, "Usage: %s [-i] [-j nproc] [-n n_puzzle] [-s seed] [-d pbdir] catalogue\n", argv0);
 
 	exit(EXIT_FAILURE);
 }
@@ -212,13 +212,17 @@ main(int argc, char *argv[])
 	struct qualitytest_config qtcfg;
 	size_t n_puzzle = 1000;
 	unsigned long long seed = random_seed;
-	int optchar, transpose = 0;
+	int optchar, transpose = 0, catflags = 0;
 	char *pdbdir = NULL;
 
-	while (optchar = getopt(argc, argv, "d:j:n:s:t"), optchar != -1)
+	while (optchar = getopt(argc, argv, "d:ij:n:s:t"), optchar != -1)
 		switch (optchar) {
 		case 'd':
 			pdbdir = optarg;
+			break;
+
+		case 'i':
+			catflags |= CAT_IDENTIFY;
 			break;
 
 		case 'j':
@@ -250,7 +254,7 @@ main(int argc, char *argv[])
 	if (argc != optind + 1)
 		usage(argv[0]);
 
-	cat = catalogue_load(argv[optind], pdbdir, stderr);
+	cat = catalogue_load(argv[optind], pdbdir, catflags, stderr);
 	if (cat == NULL) {
 		perror("catalogue_load");
 		return (EXIT_FAILURE);

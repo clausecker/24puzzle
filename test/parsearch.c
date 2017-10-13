@@ -11,6 +11,7 @@
 #include <unistd.h>
 
 #include "search.h"
+#include "catalogue.h"
 #include "pdb.h"
 #include "index.h"
 #include "puzzle.h"
@@ -125,7 +126,7 @@ lookup_multiple(struct pdb_catalogue *cat, FILE *puzzles)
 static void
 usage(const char *argv0)
 {
-	fprintf(stderr, "Usage: %s [-j nproc] [-d pdbdir] catalogue puzzles\n", argv0);
+	fprintf(stderr, "Usage: %s [-i] [-j nproc] [-d pdbdir] catalogue puzzles\n", argv0);
 
 	exit(EXIT_FAILURE);
 }
@@ -135,13 +136,17 @@ main(int argc, char *argv[])
 {
 	struct pdb_catalogue *cat;
 	FILE *puzzles;
-	int optchar;
+	int optchar, catflags = 0;
 	char *pdbdir = NULL;
 
-	while (optchar = getopt(argc, argv, "d:j:"), optchar != -1)
+	while (optchar = getopt(argc, argv, "d:ij:"), optchar != -1)
 		switch (optchar) {
 		case 'd':
 			pdbdir = optarg;
+			break;
+
+		case 'i':
+			catflags |= CAT_IDENTIFY;
 			break;
 
 		case 'j':
@@ -161,7 +166,7 @@ main(int argc, char *argv[])
 	if (argc != optind + 2)
 		usage(argv[0]);
 
-	cat = catalogue_load(argv[optind], pdbdir, NULL);
+	cat = catalogue_load(argv[optind], pdbdir, catflags, NULL);
 	if (cat == NULL) {
 		perror("catalogue_load");
 		return (EXIT_FAILURE);
