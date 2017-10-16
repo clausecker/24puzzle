@@ -42,6 +42,13 @@ add_pdb(struct pdb_catalogue *cat, const char *tsbuf, const char *pdbdir,
 		return (-1);
 	}
 
+	if (flags & CAT_IDENTIFY) {
+		if (!tileset_has(ts, ZERO_TILE))
+			flags &= ~CAT_IDENTIFY;
+
+		ts = tileset_remove(ts, ZERO_TILE);
+	}
+
 	/* check if the PDB is already present */
 	for (pdbidx = 0; pdbidx < cat->n_pdbs; pdbidx++)
 		if (cat->pdbs_ts[pdbidx] == ts)
@@ -59,12 +66,12 @@ add_pdb(struct pdb_catalogue *cat, const char *tsbuf, const char *pdbdir,
 		return (-1);
 	}
 
-	cat->pdbs_ts[pdbidx] = flags & CAT_IDENTIFY ? tileset_remove(ts, ZERO_TILE) : ts;
+	cat->pdbs_ts[pdbidx] = ts;
 	pdbfile = NULL;
 
 	/* build the PDB's file name */
 	if (pdbdir != NULL) {
-		suffix = tileset_has(ts, ZERO_TILE) && flags & CAT_IDENTIFY ? "ipdb" : "pdb";
+		suffix = flags & CAT_IDENTIFY ? "ipdb" : "pdb";
 		len = snprintf(pathbuf, sizeof pathbuf, "%s/%s.%s", pdbdir, tsbuf, suffix);
 		if (len >= sizeof pathbuf) {
 			error = ENAMETOOLONG;
@@ -87,7 +94,8 @@ add_pdb(struct pdb_catalogue *cat, const char *tsbuf, const char *pdbdir,
 
 	/* if the PDB could not be found, generate it */
 	if (pdbfile == NULL) {
-		cat->pdbs[pdbidx] = pdb_allocate(ts);
+		cat->pdbs[pdbidx] = pdb_allocate(flags & CAT_IDENTIFY ?
+		    tileset_add(ts, ZERO_TILE) : ts);
 		if (cat->pdbs[pdbidx] == NULL)
 			return (-1);
 
@@ -126,7 +134,7 @@ add_pdb(struct pdb_catalogue *cat, const char *tsbuf, const char *pdbdir,
 	}
 
 	/* map PDB into RAM */
-	cat->pdbs[pdbidx] = pdb_mmap(cat->pdbs_ts[pdbidx], fileno(pdbfile), PDB_MAP_RDONLY);
+	cat->pdbs[pdbidx] = pdb_mmap(ts, fileno(pdbfile), PDB_MAP_RDONLY);
 	if (cat->pdbs[pdbidx] == NULL)
 		return (-1);
 
