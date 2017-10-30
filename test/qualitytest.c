@@ -91,7 +91,7 @@ qualitytest_worker(void *qtcfg_arg)
 			histogram[dist]++;
 
 			/* is only one bit set in heumap? */
-			if ((heumap & heumap - 1) == 0)
+			if (heumap != 0 && (heumap & heumap - 1) == 0)
 				onlyheu[ctz(heumap)]++;
 
 			for (j = 0; j < qtcfg->cat->n_heuristics; j++)
