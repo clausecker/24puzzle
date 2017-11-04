@@ -108,9 +108,11 @@ static inline atomic_uchar *
 pdb_entry_pointer(struct patterndb *pdb, const struct index *idx)
 {
 	if (tileset_has(pdb->aux.ts, ZERO_TILE))
-		return (pdb->data + (pdb->aux.idxt[idx->maprank].offset + idx->eqidx) * pdb->aux.n_perm + idx->pidx);
+		return (pdb->data + (pdb->aux.idxt[idx->maprank].offset +
+		    idx->eqidx) * (size_t)pdb->aux.n_perm + idx->pidx);
 	else
-		return (pdb->data + idx->maprank * pdb->aux.n_perm + idx->pidx);
+		return (pdb->data + idx->maprank * (size_t)pdb->aux.n_perm +
+		    idx->pidx);
 }
 
 /*
