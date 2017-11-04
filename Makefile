@@ -7,8 +7,8 @@ OBJ=index.o puzzle.o tileset.o validation.o ranktbl.o rank.o random.o pdb.o \
 	moves.o parallel.o pdbgen.o pdbverify.o pdbdiff.o histogram.o \
 	cindex.o pdbdom.o ida.o search.o catalogue.o pdbident.o
 BINARIES=cmd/pdbstats test/indextest util/rankgen test/ranktest cmd/genpdb \
-	cmd/verifypdb cmd/reducepdb cmd/diffcode cmd/rankcount cmd/puzzlegen \
-	test/qualitytest test/hitanalysis test/parsearch cmd/pdbsearch
+	cmd/verifypdb cmd/reducepdb cmd/diffcode test/rankcount cmd/puzzlegen \
+	test/qualitytest test/hitanalysis cmd/parsearch cmd/pdbsearch
 
 all: $(BINARIES) 24puzzle.a
 
@@ -28,14 +28,14 @@ ranktbl.c: util/rankgen
 test/hitanalysis: test/hitanalysis.o 24puzzle.a
 test/indextest: test/indextest.o 24puzzle.a
 test/tiletest: test/tiletest.o 24puzzle.a
-test/parsearch: test/parsearch.o 24puzzle.a
+cmd/parsearch: cmd/parsearch.o 24puzzle.a
 test/ranktest: test/ranktest.o 24puzzle.a
 test/qualitytest: test/qualitytest.o 24puzzle.a
 cmd/genpdb: cmd/genpdb.o 24puzzle.a
 cmd/verifypdb: cmd/verifypdb.o 24puzzle.a
 cmd/reducepdb: cmd/reducepdb.o 24puzzle.a
 cmd/diffcode: cmd/diffcode.o 24puzzle.a
-cmd/rankcount: cmd/rankcount.o 24puzzle.a
+test/rankcount: test/rankcount.o 24puzzle.a
 cmd/pdbstats: cmd/pdbstats.o 24puzzle.a
 	@echo "CCLD	$@"
 	@$(CC) $(LDFLAGS) -o $@ $^ $(LDLIBS) -lm
