@@ -1,0 +1,60 @@
+This repository contains code to solve the 24 puzzle using pattern
+databases.  The code in here was written as a part of the author's
+Bachelor thesis and is made available under the terms and conditions
+of the 2-clause BSD license.  The following programs are included:
+
+To compile this code, use GNU make.  A C11 compatible C compiler is
+required.  Adjust CC and CFLAGS as needed.  For best performance,
+make sure that at least SSE4.2 support is enabled.  Ideally, AVX2 and
+BMI2 should be available.
+
+cmd/diffcode
+	Prepare pattern databases for compression by applying a
+	differential encoding.  Data compression has not been
+	implemented any further.
+
+cmd/genpdb
+	Generate a single pattern database.  This command is not
+	needed anymore as pattern databases are generated as needed by
+	pdbsearch and parsearch.
+
+cmd/parsearch
+	Search puzzle solutions in parallel.  While this implementation
+	of IDA* is not parallel, this program searches for the solutions
+	of multiple puzzles at once to gain a similar speedup.
+
+cmd/pdbsearch
+	Solve a single puzzle.
+
+cmd/pdbstats
+	Print pattern database statistics.
+
+cmd/puzzlegen
+	Generate random puzzle instances.  The instances are guarantted
+	to be solvable.
+
+cmd/reducepdb
+	Prepare pattern databases for compression by computing
+	dominating sets.
+
+cmd/verifypdb
+	Verify the correctness of a pattern database.
+
+test/hitanalysis
+	Analyse which tile combinations are accounted for by a given PDB
+	catalogue.
+
+test/indextest
+	Verify the correctness of the pattern database index function.
+
+test/qualitytest
+	Analyse the heuristic quality of a PDB catalogue.
+
+test/rankcount
+	Count zero tile regions for a given tile set size.
+
+test/ranktest
+	Verify the correctness of the rank() and unrank() functions.
+
+util/rankgen
+	Generate the file ranktbl.c
