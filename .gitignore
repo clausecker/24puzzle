@@ -10,14 +10,14 @@ cmd/diffcode
 cmd/genpdb
 cmd/verifypdb
 cmd/reducepdb
+cmd/parsearch
 cmd/pdbstats
 cmd/pdbsearch
 cmd/puzzlegen
-cmd/rankcount
 test/hitanalysis
 test/indextest
-test/parsearch
 test/qualitytest
+test/rankcount
 test/ranktest
 util/rankgen
 
