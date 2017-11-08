@@ -1,12 +1,40 @@
 This repository contains code to solve the 24 puzzle using pattern
 databases.  The code in here was written as a part of the author's
 Bachelor thesis and is made available under the terms and conditions
-of the 2-clause BSD license.  The following programs are included:
+of the 2-clause BSD license.
+
+The 24 puzzle is a variant of the 15 puzzle played on a 5x5 tray.  The
+solved configuration looks like this:
+
+        1  2  3  4
+     5  6  7  8  9
+    10 11 12 13 14
+    15 16 17 18 19
+    20 21 22 23 24
+
+Puzzle configurations are specified as a comma-separated list of tiles:
+
+    24,23,22,21,20,19,18,17,16,15,14,13,12,11,10,9,8,7,6,5,4,3,2,1,0
+
+To solve a puzzle, use the pdbsearch program.  The program first
+generates or loads (if -d pdbdir has been provided) pattern databases
+and then prompts you for a puzzle instance.  Use it like this:
+
+    pdbsearch -j jobs catalogue.cat
+
+where jobs is the number of threads to use for PDB generation and
+catalogue.cat is the PDB catalogue to use.  Some PDB catalogues are
+provided in the catalogues directory, I recommend the catalogue
+small-compound.cat.  The program always finds the shortest possible
+solution, this may take a while.  You can find some sample instances in
+doc/korf.txt.
 
 To compile this code, use GNU make.  A C11 compatible C compiler is
 required.  Adjust CC and CFLAGS as needed.  For best performance,
 make sure that at least SSE4.2 support is enabled.  Ideally, AVX2 and
 BMI2 should be available.
+
+The following programs are included:
 
 cmd/diffcode
 	Prepare pattern databases for compression by applying a
