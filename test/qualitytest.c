@@ -40,6 +40,7 @@
 #include "index.h"
 #include "puzzle.h"
 #include "tileset.h"
+#include "transposition.h"
 
 enum { CHUNK_SIZE = 1024 };
 

@@ -63,11 +63,9 @@ struct puzzle {
 /* puzzle.c */
 extern const struct puzzle solved_puzzle;
 extern const signed char movetab[TILE_COUNT][4];
-extern const unsigned char transpositions[TILE_COUNT];
 
 enum { PUZZLE_STR_LEN = 3 * TILE_COUNT + 1 };
 
-extern void	transpose(struct puzzle *);
 extern int	puzzle_parity(const struct puzzle *);
 extern void	puzzle_string(char[PUZZLE_STR_LEN], const struct puzzle *);
 extern int	puzzle_parse(struct puzzle *, const char *);

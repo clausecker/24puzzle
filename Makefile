@@ -5,7 +5,7 @@ LDLIBS=-lpthread
 
 OBJ=index.o puzzle.o tileset.o validation.o ranktbl.o rank.o random.o pdb.o \
 	moves.o parallel.o pdbgen.o pdbverify.o pdbdiff.o histogram.o \
-	cindex.o pdbdom.o ida.o search.o catalogue.o pdbident.o
+	cindex.o pdbdom.o ida.o search.o catalogue.o pdbident.o transposition.o
 BINARIES=cmd/pdbstats test/indextest util/rankgen test/ranktest cmd/genpdb \
 	cmd/verifypdb cmd/reducepdb cmd/diffcode test/rankcount cmd/puzzlegen \
 	test/qualitytest test/hitanalysis cmd/parsearch cmd/pdbsearch

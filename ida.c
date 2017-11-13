@@ -35,6 +35,7 @@
 #include "puzzle.h"
 #include "search.h"
 #include "tileset.h"
+#include "transposition.h"
 
 /*
  * The search path as we store it while searching.  This
