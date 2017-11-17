@@ -39,9 +39,8 @@ enum {
 };
 
 extern alignas(64) const unsigned char automorphisms[AUTOMORPHISM_COUNT][2][32];
-// #define transpositions (automorphisms[4][0])
-
-extern const unsigned char transpositions[TILE_COUNT];
+/* transposition of the tray along the main diagonal */
+#define transpositions (automorphisms[4][0])
 
 extern void	transpose(struct puzzle *);
 extern unsigned	canonical_automorphism(tileset);

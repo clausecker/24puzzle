@@ -75,17 +75,6 @@ alignas(64) const unsigned char automorphisms[AUTOMORPHISM_COUNT][2][32] = {
 };
 #undef PAD
 
-/*
- * The grid locations transposed along the primary diagonal.
- */
-const unsigned char transpositions[TILE_COUNT] = {
-	 0,  5, 10, 15, 20,
-	 1,  6, 11, 16, 21,
-	 2,  7, 12, 17, 22,
-	 3,  8, 13, 18, 23,
-	 4,  9, 14, 19, 24,
-};
-
 #ifdef __AVX2__
 /*
  * Compose permutations p and q using pshufb.  As pshufb permutes
@@ -147,13 +136,7 @@ transpose(struct puzzle *p)
 {
 #ifdef __AVX2__
 	/* transposition mask */
-	__m256i tmask = _mm256_setr_epi8(
-	     0,  5, 10, 15, 20,
-	     1,  6, 11, 16, 21,
-	     2,  7, 12, 17, 22,
-	     3,  8, 13, 18, 23,
-	     4,  9, 14, 19, 24,
-	    -1, -1, -1, -1, -1, -1, -1);
+	__m256i tmask = _mm256_load_si256((__m256i*)transpositions);
 
 	__m256i tiles = _mm256_loadu_si256((__m256i*)p->tiles);
 	tiles = compose_avx(tmask, compose_avx(tiles, tmask));
@@ -164,8 +147,8 @@ transpose(struct puzzle *p)
 	_mm256_storeu_si256((__m256i*)p->grid, grid);
 #elif defined(__SSSE3__)
 	/* transposition mask */
-	__m128i tmasklo = _mm_setr_epi8( 0,  5, 10, 15, 20,  1,  6, 11, 16, 21,  2,  7, 12, 17, 22,  3);
-	__m128i tmaskhi = _mm_setr_epi8( 8, 13, 18, 23,  4,  9, 14, 19, 24, -1, -1, -1, -1, -1, -1, -1);
+	__m128i tmasklo = _mm_load_si128((__m128i*)transpositions + 0);
+	__m128i tmaskhi = _mm_load_si128((__m128i*)transpositions + 1);
 
 	__m128i tileslo = _mm_loadu_si128((__m128i*)p->tiles + 0);
 	__m128i tileshi = _mm_loadu_si128((__m128i*)p->tiles + 1);
