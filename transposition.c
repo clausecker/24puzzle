@@ -27,6 +27,7 @@
 
 #include <assert.h>
 #include <stdalign.h>
+#include <string.h>
 
 #ifdef __SSSE3__
 # include <immintrin.h>
@@ -165,19 +166,43 @@ transpose(struct puzzle *p)
 	_mm_storeu_si128((__m128i*)p->grid + 1, gridhi);
 #else
 	size_t i;
+	unsigned char otiles[TILE_COUNT];
+
+	memcpy(otiles, p->tiles, sizeof otiles);
 
 	for (i = 0; i < TILE_COUNT; i++) {
-		p->tiles[i] = transpositions[p->tiles[transpositions[i]]];
+		p->tiles[i] = transpositions[otiles[transpositions[i]]];
 		p->grid[p->tiles[i]] = i;
 	}
 #endif
 }
 
 /*
+ * Morph puzzle p using automorphism a.  The PDB entry for p under some
+ * tile set ts is equal to the PDB entry for morph(p, a) under tile set
+ * tileset_morph(ts, a).
+ */
+extern void
+morph(struct puzzle *p, unsigned a)
+{
+	size_t i;
+	unsigned char otiles[TILE_COUNT];
+
+	assert(a < AUTOMORPHISM_COUNT);
+
+	memcpy(otiles, p->tiles, sizeof otiles);
+
+	for (i = 0; i < TILE_COUNT; i++) {
+		p->tiles[i] = automorphisms[a][0][otiles[automorphisms[a][1][i]]];
+		p->grid[p->tiles[i]] = i;
+	}
+}
+
+/*
  * Send tile set ts through automorphism a and return the resulting tile
  * set.
  */
-static tileset
+extern tileset
 tileset_morph(tileset ts, unsigned a)
 {
 	tileset t = EMPTY_TILESET;
@@ -201,12 +226,22 @@ extern unsigned
 canonical_automorphism(tileset ts)
 {
 	unsigned i, min, has_zero_tile = tileset_has(ts, ZERO_TILE);
-	tileset mints, region, morphts;
+	tileset mints, r, morphts;
 
 	/* i == 0 is the identity and needs not be checked */
 	ts = tileset_remove(ts, ZERO_TILE);
 	mints = ts;
 	min = 0;
+
+	/*
+	 * r is the region the zero tile is in in the solved
+	 * configuration.  For the PDB to compute the same
+	 * distances, this region must be identical in the
+	 * morphed solved configuration.
+	 */
+	r = tileset_complement(ts);
+	if (has_zero_tile)
+		r = tileset_flood(r, ZERO_TILE);
 
 	for (i = 1; i < AUTOMORPHISM_COUNT; i++) {
 		morphts = tileset_morph(ts, i);
@@ -217,11 +252,7 @@ canonical_automorphism(tileset ts)
 		 * Check if automorphism i preserves the region the
 		 * solved configuration is in.
 		 */
-		region = tileset_complement(ts);
-		if (has_zero_tile)
-			region = tileset_flood(region, ZERO_TILE);
-
-		if (tileset_has(tileset_morph(region, i), ZERO_TILE)) {
+		if (tileset_has(tileset_morph(r, i), ZERO_TILE)) {
 			mints = morphts;
 			min = i;
 		}

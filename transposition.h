@@ -43,6 +43,8 @@ extern alignas(64) const unsigned char automorphisms[AUTOMORPHISM_COUNT][2][32];
 #define transpositions (automorphisms[4][0])
 
 extern void	transpose(struct puzzle *);
+extern void	morph(struct puzzle *, unsigned);
+extern tileset	tileset_morph(tileset, unsigned);
 extern unsigned	canonical_automorphism(tileset);
 
 #endif /* TRANSPOSITION_H */
