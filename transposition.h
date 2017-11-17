@@ -26,10 +26,24 @@
 #ifndef TRANSPOSITION_H
 #define TRANSPOSITION_H
 
+#include <stdalign.h>
+
+#include "tileset.h"
 #include "puzzle.h"
+
+enum {
+	/*
+	 * The number of ways the tray can be rotated and transposed.
+	 */
+	AUTOMORPHISM_COUNT = 2 * 4,
+};
+
+extern alignas(64) const unsigned char automorphisms[AUTOMORPHISM_COUNT][2][32];
+// #define transpositions (automorphisms[4][0])
 
 extern const unsigned char transpositions[TILE_COUNT];
 
 extern void	transpose(struct puzzle *);
+extern unsigned	canonical_automorphism(tileset);
 
 #endif /* TRANSPOSITION_H */

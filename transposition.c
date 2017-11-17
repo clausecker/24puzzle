@@ -25,12 +25,14 @@
 
 /* transposition.c -- transpose puzzles */
 
+#include <assert.h>
 #include <stdalign.h>
 
 #ifdef __SSSE3__
 # include <immintrin.h>
 #endif
 
+#include "tileset.h"
 #include "puzzle.h"
 #include "transposition.h"
 
@@ -38,10 +40,14 @@
  * All the ways the puzzle tray can be rotated and transposed.  For
  * each possible rotation / transposition, the permutation vector and
  * its inverse are stored.  The rightmost dimension is 32 instead of
- * TILE_COUNT for alignment.
+ * TILE_COUNT for alignment.  The whole array is aligned to 64 bytes
+ * so vector instructions can be used to access it without misalignment
+ * penalties.  This array is called automorphisms because transposing
+ * and rotating the tray are its automorphisms with respect to the
+ * sliding to the sliding-tile puzzle's possible moves.
  */
 #define PAD -1, -1, -1, -1, -1, -1, -1
-alignas(64) const unsigned char isomorphisms[8][2][32] = {
+alignas(64) const unsigned char automorphisms[AUTOMORPHISM_COUNT][2][32] = {
 	 0,  1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, PAD,
 	 0,  1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, PAD,
 
@@ -182,4 +188,61 @@ transpose(struct puzzle *p)
 		p->grid[p->tiles[i]] = i;
 	}
 #endif
+}
+
+/*
+ * Send tile set ts through automorphism a and return the resulting tile
+ * set.
+ */
+static tileset
+tileset_morph(tileset ts, unsigned a)
+{
+	tileset t = EMPTY_TILESET;
+
+	assert(a < AUTOMORPHISM_COUNT);
+
+	for (; !tileset_empty(ts); ts = tileset_remove_least(ts))
+		t = tileset_add(t, automorphisms[a][0][tileset_get_least(ts)]);
+
+	return (t);
+}
+
+
+/*
+ * Given a tile set ts, find the automorphism leading to the
+ * lexicographically least tile set whose PDB computes the same
+ * distances as this one.  This function does the right thing both
+ * for zero-unaware and zero-aware pattern databases.
+ */
+extern unsigned
+canonical_automorphism(tileset ts)
+{
+	unsigned i, min, has_zero_tile = tileset_has(ts, ZERO_TILE);
+	tileset mints, region, morphts;
+
+	/* i == 0 is the identity and needs not be checked */
+	ts = tileset_remove(ts, ZERO_TILE);
+	mints = ts;
+	min = 0;
+
+	for (i = 1; i < AUTOMORPHISM_COUNT; i++) {
+		morphts = tileset_morph(ts, i);
+		if (morphts >= mints)
+			continue;
+
+		/*
+		 * Check if automorphism i preserves the region the
+		 * solved configuration is in.
+		 */
+		region = tileset_complement(ts);
+		if (has_zero_tile)
+			region = tileset_flood(region, ZERO_TILE);
+
+		if (tileset_has(tileset_morph(region, i), ZERO_TILE)) {
+			mints = morphts;
+			min = i;
+		}
+	}
+
+	return (min);
 }
