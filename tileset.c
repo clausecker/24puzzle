@@ -34,29 +34,6 @@
 #include "tileset.h"
 
 /*
- * Given a tileset cmap representing free positions on the grid and
- * a square number t set in cmap, return a tileset representing
- * all squares reachable from t through members of ts.
- */
-static tileset
-tileset_flood(tileset cmap, unsigned t)
-{
-	tileset r = tileset_add(EMPTY_TILESET, t), oldr;
-
-	do {
-		oldr = r;
-
-		/*
-		 * the mask prevents carry into other rows:
-		 * 0x0f7bdef: 01111 01111 01111 01111 01111
-		 */
-		r = cmap & (r | r  << 5 | (r & 0x0f7bdef) << 1 | r >> 5 | r >> 1 & 0x0f7bdef);
-	} while (oldr != r);
-
-	return (r);
-}
-
-/*
  * Set up an array mapping grid positions to the number of the
  * equivalence classes they are in.  Occupied spots are marked as -1.
  * Return the number of equivalence classes found.

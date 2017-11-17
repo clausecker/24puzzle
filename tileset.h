@@ -187,6 +187,30 @@ tileset_reduce_eqclass(tileset eq)
 }
 
 /*
+ * Given a tileset cmap representing free positions on the grid and
+ * a square number t set in cmap, return a tileset representing
+ * all squares reachable from t through members of ts.
+ */
+static inline tileset
+tileset_flood(tileset cmap, unsigned t)
+{
+        tileset r = tileset_add(EMPTY_TILESET, t), oldr;
+
+        do {
+                oldr = r;
+
+                /*
+                 * the mask prevents carry into other rows:
+                 * 0x0f7bdef: 01111 01111 01111 01111 01111
+                 */
+                r = cmap & (r | r  << 5 | (r & 0x0f7bdef) << 1 | r >> 5 | r >> 1 & 0x0f7bdef);
+        } while (oldr != r);
+
+        return (r);
+}
+
+
+/*
  * Given a puzzle configuration p, a tileset ts and a tileset eq =
  * tileset_eqclass(ts, p), return if p is the canonical configuration in
  * p.  A configuration in the equivalence class is canonical, if it has
