@@ -126,42 +126,64 @@ compose_sse(__m128i *rlo, __m128i *rhi, __m128i plo, __m128i phi, __m128i qlo, _
  *     grid = transpositions * grid * transpositions
  *     tiles = transpositions * tiles * transpositions
  *
- * Note that this simple formula obtains as transpositions is an
- * involution.  p and its transposition have the same distance to the
- * solved puzzle by construction, so we can lookup both a puzzle and its
- * transposition in the PDB and take the maximum of the two values to
- * get a better heuristic.
+ * Note that this formula obtains as transposition is an involution.
+ * p and its transposition have the same distance to the solved puzzle
+ * by construction, so we can lookup both a puzzle and its transposition
+ * in the PDB and take the maximum of the two values to get a better
+ * heuristic.
  */
 extern void
 transpose(struct puzzle *p)
 {
+
+	morph(p, 4);
+}
+
+/*
+ * Morph puzzle p using automorphism a.  The PDB entry for p under some
+ * tile set ts is equal to the PDB entry for morph(p, a) under tile set
+ * tileset_morph(ts, a).  This computes
+ *
+ *     grid = automorphism[a][1] * grid * automorphism[a][0]
+ *     tiles = automorphism[a][0] * tiles * automorphism[a][1]
+ *
+ * where automorphism[a][1] is the inverse of automorphism[a][0].
+ */
+extern void
+morph(struct puzzle *p, unsigned a)
+{
+	assert(a < AUTOMORPHISM_COUNT);
+
 #ifdef __AVX2__
-	/* transposition mask */
-	__m256i tmask = _mm256_load_si256((__m256i*)transpositions);
+	/* automorphism mask */
+	__m256i mormask = _mm256_load_si256((__m256i*)automorphisms[a][0]);
+	__m256i invmask = _mm256_load_si256((__m256i*)automorphisms[a][1]);
 
 	__m256i tiles = _mm256_loadu_si256((__m256i*)p->tiles);
-	tiles = compose_avx(tmask, compose_avx(tiles, tmask));
+	tiles = compose_avx(mormask, compose_avx(tiles, invmask));
 	_mm256_storeu_si256((__m256i*)p->tiles, tiles);
 
 	__m256i grid = _mm256_loadu_si256((__m256i*)p->grid);
-	grid = compose_avx(tmask, compose_avx(grid, tmask));
+	grid = compose_avx(invmask, compose_avx(grid, mormask));
 	_mm256_storeu_si256((__m256i*)p->grid, grid);
 #elif defined(__SSSE3__)
-	/* transposition mask */
-	__m128i tmasklo = _mm_load_si128((__m128i*)transpositions + 0);
-	__m128i tmaskhi = _mm_load_si128((__m128i*)transpositions + 1);
+	/* automorphism mask */
+	__m128i mormasklo = _mm_load_si128((__m128i*)automorphisms[a][0] + 0);
+	__m128i mormaskhi = _mm_load_si128((__m128i*)automorphisms[a][0] + 1);
+	__m128i invmasklo = _mm_load_si128((__m128i*)automorphisms[a][1] + 0);
+	__m128i invmaskhi = _mm_load_si128((__m128i*)automorphisms[a][1] + 1);
 
 	__m128i tileslo = _mm_loadu_si128((__m128i*)p->tiles + 0);
 	__m128i tileshi = _mm_loadu_si128((__m128i*)p->tiles + 1);
-	compose_sse(&tileslo, &tileshi, tileslo, tileshi, tmasklo, tmaskhi);
-	compose_sse(&tileslo, &tileshi, tmasklo, tmaskhi, tileslo, tileshi);
+	compose_sse(&tileslo, &tileshi, tileslo, tileshi, invmasklo, invmaskhi);
+	compose_sse(&tileslo, &tileshi, mormasklo, mormaskhi, tileslo, tileshi);
 	_mm_storeu_si128((__m128i*)p->tiles + 0, tileslo);
 	_mm_storeu_si128((__m128i*)p->tiles + 1, tileshi);
 
 	__m128i gridlo = _mm_loadu_si128((__m128i*)p->grid + 0);
 	__m128i gridhi = _mm_loadu_si128((__m128i*)p->grid + 1);
-	compose_sse(&gridlo, &gridhi, gridlo, gridhi, tmasklo, tmaskhi);
-	compose_sse(&gridlo, &gridhi, tmasklo, tmaskhi, gridlo, gridhi);
+	compose_sse(&gridlo, &gridhi, gridlo, gridhi, mormasklo, mormaskhi);
+	compose_sse(&gridlo, &gridhi, invmasklo, invmaskhi, gridlo, gridhi);
 	_mm_storeu_si128((__m128i*)p->grid + 0, gridlo);
 	_mm_storeu_si128((__m128i*)p->grid + 1, gridhi);
 #else
@@ -171,31 +193,10 @@ transpose(struct puzzle *p)
 	memcpy(otiles, p->tiles, sizeof otiles);
 
 	for (i = 0; i < TILE_COUNT; i++) {
-		p->tiles[i] = transpositions[otiles[transpositions[i]]];
-		p->grid[p->tiles[i]] = i;
-	}
-#endif
-}
-
-/*
- * Morph puzzle p using automorphism a.  The PDB entry for p under some
- * tile set ts is equal to the PDB entry for morph(p, a) under tile set
- * tileset_morph(ts, a).
- */
-extern void
-morph(struct puzzle *p, unsigned a)
-{
-	size_t i;
-	unsigned char otiles[TILE_COUNT];
-
-	assert(a < AUTOMORPHISM_COUNT);
-
-	memcpy(otiles, p->tiles, sizeof otiles);
-
-	for (i = 0; i < TILE_COUNT; i++) {
 		p->tiles[i] = automorphisms[a][0][otiles[automorphisms[a][1][i]]];
 		p->grid[p->tiles[i]] = i;
 	}
+#endif
 }
 
 /*
