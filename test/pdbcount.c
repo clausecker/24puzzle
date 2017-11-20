@@ -31,6 +31,35 @@
 #include "tileset.h"
 #include "transposition.h"
 
+/* the number of PDBs with the given size */
+static const unsigned pdbcount[25] = {
+	1,
+	24,
+	276,
+	2024,
+	10626,
+	42504,
+	134596,
+	346104,
+	735471,
+	1307504,
+	1961256,
+	2496144,
+	2704156,
+	2496144,
+	1961256,
+	1307504,
+	735471,
+	346104,
+	134596,
+	42504,
+	10626,
+	2024,
+	276,
+	24,
+	1
+};
+
 /*
  * Count how many unique PDBs with n_tiles tiles exist.  If zero is 0,
  * do not account for the zero tile.  If zero is 1, do account for the
@@ -39,7 +68,7 @@
 static void
 count_pdbs(int n_tiles, int zero)
 {
-	size_t i, n = combination_count[n_tiles], c = 0;
+	size_t i, n = pdbcount[n_tiles], c = 0;
 	tileset t = tileset_least(n_tiles), ts;
 
 	for (i = 0; i < n; i++) {
@@ -51,8 +80,8 @@ count_pdbs(int n_tiles, int zero)
 	}
 
 	printf("%s: %20zu / %20zu (%5.2f%%)\n", zero ? "ZPDB" : "APDB",
-	    c, (size_t)combination_count[n_tiles],
-	    (100.0 * c) / combination_count[n_tiles]);
+	    c, (size_t)pdbcount[n_tiles],
+	    (100.0 * c) / pdbcount[n_tiles]);
 }
 
 extern int
