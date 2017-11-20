@@ -38,7 +38,7 @@
 static void
 usage(const char *argv0)
 {
-	fprintf(stderr, "Usage: %s [-f file] [-t tile,tile,...] [-j nproc]\n", argv0);
+	fprintf(stderr, "Usage: %s [-q] [-f file] [-t tile,tile,...] [-j nproc]\n", argv0);
 
 	exit(EXIT_FAILURE);
 }
@@ -48,11 +48,11 @@ main(int argc, char *argv[])
 {
 	struct patterndb *pdb;
 	tileset ts = DEFAULT_TILESET;
-	int optchar;
+	int optchar, verbose = 1;
 	const char *fname = NULL;
 	FILE *f = NULL;
 
-	while (optchar = getopt(argc, argv, "f:j:t:"), optchar != -1)
+	while (optchar = getopt(argc, argv, "f:j:t:q"), optchar != -1)
 		switch (optchar) {
 		case 'f':
 			fname = optarg;
@@ -74,6 +74,10 @@ main(int argc, char *argv[])
 				return (EXIT_FAILURE);
 			}
 
+			break;
+
+		case 'q':
+			verbose = 0;
 			break;
 
 		case '?':
@@ -101,7 +105,7 @@ main(int argc, char *argv[])
 		return (EXIT_FAILURE);
 	}
 
-	pdb_generate(pdb, stderr);
+	pdb_generate(pdb, verbose ? stderr : NULL);
 
 	if (f != NULL && pdb_store(f, pdb) != 0) {
 		perror("pdb_store");
