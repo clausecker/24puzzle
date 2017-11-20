@@ -12,12 +12,12 @@ cmd/genpdb
 cmd/verifypdb
 cmd/reducepdb
 cmd/parsearch
+cmd/pdbcount
 cmd/pdbstats
 cmd/pdbsearch
 cmd/puzzlegen
 test/hitanalysis
 test/indextest
-test/pdbcount
 test/qualitytest
 test/rankcount
 test/ranktest
