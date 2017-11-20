@@ -6,6 +6,7 @@ core
 *.pdb
 
 # binaries
+cmd/bitpdb
 cmd/diffcode
 cmd/genpdb
 cmd/verifypdb
