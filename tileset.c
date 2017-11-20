@@ -82,6 +82,27 @@ tileset_string(char str[TILESET_STR_LEN], tileset ts)
 }
 
 /*
+ * Represent ts as a comma-separated list of tiles as accepted by
+ * tileset_parse and store it in str.
+ */
+extern void
+tileset_list_string(char str[TILESET_LIST_LEN], tileset ts)
+{
+	size_t i;
+
+	if (tileset_empty(ts)) {
+		str[0] = '\0';
+		return;
+	}
+
+	for (i = 0; i < TILE_COUNT; i++)
+		if (tileset_has(ts, i))
+			str += sprintf(str, "%zu,", i);
+
+	str[-1] = '\0';
+}
+
+/*
  * Parse a tileset represented as a list of tiles.  Return 0 if a
  * tileset could be parsed succesfully, -1 otherwise.  On success,
  * *ts is the parsed tileset, otherwise, *ts is undefined.

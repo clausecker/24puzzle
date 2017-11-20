@@ -41,10 +41,13 @@ enum {
 	DEFAULT_TILESET = 0x00000e7, /* 0 1 2 5 6 7 */
 
 	TILESET_STR_LEN = 3 * TILE_COUNT + 1,
+	/* 0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,\0 */
+	TILESET_LIST_LEN = 66,
 };
 
 extern unsigned	tileset_populate_eqclasses(signed char[TILE_COUNT], tileset);
 extern void	tileset_string(char[TILESET_STR_LEN], tileset);
+extern void	tileset_list_string(char[TILESET_LIST_LEN], tileset);
 extern int	tileset_parse(tileset *, const char *);
 
 /*
