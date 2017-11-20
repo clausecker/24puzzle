@@ -75,3 +75,9 @@ diffcode -j 1 -t 0,2,3,4,7,8,9: 5.393s
 zstd --ultra -22: 56.302s (1.79%, 3235600)
 xz -9e: 106.618s (1.7%, 2996596)
 
+xz -9e 0,1,2,5,6,7,10,11.dpdb: 3474.41s
+zstd --format=xz --ultra -22 0,1,2,5,6,7,10,11.dpdb: 2375.001s
+zstd --ultra -22 0,1,2,5,6,7,10,11.dpdb: 2570.211s
+xz -t 0,1,2,5,6,7,10,11.dpdb.zstd-xz: 14.199s (zstd --test identisch)
+xz -t 0,1,2,5,6,7,10,11.dpdb.xz: 13.358s
+zstd --test 0,1,2,5,6,7,10,11.dpdb.zst: 3.544s
