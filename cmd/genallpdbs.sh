@@ -45,4 +45,4 @@ fi
 echo `date "+$datefmt"` Generating all PDBs for "$tiles" tiles to "$pdbdir"
 mkdir -p "$pdbdir"
 pdbcount -z -p "$tiles" | xargs -P "$NPROC" -n 1 -- "$0" -w
-echo `date "+$datefmt"` Finished generating all PDBs for "$tiles" tiles to $pdbdir"
+echo `date "+$datefmt"` Finished generating all PDBs for "$tiles" tiles to "$pdbdir"
