@@ -10,7 +10,6 @@ cmd/bitpdb
 cmd/diffcode
 cmd/genpdb
 cmd/verifypdb
-cmd/reducepdb
 cmd/parsearch
 cmd/pdbcount
 cmd/pdbstats
