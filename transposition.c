@@ -76,6 +76,32 @@ alignas(64) const unsigned char automorphisms[AUTOMORPHISM_COUNT][2][32] = {
 };
 #undef PAD
 
+/*
+ * The result of concatenating different automorphisms.  The first
+ * index is the automorphism to be applied first, the second index is
+ * applied second.
+ */
+static unsigned char
+group_table[8][8] = {
+	0, 1, 2, 3, 4, 5, 6, 7,
+	1, 2, 3, 0, 5, 6, 7, 4,
+	2, 3, 0, 1, 6, 7, 4, 5,
+	3, 0, 1, 2, 7, 4, 5, 6,
+	4, 7, 6, 5, 0, 3, 2, 1,
+	5, 4, 7, 6, 1, 0, 3, 2,
+	6, 5, 4, 7, 2, 1, 0, 3,
+	7, 6, 5, 4, 3, 2, 1, 0,
+};
+
+/*
+ * Return the morphism resulting from applying first a, then b.
+ */
+extern unsigned
+compose_morphisms(unsigned a, unsigned b)
+{
+	return (group_table[a][b]);
+}
+
 #ifdef __AVX2__
 /*
  * Compose permutations p and q using pshufb.  As pshufb permutes

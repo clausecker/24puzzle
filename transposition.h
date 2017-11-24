@@ -46,5 +46,6 @@ extern void	transpose(struct puzzle *);
 extern void	morph(struct puzzle *, unsigned);
 extern tileset	tileset_morph(tileset, unsigned);
 extern unsigned	canonical_automorphism(tileset);
+extern unsigned	compose_morphisms(unsigned, unsigned);
 
 #endif /* TRANSPOSITION_H */
