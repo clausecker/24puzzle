@@ -88,11 +88,12 @@ heu_open(struct heuristic *heu,
 	ts = tileset_remove(ts, ZERO_TILE);
 	heu->ts = ts;
 
-	if (flags & HEU_NOMORPH) {
+	if (flags & HEU_NOMORPH)
+		heu->morphism = 0;
+	else {
 		heu->morphism = canonical_automorphism(ts);
 		ts = tileset_morph(ts, heu->morphism);
-	} else
-		heu->morphism = 0;
+	}
 
 	tileset_list_string(tsstr, ts);
 
@@ -303,7 +304,7 @@ create_pdb:
 		pdbfile = NULL;
 	else {
 
-		pdbfile = fopen(pathbuf, "wb");
+		pdbfile = fopen(pathbuf, "w+b");
 
 		/*
 		 * if the file can't be opened for writing, proceed

@@ -34,6 +34,7 @@
 #include "pdb.h"
 #include "tileset.h"
 #include "puzzle.h"
+#include "heuristic.h"
 
 /*
  * A struct pdb_catalogue stores a catalogue of pattern databases.
@@ -47,7 +48,7 @@
  * locality.
  */
 enum {
-	CATALOGUE_PDBS_LEN = 64,
+	CATALOGUE_HEUS_LEN = 64,
 	HEURISTICS_LEN = 32,
 
 	/* flags for catalogue_load() */
@@ -55,10 +56,10 @@ enum {
 };
 
 struct pdb_catalogue {
-	struct patterndb *pdbs[CATALOGUE_PDBS_LEN];
-	tileset pdbs_ts[CATALOGUE_PDBS_LEN];
+	struct heuristic heus[CATALOGUE_HEUS_LEN];
+	tileset pdbs_ts[CATALOGUE_HEUS_LEN];
 	unsigned long long parts[HEURISTICS_LEN];
-	size_t n_pdbs, n_heuristics;
+	size_t n_heus, n_heuristics;
 };
 
 /*
@@ -71,7 +72,7 @@ struct pdb_catalogue {
  * configuration.
  */
 struct partial_hvals {
-	unsigned char hvals[CATALOGUE_PDBS_LEN];
+	unsigned char hvals[CATALOGUE_HEUS_LEN];
 };
 
 extern struct pdb_catalogue	*catalogue_load(const char *, const char *, int, FILE *);

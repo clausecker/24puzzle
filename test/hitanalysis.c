@@ -76,10 +76,10 @@ extern int
 main(int argc, char *argv[])
 {
 	size_t i, n_ts;
-	tileset tilesets[CATALOGUE_PDBS_LEN];
+	tileset tilesets[CATALOGUE_HEUS_LEN];
 
-	if (argc > 1 + CATALOGUE_PDBS_LEN) {
-		fprintf(stderr, "Too many tile sets, up to %d allowed.\n", CATALOGUE_PDBS_LEN);
+	if (argc > 1 + CATALOGUE_HEUS_LEN) {
+		fprintf(stderr, "Too many tile sets, up to %d allowed.\n", CATALOGUE_HEUS_LEN);
 	}
 
 	n_ts = argc - 1;

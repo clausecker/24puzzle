@@ -37,6 +37,7 @@
 #include "pdb.h"
 #include "puzzle.h"
 #include "tileset.h"
+#include "heuristic.h"
 
 enum { LINEBUF_LEN = 512 };
 
@@ -52,12 +53,10 @@ static int
 add_pdb(struct pdb_catalogue *cat, const char *tsbuf, const char *pdbdir,
     int flags, FILE *f)
 {
-	FILE *pdbfile;
-	size_t pdbidx, len;
+	size_t pdbidx;
 	tileset ts;
-	int error;
-	char pathbuf[PATH_MAX];
-	const char *suffix;
+	int error, heuflags = HEU_CREATE | HEU_NOMORPH;
+	const char *heutype = "pdb";
 
 	if (tileset_parse(&ts, tsbuf) != 0) {
 		if (f != NULL)
@@ -67,103 +66,35 @@ add_pdb(struct pdb_catalogue *cat, const char *tsbuf, const char *pdbdir,
 		return (-1);
 	}
 
-	if (flags & CAT_IDENTIFY) {
-		if (!tileset_has(ts, ZERO_TILE))
-			flags &= ~CAT_IDENTIFY;
-
+	if (tileset_has(ts, ZERO_TILE)) {
+		heutype = flags & CAT_IDENTIFY ? "ipdb" : "zpdb";
 		ts = tileset_remove(ts, ZERO_TILE);
 	}
 
+	/* TODO: Replace f with a verbose flag */
+	if (f != NULL)
+		heuflags |= HEU_VERBOSE;
+
 	/* check if the PDB is already present */
-	for (pdbidx = 0; pdbidx < cat->n_pdbs; pdbidx++)
+	for (pdbidx = 0; pdbidx < cat->n_heus; pdbidx++)
 		if (cat->pdbs_ts[pdbidx] == ts)
 			return (pdbidx);
 
 
 	/* if the PDB is not already present, allocate it */
-	pdbidx = cat->n_pdbs++;
-	if (pdbidx >= CATALOGUE_PDBS_LEN) {
+	pdbidx = cat->n_heus++;
+	if (pdbidx >= CATALOGUE_HEUS_LEN) {
 		if (f != NULL)
 			fprintf(f, "Too many PDBs, up to %d are possible.\n",
-			    CATALOGUE_PDBS_LEN);
+			    CATALOGUE_HEUS_LEN);
 
 		error = ERANGE;
 		return (-1);
 	}
 
 	cat->pdbs_ts[pdbidx] = ts;
-	pdbfile = NULL;
-
-	/* build the PDB's file name */
-	if (pdbdir != NULL) {
-		suffix = flags & CAT_IDENTIFY ? "ipdb" : "pdb";
-		len = snprintf(pathbuf, sizeof pathbuf, "%s/%s.%s", pdbdir, tsbuf, suffix);
-		if (len >= sizeof pathbuf) {
-			error = ENAMETOOLONG;
-			return (-1);
-		}
-
-		if (f != NULL)
-			fprintf(f, "Loading PDB file %s\n", pathbuf);
-
-		pdbfile = fopen(pathbuf, "rb");
-		if (pdbfile == NULL && errno != ENOENT) {
-			error = errno;
-			if (f != NULL)
-				fprintf(f, "%s: %s\n", pathbuf, strerror(errno));
-			errno = error;
-			return (-1);
-		}
-	}
-
-
-	/* if the PDB could not be found, generate it */
-	if (pdbfile == NULL) {
-		cat->pdbs[pdbidx] = pdb_allocate(flags & CAT_IDENTIFY ?
-		    tileset_add(ts, ZERO_TILE) : ts);
-		if (cat->pdbs[pdbidx] == NULL)
-			return (-1);
-
-		if (f != NULL)
-			fprintf(f, "Generating PDB for tileset %s\n", tsbuf);
-
-		pdb_generate(cat->pdbs[pdbidx], f);
-
-		if (flags & CAT_IDENTIFY) {
-			if (f != NULL)
-				fprintf(f, "Identifying PDB entries...\n");
-
-			pdb_identify(cat->pdbs[pdbidx]);
-		}
-
-		/* write PDB to disk if requested */
-		if (pdbdir == NULL)
-			return (pdbidx);
-
-		if (f != NULL)
-			fprintf(f, "Storing PDB to %s\n", pathbuf);
-
-		pdbfile = fopen(pathbuf, "w+b");
-		if (pdbfile == NULL || pdb_store(pdbfile, cat->pdbs[pdbidx]) != 0) {
-			if (f != NULL)
-				fprintf(f, "%s: %s\nContinuing anyway\n", pathbuf, strerror(errno));
-
-			if (pdbfile != NULL)
-				fclose(pdbfile);
-
-			return (pdbidx);
-		}
-
-		rewind(pdbfile);
-		pdb_free(cat->pdbs[pdbidx]);
-	}
-
-	/* map PDB into RAM */
-	cat->pdbs[pdbidx] = pdb_mmap(ts, fileno(pdbfile), PDB_MAP_RDONLY);
-	if (cat->pdbs[pdbidx] == NULL)
+	if (heu_open(cat->heus + pdbidx, pdbdir, ts, heutype, heuflags) != 0)
 		return (-1);
-
-	fclose(pdbfile);
 
 	return (pdbidx);
 }
@@ -281,7 +212,7 @@ catalogue_load(const char *catfile, const char *pdbdir, int flags, FILE *f)
 
 	if (f != NULL)
 		fprintf(f, "Loaded %zu PDBs and %zu heuristics from %s\n",
-		    cat->n_pdbs, cat->n_heuristics, catfile);
+		    cat->n_heus, cat->n_heuristics, catfile);
 
 	fclose(catcfg);
 
@@ -289,8 +220,8 @@ catalogue_load(const char *catfile, const char *pdbdir, int flags, FILE *f)
 
 fail:
 	fclose(catcfg);
-	for (i = 0; i < cat->n_pdbs; i++)
-		pdb_free(cat->pdbs[i]);
+	for (i = 0; i < cat->n_heus; i++)
+		heu_free(cat->heus + i);
 
 earlyfail:
 	free(cat);
@@ -309,8 +240,8 @@ catalogue_free(struct pdb_catalogue *cat)
 {
 	size_t i;
 
-	for (i = 0; i < cat->n_pdbs; i++)
-		pdb_free(cat->pdbs[i]);
+	for (i = 0; i < cat->n_heus; i++)
+		heu_free(cat->heus + i);
 
 	free(cat);
 }
@@ -326,8 +257,8 @@ catalogue_partial_hvals(struct partial_hvals *ph,
 {
 	size_t i;
 
-	for (i = 0; i < cat->n_pdbs; i++)
-		ph->hvals[i] = pdb_lookup_puzzle(cat->pdbs[i], p);
+	for (i = 0; i < cat->n_heus; i++)
+		ph->hvals[i] = heu_hval(cat->heus + i, p);
 
 	return (catalogue_ph_hval(cat, ph));
 }
@@ -343,9 +274,9 @@ catalogue_diff_hvals(struct partial_hvals *ph, struct pdb_catalogue *cat,
 {
 	size_t i;
 
-	for (i = 0; i < cat->n_pdbs; i++)
+	for (i = 0; i < cat->n_heus; i++)
 		if (tileset_has(cat->pdbs_ts[i], tile))
-			ph->hvals[i] = pdb_lookup_puzzle(cat->pdbs[i], p);
+			ph->hvals[i] = heu_hval(cat->heus + i, p);
 
 	return (catalogue_ph_hval(cat, ph));
 }

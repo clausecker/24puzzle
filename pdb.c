@@ -141,6 +141,8 @@ pdb_store(FILE *pdbfile, struct patterndb *pdb)
 		return (-1);
 	}
 
+	fflush(pdbfile);
+
 	return (0);
 }
 
@@ -155,7 +157,7 @@ pdb_mmap(tileset ts, int pdbfd, int mapflags)
 {
 	struct index_aux aux;
 	struct patterndb *pdb;
-	int prot, flags;
+	int prot, flags, error;
 
 	switch (mapflags) {
 	case PDB_MAP_RDONLY:
@@ -187,7 +189,9 @@ pdb_mmap(tileset ts, int pdbfd, int mapflags)
 	pdb->mapped = 1;
 	pdb->data = mmap(NULL, search_space_size(&pdb->aux), prot, flags, pdbfd, 0);
 	if (pdb->data == MAP_FAILED) {
+		error = errno;
 		free(pdb);
+		errno = error;
 		return (NULL);
 	}
 
