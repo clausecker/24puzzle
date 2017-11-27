@@ -161,17 +161,55 @@ success:
 }
 
 /*
- * hval and free implementations for struct patterndb based heuristics.
+ * Look up the h value provided by heu for p, using old_h for old_p as a
+ * reference.  p_old must be adjacent to p.
+ */
+extern unsigned
+heu_diff_hval(struct heuristic *heu, const struct puzzle *p,
+    const struct puzzle *old_p, int old_h)
+{
+	struct puzzle p_morphed, old_p_morphed;
+	const struct puzzle *pp = p, *old_pp = old_p;
+
+	if (heu->morphism != 0) {
+		p_morphed = *p;
+		morph(&p_morphed, heu->morphism);
+		pp = &p_morphed;
+
+		old_p_morphed = *old_p;
+		morph(&old_p_morphed, heu->morphism);
+		old_pp = &old_p_morphed;
+	}
+
+	return (heu->hdiff(heu->provider, pp, old_pp, old_h));
+}
+
+
+/*
+ * hval, hdiff, and free implementations for struct patterndb based heuristics.
  */
 static int
 pdb_hval_wrapper(void *provider, const struct puzzle *p)
 {
+
+	return (pdb_lookup_puzzle((struct patterndb *)provider, p));
+}
+
+static int
+pdb_hdiff_wrapper(void *provider, const struct puzzle *p,
+    const struct puzzle *old_p, int old_h)
+{
+
+	(void)old_p;
+	(void)old_h;
+
 	return (pdb_lookup_puzzle((struct patterndb *)provider, p));
 }
 
 static void
 pdb_free_wrapper(void *provider)
 {
+
 	pdb_free((struct patterndb *)provider);
 }
 
@@ -222,6 +260,9 @@ common_pdb_driver(struct heuristic *heu, const char *heudir,
 			return (-1);
 	}
 
+	if (flags & HEU_VERBOSE)
+		fprintf(stderr, "Loading PDB file %s\n", pathbuf);
+
 	pdb = pdb_mmap(ts, fd, PDB_MAP_RDONLY);
 	saved_errno = errno;
 	close(fd);
@@ -244,6 +285,9 @@ common_pdb_driver(struct heuristic *heu, const char *heudir,
 	goto success;
 
 create_pdb:
+	if (flags & HEU_VERBOSE)
+		fprintf(stderr, "Creating PDB for tile set %s\n", tsstr);
+
 	pdb = pdb_allocate(identify ? tileset_add(ts, ZERO_TILE) : ts);
 	if (pdb == NULL) {
 		if (flags & HEU_VERBOSE) {
@@ -272,11 +316,18 @@ create_pdb:
 
 	pdb_generate(pdb, flags & HEU_VERBOSE ? stderr : NULL);
 
-	if (identify)
+	if (identify) {
+		if (flags & HEU_VERBOSE)
+			fprintf(stderr, "Identifying PDB for tile set %s\n", tsstr);
+
 		pdb_identify(pdb);
+	}
 
 	if (pdbfile == NULL)
 		goto success;
+
+	if (flags & HEU_VERBOSE)
+		fprintf(stderr, "Writing PDB to file %s\n", pathbuf);
 
 	if (pdb_store(pdbfile, pdb) != 0) {
 		if (flags & HEU_VERBOSE)
@@ -304,6 +355,7 @@ create_pdb:
 success:
 	heu->provider = pdb;
 	heu->hval = pdb_hval_wrapper;
+	heu->hdiff = pdb_hdiff_wrapper;
 	heu->free = pdb_free_wrapper;
 
 	return (0);

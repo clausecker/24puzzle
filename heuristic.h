@@ -39,12 +39,16 @@
  * currently normal PDBs and bitpdbs.  The heuristic abstraction also
  * provides logic to abstract away search on transposed configurations.
  * The underlying heuristic provider is queried using the hval function
- * provider.  A call to the free function pointer should release the
- * storage associated with the underlying heuristic.
+ * provider.  A differential query can be made using the hdiff function
+ * pointer which, given two adjacent puzzle configurations and the h
+ * value for one of them, yields the h value for the other.  A call to
+ * the free function pointer should release the storage associated with
+ * the underlying heuristic.
  */
 struct heuristic {
 	void *provider;
 	int (*hval)(void *, const struct puzzle *);
+	int (*hdiff)(void *, const struct puzzle *, const struct puzzle *, int);
 	void (*free)(void *);
 	tileset ts;
 	unsigned morphism; /* the automorphism to apply */
@@ -71,6 +75,7 @@ enum {
  */
 
 extern int	heu_open(struct heuristic *, const char *, tileset, const char *, int);
+extern unsigned	heu_diff_hval(struct heuristic *, const struct puzzle *, const struct puzzle *, int);
 
 /*
  * Look up the h value provided by heu for p.
