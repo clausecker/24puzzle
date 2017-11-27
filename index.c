@@ -283,6 +283,8 @@ make_index_aux(struct index_aux *aux, tileset ts)
 	aux->n_maprank = combination_count[aux->n_tile];
 	aux->n_perm = factorials[aux->n_tile];
 
+	tileset_unrank_init(aux->n_tile);
+
 	/* see tileset_map() for details */
 	memset(aux->tiles, 0, sizeof aux->tiles);
 	for (; !tileset_empty(tsnz); tsnz = tileset_remove_least(tsnz))

@@ -116,7 +116,9 @@ test_unrank(void)
 	tsrank i;
 	tileset ts, nts;
 
-	for (k = 0; k <= TILE_COUNT; k++)
+	for (k = 0; k <= TILE_COUNT; k++) {
+		tileset_unrank_init(k);
+
 		for (i = 0; i < combination_count[k]; i++) {
 			ts = tileset_unrank(k, i);
 			nts = naive_unrank(k, i);
@@ -126,6 +128,7 @@ test_unrank(void)
 				return (0);
 			}
 		}
+	}
 
 	return (1);
 }

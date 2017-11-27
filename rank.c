@@ -84,6 +84,9 @@ tileset_unrank_init(size_t k)
 	size_t i, n = combination_count[k];
 	tileset iter, *tbl;
 
+	if (unrank_tables[k] != NULL)
+		return;
+
 	tbl = malloc(n * sizeof *unrank_tables[k]);
 	if (tbl == NULL) {
 		perror("malloc");

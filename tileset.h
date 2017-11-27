@@ -267,18 +267,13 @@ tileset_rank(tileset ts)
 }
 
 /*
- * Compute the tileset with k tiles belonging to rank rk.  Initialize
- * the appropriate unrank table if necessary.  This is done as-needed
- * instead of ahead of time to simplify the code as unranking is not
- * nearly as time sensitive as ranking.
+ * Compute the tileset with k tiles belonging to rank rk.  The unrank
+ * table for k must be initialized by a call to tileset_unrank_init(k)
+ * beforehand.
  */
 static inline tileset
 tileset_unrank(size_t k, tsrank rk)
 {
-
-	if (unrank_tables[k] == NULL)
-		tileset_unrank_init(k);
-
 	return (unrank_tables[k][rk]);
 }
 
