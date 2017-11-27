@@ -72,10 +72,6 @@ enum {
 };
 
 /*
- * Bitmap for pdb_mmap().
- */
-
-/*
  * The number of threads to use.  This must be between 1 and
  * PDB_MAX_JOBS and is set to 1 initially.  This is a global variable
  * intended to be set once during program initialization.  Since its
