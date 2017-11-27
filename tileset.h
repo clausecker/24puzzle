@@ -162,7 +162,7 @@ tileset_least(unsigned n)
 
 /*
  * Return the parity of a tileset.  This is whether the number of
- * odd-numbered tiles is even or odd.
+ * even-numbered tiles is even or odd.
  */
 static inline tileset
 tileset_parity(tileset ts)

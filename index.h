@@ -166,7 +166,7 @@ search_space_size(const struct index_aux *aux)
  * Given a permutation index, compute the corresponding equivalence
  * class map by forming a map from the appropriate entry in idxt and
  * return it.  If the zero tile is not accounted for, instead return
- * a map of all grid spots zboccupied.  idxt may be NULL in this case.
+ * a map of all grid spots occupied.  idxt may be NULL in this case.
  */
 static inline tileset
 eqclass_from_index(const struct index_aux *aux, const struct index *idx)
@@ -204,6 +204,63 @@ eqclass_from_index(const struct index_aux *aux, const struct index *idx)
 
 	return (eq);
 #endif /* __AVX2__ */
+}
+
+/*
+ * Return a tileset specifying which grid locations in p are occupied by
+ * nonzero tiles in aux->ts.
+ */
+static inline tileset
+tile_map(const struct index_aux *aux, const struct puzzle *p)
+{
+
+#ifdef __AVX2__
+	/* load complemented tiles */
+	__m128i tiles = _mm_loadu_si128((const __m128i*)aux->tiles);
+
+	/* load grid and complement to circumvent pcmpistri's string termination check */
+	__m256i grid = _mm256_andnot_si256(_mm256_loadu_si256((const __m256i*)p->grid),
+	    _mm256_set_epi64x(0xffull, -1ull, -1ull, -1ull));
+
+	/* compute the bitmasks */
+#define OPERATION (_SIDD_UBYTE_OPS|_SIDD_CMP_EQUAL_ANY|_SIDD_BIT_MASK)
+	__m128i maplo = _mm_cmpistrm(tiles, _mm256_castsi256_si128(grid), OPERATION);
+	__m128i maphi = _mm_cmpistrm(tiles, _mm256_extracti128_si256(grid, 1), OPERATION);
+	maplo = _mm_unpacklo_epi16(maplo, maphi);
+#undef OPERATION
+
+	return (_mm_cvtsi128_si32(maplo));
+#elif defined(__SSE4_2__)
+	/*
+	 * this code is very similar to the AVX code except for the more
+	 * complex masking in the beginning due to the lack of 256 bit
+	 * registers.
+	 */
+
+	/* load complemented tiles */
+	__m128i tiles = _mm_loadu_si128((const __m128i*)aux->tiles);
+
+	/* load grid and complement to circumvent pcmpistri's string termination check */
+	__m128i gridmask = _mm_set1_epi8(0xff);
+	__m128i gridlo = _mm_andnot_si128(_mm_loadu_si128((const __m128i*)p->grid + 0), gridmask);
+	__m128i gridhi = _mm_andnot_si128(_mm_loadu_si128((const __m128i*)p->grid + 1), _mm_bsrli_si128(gridmask, 7));
+
+	/* compute the bitmasks */
+#define OPERATION (_SIDD_UBYTE_OPS|_SIDD_CMP_EQUAL_ANY|_SIDD_BIT_MASK)
+	__m128i maplo = _mm_cmpistrm(tiles, gridlo, OPERATION);
+	__m128i maphi = _mm_cmpistrm(tiles, gridhi, OPERATION);
+	maplo = _mm_unpacklo_epi16(maplo, maphi);
+#undef OPERATION
+
+	return (_mm_cvtsi128_si32(maplo));
+#else
+	tileset tsnz = tileset_remove(aux->ts, ZERO_TILE), map = EMPTY_TILESET;
+
+	for (; !tileset_empty(tsnz); tsnz = tileset_remove_least(tsnz))
+		map |= 1 << p->tiles[tileset_get_least(tsnz)];
+
+	return (map);
+#endif
 }
 
 /* random.c */
