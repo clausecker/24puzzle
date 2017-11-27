@@ -46,20 +46,21 @@
 extern struct patterndb *
 pdb_allocate(tileset ts)
 {
-	struct index_aux aux;
 	struct patterndb *pdb;
+	int error;
 
-	make_index_aux(&aux, ts);
 	pdb = malloc(sizeof *pdb);
 	if (pdb == NULL)
 		return (NULL);
 
-	pdb->aux = aux;
+	make_index_aux(&pdb->aux, ts);
 	pdb->mapped = 0;
 
 	pdb->data = malloc(search_space_size(&pdb->aux));
 	if (pdb->data == NULL) {
+		error = errno;
 		free(pdb);
+		errno = error;
 		return (NULL);
 	}
 
@@ -103,18 +104,24 @@ extern struct patterndb *
 pdb_load(tileset ts, FILE *pdbfile)
 {
 	struct patterndb *pdb = pdb_allocate(ts);
-	size_t count, size = search_space_size(&pdb->aux);
+	size_t count, size;
+	int error;
 
 	if (pdb == NULL)
 		return (NULL);
 
+	size = search_space_size(&pdb->aux);
 	count = fread((void *)pdb->data, 1, size, pdbfile);
 	if (count != size) {
+		error = errno;
+		pdb_free(pdb);
+
 		/* tell apart short read from IO error */
 		if (!ferror(pdbfile))
 			errno = EINVAL;
+		else
+			errno = error;
 
-		pdb_free(pdb);
 		return (NULL);
 	}
 
@@ -131,12 +138,17 @@ extern int
 pdb_store(FILE *pdbfile, struct patterndb *pdb)
 {
 	size_t count, size = search_space_size(&pdb->aux);
+	int error;
 
 	count = fwrite((void *)pdb->data, 1, size, pdbfile);
 	if (count != size) {
+		error = errno;
+
 		/* tell apart end of medium from IO error */
 		if (!ferror(pdbfile))
 			errno = ENOSPC;
+		else
+			errno = error;
 
 		return (-1);
 	}
@@ -155,7 +167,6 @@ pdb_store(FILE *pdbfile, struct patterndb *pdb)
 extern struct patterndb *
 pdb_mmap(tileset ts, int pdbfd, int mapflags)
 {
-	struct index_aux aux;
 	struct patterndb *pdb;
 	int prot, flags, error;
 
@@ -180,12 +191,11 @@ pdb_mmap(tileset ts, int pdbfd, int mapflags)
 		return (NULL);
 	}
 
-	make_index_aux(&aux, ts);
 	pdb = malloc(sizeof *pdb);
 	if (pdb == NULL)
 		return (NULL);
 
-	pdb->aux = aux;
+	make_index_aux(&pdb->aux, ts);
 	pdb->mapped = 1;
 	pdb->data = mmap(NULL, search_space_size(&pdb->aux), prot, flags, pdbfd, 0);
 	if (pdb->data == MAP_FAILED) {
