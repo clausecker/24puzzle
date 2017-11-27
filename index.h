@@ -160,7 +160,22 @@ search_space_size(const struct index_aux *aux)
 	return ((size_t)aux->n_perm * (size_t)eqclass_total(aux));
 }
 
+/*
+ * Compute the offset a configuration for index idx would have from the
+ * beginning of the PDB if each PDB entry was one byte in size.
+ */
+static inline size_t
+index_offset(const struct index_aux *aux, const struct index *idx)
+{
+	size_t map_offset;
 
+	if (tileset_has(aux->ts, ZERO_TILE))
+		map_offset = aux->idxt[idx->maprank].offset + idx->eqidx;
+	else
+		map_offset = idx->maprank;
+
+	return (map_offset * aux->n_perm + idx->pidx);
+}
 
 /*
  * Given a permutation index, compute the corresponding equivalence
