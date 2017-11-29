@@ -146,10 +146,9 @@ bitpdb_store(FILE *f, struct bitpdb *bpdb)
  * locations occupied in p by the tiles in aux.
  */
 static int
-partial_parity(const struct index_aux *aux, const struct index *idx)
+partial_parity(const struct index_aux *aux, const struct puzzle *p)
 {
-	return (tileset_parity(tileset_unrank(aux->n_tile, idx->maprank))
-	     ^ aux->solved_parity);
+	return (tileset_parity(tile_map(aux, p)) ^ aux->solved_parity);
 }
 
 /*
@@ -181,6 +180,10 @@ extern int
 bitpdb_diff_lookup(struct bitpdb *bpdb, const struct puzzle *p, int old_h)
 {
 	int entry = bpdb_lookup_bit(bpdb, p);
+
+	/* assure p has different parity than old_h as a sanity check */
+	(void)partial_parity;
+	assert((partial_parity(&bpdb->aux, p) ^ old_h & 1) == 1);
 
 	/* increment old_h if (entry ^ old_h ^ old_h << 1) & 2 else decrement */
 	return (old_h - 1 + ((entry ^ old_h ^ old_h << 1) & 2));
