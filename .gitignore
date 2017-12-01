@@ -15,6 +15,7 @@ cmd/pdbcount
 cmd/pdbstats
 cmd/pdbsearch
 cmd/puzzlegen
+test/bitpdbtest
 test/hitanalysis
 test/indextest
 test/qualitytest
