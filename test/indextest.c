@@ -105,9 +105,7 @@ test_puzzle(const struct index_aux *aux, const struct puzzle *p)
 
 /*
  * Round-trip idx through inverse_index() and check if we get the same
- * index back.  Also round-trip a random tile set through
- * combine_index() and see if we get the same result back.  Return 1
- * if we do, return 0 and print some information
+ * index back.  Return 1 if we do, return 0 and print some information
  * if we don't.
  */
 static int

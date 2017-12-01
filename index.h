@@ -282,14 +282,4 @@ tile_map(const struct index_aux *aux, const struct puzzle *p)
 extern atomic_ullong random_seed;
 extern void	random_index(const struct index_aux *, struct index *);
 
-/* cindex.c */
-/*
- * An index combined into a single scalar.  This is useful if we need to
- * store many indices at the same time.
- */
-typedef size_t cindex;
-
-extern cindex	combine_index(const struct index_aux *, const struct index *);
-extern void	split_index(const struct index_aux *, struct index *, cindex);
-
 #endif /* INDEX_H */
