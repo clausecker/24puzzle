@@ -156,7 +156,7 @@ partial_parity(const struct index_aux *aux, const struct puzzle *p)
  * bit shifted to the second least significant bit.
  */
 static int
-bpdb_lookup_bit(struct bitpdb *bpdb, const struct index *idx)
+bitpdb_lookup_bit(struct bitpdb *bpdb, const struct index *idx)
 {
 	size_t offset;
 	int entry;
@@ -178,14 +178,14 @@ static int
 bitpdb_diff_lookup_idx(struct bitpdb *bpdb, const struct puzzle *p,
     int old_h, const struct index *idx)
 {
-	int entry = bpdb_lookup_bit(bpdb, idx);
+	int entry = bitpdb_lookup_bit(bpdb, idx);
 
 	/* assure p has different parity than old_h as a sanity check */
 	(void)partial_parity;
 	assert((partial_parity(&bpdb->aux, p) ^ old_h & 1) == 1);
 
-	/* increment old_h if (entry ^ old_h ^ old_h << 1) & 2 else decrement */
-	return (old_h - 1 + ((entry ^ old_h ^ old_h << 1) & 2));
+	/* decrement old_h if (entry ^ old_h ^ old_h << 1) & 2 else increment */
+	return (old_h + 1 - ((entry ^ old_h ^ old_h << 1) & 2));
 }
 
 /*
@@ -217,11 +217,12 @@ bitpdb_lookup_puzzle(struct bitpdb *bpdb, const struct puzzle *parg)
 	size_t n_moves, i;
 	int initial_h, cur_h, next_h;
 
-	/* some even value higher than the diameter of the search space */
-	enum { DUMMY_HVAL = 250 };
+	/* some multiple of 4 higher than the diameter of the search space */
+	enum { DUMMY_HVAL = 256 };
 
-	cur_h = initial_h = DUMMY_HVAL | partial_parity(&bpdb->aux, &p);
 	compute_index(&bpdb->aux, &idx, &p);
+	initial_h = DUMMY_HVAL | partial_parity(&bpdb->aux, &p) | bitpdb_lookup_bit(bpdb, &idx);
+	cur_h = initial_h;
 
 	while (!puzzle_partially_equal(&p, &solved_puzzle, &bpdb->aux)) {
 		n_moves = generate_moves(moves, eqclass_from_index(&bpdb->aux, &idx));
@@ -243,6 +244,9 @@ bitpdb_lookup_puzzle(struct bitpdb *bpdb, const struct puzzle *parg)
 		/* make sure we made progess */
 		assert(next_h < cur_h);
 		cur_h = next_h;
+
+		/* sanity check: make sure we don't descend infinitely */
+		assert(cur_h > 0);
 	}
 
 	return (initial_h - cur_h);
