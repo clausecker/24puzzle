@@ -180,10 +180,6 @@ bitpdb_diff_lookup_idx(struct bitpdb *bpdb, const struct puzzle *p,
 {
 	int entry = bitpdb_lookup_bit(bpdb, idx);
 
-	/* assure p has different parity than old_h as a sanity check */
-	(void)partial_parity;
-	assert((partial_parity(&bpdb->aux, p) ^ old_h & 1) == 1);
-
 	/* decrement old_h if (entry ^ old_h ^ old_h << 1) & 2 else increment */
 	return (old_h + 1 - ((entry ^ old_h ^ old_h << 1) & 2));
 }
@@ -195,6 +191,9 @@ extern int
 bitpdb_diff_lookup(struct bitpdb *bpdb, const struct puzzle *p, int old_h)
 {
 	struct index idx;
+
+	/* assure p has different parity than old_h as a sanity check */
+	assert((partial_parity(&bpdb->aux, p) ^ old_h & 1) == 1);
 
 	compute_index(&bpdb->aux, &idx, p);
 
@@ -234,7 +233,6 @@ bitpdb_lookup_puzzle(struct bitpdb *bpdb, const struct puzzle *parg)
 
 			compute_index(&bpdb->aux, &idx, &p);
 			next_h = bitpdb_diff_lookup_idx(bpdb, &p, cur_h, &idx);
-			assert(abs(next_h - cur_h) == 1);
 			if (next_h < cur_h)
 				break;
 
