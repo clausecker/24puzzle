@@ -156,14 +156,12 @@ partial_parity(const struct index_aux *aux, const struct puzzle *p)
  * bit shifted to the second least significant bit.
  */
 static int
-bpdb_lookup_bit(struct bitpdb *bpdb, const struct puzzle *p)
+bpdb_lookup_bit(struct bitpdb *bpdb, const struct index *idx)
 {
-	struct index idx;
 	size_t offset;
 	int entry;
 
-	compute_index(&bpdb->aux, &idx, p);
-	offset = index_offset(&bpdb->aux, &idx);
+	offset = index_offset(&bpdb->aux, idx);
 
 	entry = bpdb->data[offset / CHAR_BIT] >> (offset % CHAR_BIT) & 1;
 
@@ -173,13 +171,14 @@ bpdb_lookup_bit(struct bitpdb *bpdb, const struct puzzle *p)
 /*
  * Perform a differential lookup into bpdb.  old_h must be the h value
  * for a puzzle configuration directly connected with p but not
- * identical to p in the quotient graph induced by bpdb->aux.ts.  Return
- * the distance found.
+ * identical to p in the quotient graph induced by bpdb->aux.ts.  idx must
+ * be the index for p.  Return the distance found.
  */
-extern int
-bitpdb_diff_lookup(struct bitpdb *bpdb, const struct puzzle *p, int old_h)
+static int
+bitpdb_diff_lookup_idx(struct bitpdb *bpdb, const struct puzzle *p,
+    int old_h, const struct index *idx)
 {
-	int entry = bpdb_lookup_bit(bpdb, p);
+	int entry = bpdb_lookup_bit(bpdb, idx);
 
 	/* assure p has different parity than old_h as a sanity check */
 	(void)partial_parity;
@@ -187,4 +186,64 @@ bitpdb_diff_lookup(struct bitpdb *bpdb, const struct puzzle *p, int old_h)
 
 	/* increment old_h if (entry ^ old_h ^ old_h << 1) & 2 else decrement */
 	return (old_h - 1 + ((entry ^ old_h ^ old_h << 1) & 2));
+}
+
+/*
+ * Like bitpdb_diff_lookup, but compute the index, too.
+ */
+extern int
+bitpdb_diff_lookup(struct bitpdb *bpdb, const struct puzzle *p, int old_h)
+{
+	struct index idx;
+
+	compute_index(&bpdb->aux, &idx, p);
+
+	return (bitpdb_diff_lookup_idx(bpdb, p, old_h, &idx));
+}
+
+/*
+ * Determine the h value for puzzle configuration p by looking up a
+ * shortest path in the quotient graph induced by bpdb->aux.ts in bpdb.
+ * This operation is rather slow and should only be used to get an
+ * initial h value, for further search, bitpdb_diff_lookup() should be
+ * used instead.
+ */
+extern int
+bitpdb_lookup_puzzle(struct bitpdb *bpdb, const struct puzzle *parg)
+{
+	struct move moves[MAX_MOVES];
+	struct index idx;
+	struct puzzle p = *parg;
+	size_t n_moves, i;
+	int initial_h, cur_h, next_h;
+
+	/* some even value higher than the diameter of the search space */
+	enum { DUMMY_HVAL = 250 };
+
+	cur_h = initial_h = DUMMY_HVAL | partial_parity(&bpdb->aux, &p);
+	compute_index(&bpdb->aux, &idx, &p);
+
+	while (!puzzle_partially_equal(&p, &solved_puzzle, &bpdb->aux)) {
+		n_moves = generate_moves(moves, eqclass_from_index(&bpdb->aux, &idx));
+
+		assert(n_moves > 0);
+		for (i = 0; i < n_moves; i++) {
+			move(&p, moves[i].zloc);
+			move(&p, moves[i].dest);
+
+			compute_index(&bpdb->aux, &idx, &p);
+			next_h = bitpdb_diff_lookup_idx(bpdb, &p, cur_h, &idx);
+			assert(abs(next_h - cur_h) == 1);
+			if (next_h < cur_h)
+				break;
+
+			move(&p, moves[i].zloc);
+		}
+
+		/* make sure we made progess */
+		assert(next_h < cur_h);
+		cur_h = next_h;
+	}
+
+	return (initial_h - cur_h);
 }
