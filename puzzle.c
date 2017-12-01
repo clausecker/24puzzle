@@ -79,6 +79,21 @@ puzzle_string(char str[PUZZLE_STR_LEN], const struct puzzle *p)
 }
 
 /*
+ * Print the board represented by p and write the result to str.
+ */
+extern void
+puzzle_visualization(char str[PUZZLE_STR_LEN], const struct puzzle *p)
+{
+	size_t i;
+
+	for (i = 0; i < TILE_COUNT; i++)
+		if (p->grid[i] == 0)
+			str += sprintf(str, "  %c", i % 5 == 4 ? '\n' : ' ');
+		else
+			str += sprintf(str, "%2d%c", (int)p->grid[i], i % 5 == 4 ? '\n' : ' ');
+}
+
+/*
  * Parse a puzzle configuration from str and store it in p.  Return 0
  * if parsing was succesful, -1 otherwise.  In case of failure, *p is
  * undefined.

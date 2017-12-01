@@ -68,6 +68,7 @@ enum { PUZZLE_STR_LEN = 3 * TILE_COUNT + 1 };
 
 extern int	puzzle_parity(const struct puzzle *);
 extern void	puzzle_string(char[PUZZLE_STR_LEN], const struct puzzle *);
+extern void	puzzle_visualization(char[PUZZLE_STR_LEN], const struct puzzle *);
 extern int	puzzle_parse(struct puzzle *, const char *);
 /*
  * Return the location of the zero tile in p.
