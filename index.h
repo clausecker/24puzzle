@@ -278,6 +278,29 @@ tile_map(const struct index_aux *aux, const struct puzzle *p)
 #endif
 }
 
+/*
+ * Check if puzzle configurations a and b are equal with respect to the
+ * tiles specified in aux->ts.  Return nonzero if they are, zero
+ * otherwise.
+ */
+static inline int
+puzzle_partially_equal(const struct puzzle *a, const struct puzzle *b,
+    const struct index_aux *aux)
+{
+	// TODO: vectorize me!
+
+	size_t i;
+	tileset tsnz = tileset_remove(aux->ts, ZERO_TILE);
+
+	for (; !tileset_empty(tsnz); tsnz = tileset_remove_least(tsnz)) {
+		i = tileset_get_least(tsnz);
+		if (a->tiles[i] != b->tiles[i])
+			return (0);
+	}
+
+	return (1);
+}
+
 /* random.c */
 extern atomic_ullong random_seed;
 extern void	random_index(const struct index_aux *, struct index *);

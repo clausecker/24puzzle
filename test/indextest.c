@@ -39,25 +39,6 @@
 #define TEST_TS 0x00000fe
 
 /*
- * Check if p1 and p2 are the same configuration with respect to the
- * tiles in ts.  Return 1 if they are, 0 if they are not.
- */
-static int
-puzzle_equal(tileset ts, const struct puzzle *p1, const struct puzzle *p2)
-{
-	tileset tsnz;
-	size_t i;
-
-	for (tsnz = tileset_remove(ts, ZERO_TILE); !tileset_empty(tsnz); tsnz = tileset_remove_least(tsnz)) {
-		i = tileset_get_least(tsnz);
-		if (p1->tiles[i] != p2->tiles[i])
-			return (0);
-	}
-
-	return (1);
-}
-
-/*
  * Check if idx1 and idx2 refer to the same index with respect to ts.
  * Return 1 if they do, 0 if they do not.
  */
@@ -88,7 +69,7 @@ test_puzzle(const struct index_aux *aux, const struct puzzle *p)
 	compute_index(aux, &idx, p);
 	invert_index(aux, &pp, &idx);
 
-	if (!puzzle_equal(aux->ts, p, &pp)) {
+	if (!puzzle_partially_equal(p, &pp, aux)) {
 		printf("test_puzzle failed for 0x%07x:\n", aux->ts);
 		puzzle_string(puzzle_str, p);
 		puts(puzzle_str);
