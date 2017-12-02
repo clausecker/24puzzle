@@ -109,7 +109,7 @@ main(int argc, char *argv[])
 
 	bpdbfile = fopen(argv[optind + 1], "rb");
 	if (bpdbfile == NULL) {
-		perror(argv[optind]);
+		perror(argv[optind] + 1);
 		return (EXIT_FAILURE);
 	}
 
