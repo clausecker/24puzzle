@@ -223,7 +223,7 @@ bitpdb_lookup_puzzle(struct bitpdb *bpdb, const struct puzzle *parg)
 	initial_h = DUMMY_HVAL | partial_parity(&bpdb->aux, &p) | bitpdb_lookup_bit(bpdb, &idx);
 	cur_h = initial_h;
 
-	while (!puzzle_partially_equal(&p, &solved_puzzle, &bpdb->aux)) {
+	while (cur_h % 4 != 0 || !puzzle_partially_equal(&p, &solved_puzzle, &bpdb->aux)) {
 		n_moves = generate_moves(moves, eqclass_from_index(&bpdb->aux, &idx));
 
 		assert(n_moves > 0);
