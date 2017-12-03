@@ -55,14 +55,14 @@ add_pdb(struct pdb_catalogue *cat, const char *tsbuf, const char *pdbdir,
 {
 	size_t pdbidx;
 	tileset ts;
-	int error, heuflags = HEU_CREATE | HEU_NOMORPH;
+	int heuflags = HEU_CREATE | HEU_NOMORPH;
 	const char *heutype = "pdb";
 
 	if (tileset_parse(&ts, tsbuf) != 0) {
 		if (f != NULL)
 			fprintf(f, "Cannot parse tileset: %s\n", tsbuf);
 
-		error = EINVAL;
+		errno = EINVAL;
 		return (-1);
 	}
 
@@ -88,7 +88,7 @@ add_pdb(struct pdb_catalogue *cat, const char *tsbuf, const char *pdbdir,
 			fprintf(f, "Too many PDBs, up to %d are possible.\n",
 			    CATALOGUE_HEUS_LEN);
 
-		error = ERANGE;
+		errno = ERANGE;
 		return (-1);
 	}
 
