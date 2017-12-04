@@ -48,7 +48,7 @@
 struct heuristic {
 	void *provider;
 	int (*hval)(void *, const struct puzzle *);
-	int (*hdiff)(void *, const struct puzzle *, const struct puzzle *, int);
+	int (*hdiff)(void *, const struct puzzle *, int);
 	void (*free)(void *);
 	tileset ts;
 	unsigned morphism; /* the automorphism to apply */
@@ -75,7 +75,6 @@ enum {
  */
 
 extern int	heu_open(struct heuristic *, const char *, tileset, const char *, int);
-extern unsigned	heu_diff_hval(struct heuristic *, const struct puzzle *, const struct puzzle *, int);
 
 /*
  * Look up the h value provided by heu for p.
@@ -94,6 +93,27 @@ heu_hval(struct heuristic *heu, const struct puzzle *p)
 
 	return (heu->hval(heu->provider, pp));
 }
+
+/*
+ * Look up the h value provided by heu for p, using old_h as a
+ * reference.  old_h must be the h value for some configuration
+ * adjacent to p with respect to the tiles in heu.
+ */
+static inline unsigned
+heu_diff_hval(struct heuristic *heu, const struct puzzle *p, int old_h)
+{
+	struct puzzle p_morphed;
+	const struct puzzle *pp = p;
+
+	if (heu->morphism != 0) {
+		p_morphed = *p;
+		morph(&p_morphed, heu->morphism);
+		pp = &p_morphed;
+	}
+
+	return (heu->hdiff(heu->provider, pp, old_h));
+}
+
 
 /*
  * Release the storage associated with heu.

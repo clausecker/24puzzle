@@ -33,6 +33,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include "bitpdb.h"
 #include "heuristic.h"
 #include "transposition.h"
 #include "tileset.h"
@@ -50,6 +51,7 @@ typedef int heu_driver(struct heuristic *heu, const char *heudir,
     tileset ts, char *tsstr, int flags);
 
 static heu_driver pdb_driver, ipdb_driver, zpdb_driver;
+static heu_driver bitpdb_driver, zbitpdb_driver;
 
 /*
  * All available drivers.  The array is terminated with a NULL sentinel.
@@ -64,6 +66,14 @@ const struct {
 	"pdb",	pdb_driver, 0,
 	"ipdb", ipdb_driver, 0,
 	"zpdb", zpdb_driver, 0,
+	"bpdb", bitpdb_driver, 0,
+	"zbpdb", zbitpdb_driver, 0,
+
+	"pdb", bitpdb_driver, HEU_SIMILAR,
+	"zpdb", zbitpdb_driver, HEU_SIMILAR,
+	"bpdb", pdb_driver, HEU_SIMILAR,
+	"zbpdb", zpdb_driver, HEU_SIMILAR,
+
 	NULL,	NULL, 0,
 };
 
@@ -162,31 +172,6 @@ success:
 }
 
 /*
- * Look up the h value provided by heu for p, using old_h for old_p as a
- * reference.  p_old must be adjacent to p.
- */
-extern unsigned
-heu_diff_hval(struct heuristic *heu, const struct puzzle *p,
-    const struct puzzle *old_p, int old_h)
-{
-	struct puzzle p_morphed, old_p_morphed;
-	const struct puzzle *pp = p, *old_pp = old_p;
-
-	if (heu->morphism != 0) {
-		p_morphed = *p;
-		morph(&p_morphed, heu->morphism);
-		pp = &p_morphed;
-
-		old_p_morphed = *old_p;
-		morph(&old_p_morphed, heu->morphism);
-		old_pp = &old_p_morphed;
-	}
-
-	return (heu->hdiff(heu->provider, pp, old_pp, old_h));
-}
-
-
-/*
  * hval, hdiff, and free implementations for struct patterndb based heuristics.
  */
 static int
@@ -197,11 +182,9 @@ pdb_hval_wrapper(void *provider, const struct puzzle *p)
 }
 
 static int
-pdb_hdiff_wrapper(void *provider, const struct puzzle *p,
-    const struct puzzle *old_p, int old_h)
+pdb_hdiff_wrapper(void *provider, const struct puzzle *p, int old_h)
 {
 
-	(void)old_p;
 	(void)old_h;
 
 	return (pdb_lookup_puzzle((struct patterndb *)provider, p));
@@ -360,7 +343,6 @@ success:
 	heu->free = pdb_free_wrapper;
 
 	return (0);
-
 }
 
 /*
@@ -395,4 +377,203 @@ zpdb_driver(struct heuristic *heu, const char *heudir,
 	tileset_list_string(tsstr, ts);
 
 	return (common_pdb_driver(heu, heudir, ts, tsstr, flags, "pdb", 0));
+}
+
+/*
+ * hval, hdiff, and free implementations for struct bitpdb based heuristics.
+ */
+static int
+bitpdb_hval_wrapper(void *provider, const struct puzzle *p)
+{
+
+	return (bitpdb_lookup_puzzle((struct bitpdb *)provider, p));
+}
+
+static int
+bitpdb_hdiff_wrapper(void *provider, const struct puzzle *p, int old_h)
+{
+
+	return (bitpdb_diff_lookup((struct bitpdb *)provider, p, old_h));
+}
+
+static void
+bitpdb_free_wrapper(void *provider)
+{
+
+	bitpdb_free((struct bitpdb *)provider);
+}
+
+/*
+ * Driver for bitpdbs that account for the zero tile.
+ */
+static int
+zbitpdb_driver(struct heuristic *heu, const char *heudir,
+    tileset ts, char *tsstr_arg, int flags)
+{
+	char tsstr[TILESET_LIST_LEN];
+
+	(void)tsstr_arg;
+	ts = tileset_add(ts, ZERO_TILE);
+	tileset_list_string(tsstr, ts);
+
+	return (bitpdb_driver(heu, heudir, ts, tsstr, flags));
+}
+
+/*
+ * Driver for bitpdbs that do not account for the zero tile.  If ts
+ * contains the zero tile, a bitpdb accounting for the zero tile is
+ * used instead.
+ */
+static int
+bitpdb_driver(struct heuristic *heu, const char *heudir,
+    tileset ts, char *tsstr, int flags)
+{
+	FILE *pdbfile;
+	struct patterndb *pdb;
+	struct bitpdb *bpdb;
+	int fd, saved_errno;
+	char pathbuf[PATH_MAX];
+
+	if (heudir == NULL) {
+		if (flags & HEU_CREATE)
+			goto create_pdb;
+
+		errno = EINVAL;
+		return (-1);
+	}
+
+	if (snprintf(pathbuf, PATH_MAX, "%s/%s.bpdb", heudir, tsstr) >= PATH_MAX) {
+		errno = ENAMETOOLONG;
+		if (flags & HEU_VERBOSE) {
+			perror("bitpdb_driver");
+			errno = ENAMETOOLONG;
+		}
+
+		return (-1);
+	}
+
+	fd = open(pathbuf, O_RDONLY);
+	if (fd == -1) {
+		/* don't annoy the user with useless ENOENT messages */
+		if (flags & HEU_VERBOSE && errno != ENOENT) {
+			saved_errno = errno;
+			perror(pathbuf);
+			errno = saved_errno;
+		}
+
+		if (flags & HEU_CREATE)
+			goto create_pdb;
+		else
+			return (-1);
+	}
+
+	if (flags & HEU_VERBOSE)
+		fprintf(stderr, "Loading bitpdb file %s\n", pathbuf);
+
+	bpdb = bitpdb_mmap(ts, fd, PDB_MAP_RDONLY);
+	saved_errno = errno;
+	close(fd);
+
+	/*
+	 * if we can open the file but not map the bitpdb,
+	 * something went terribly wrong and we don't want to ignore
+	 * that error.
+	 */
+	if (bpdb == NULL) {
+		errno = saved_errno;
+		if (flags & HEU_VERBOSE) {
+			perror("bitpdb_mmap");
+			errno = saved_errno;
+		}
+
+		return (-1);
+	}
+
+	goto success;
+
+create_pdb:
+	if (flags & HEU_VERBOSE)
+		fprintf(stderr, "Creating PDB for tile set %s\n", tsstr);
+
+	pdb = pdb_allocate(ts);
+	if (pdb == NULL) {
+		if (flags & HEU_VERBOSE) {
+			saved_errno = errno;
+			perror("pdb_allocate");
+			errno = saved_errno;
+		}
+
+		return (-1);
+	}
+
+	if (heudir == NULL)
+		pdbfile = NULL;
+	else {
+
+		pdbfile = fopen(pathbuf, "w+b");
+
+		/*
+		 * if the file can't be opened for writing, proceed
+		 * with the generation but don't write the PDB back
+		 * to disk.
+		 */
+		if (pdbfile == NULL && flags & HEU_VERBOSE)
+			perror(pathbuf);
+	}
+
+	pdb_generate(pdb, flags & HEU_VERBOSE ? stderr : NULL);
+
+	if (flags & HEU_VERBOSE)
+		fprintf(stderr, "Converting PDB to bitpdb\n");
+
+	bpdb = bitpdb_from_pdb(pdb);
+	if (bpdb == NULL) {
+		if (flags & HEU_VERBOSE) {
+			saved_errno = errno;
+			perror("bitpdb_from_pdb");
+			errno = saved_errno;
+		}
+
+		fclose(pdbfile);
+		return (-1);
+	}
+
+	if (pdbfile == NULL)
+		goto success;
+
+	pdb_free(pdb);
+
+	if (flags & HEU_VERBOSE)
+		fprintf(stderr, "Writing bitpdb to file %s\n", pathbuf);
+
+	if (bitpdb_store(pdbfile, bpdb) != 0) {
+		if (flags & HEU_VERBOSE)
+			perror("bitpdb_store");
+
+		fclose(pdbfile);
+		goto success;
+	}
+
+	bitpdb_free(bpdb);
+	bpdb = bitpdb_mmap(ts, fileno(pdbfile), PDB_MAP_RDONLY);
+	saved_errno = errno;
+	fclose(pdbfile);
+
+	if (bpdb == NULL) {
+		if (flags & HEU_VERBOSE) {
+			errno = saved_errno;
+			perror("bitpdb_mmap");
+		}
+
+		errno = saved_errno;
+		return (-1);
+	}
+
+success:
+	heu->provider = bpdb;
+	heu->hval = bitpdb_hval_wrapper;
+	heu->hdiff = bitpdb_hdiff_wrapper;
+	heu->free = bitpdb_free_wrapper;
+
+	return (0);
 }
