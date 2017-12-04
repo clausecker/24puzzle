@@ -70,7 +70,7 @@ main(int argc, char *argv[])
 	struct bitpdb *bpdb;
 	FILE *pdbfile, *bpdbfile;
 	unsigned long long seed = random_seed;
-	long i, n_puzzle;
+	long i, n_puzzle = 1;
 	int optchar;
 	tileset ts = DEFAULT_TILESET;
 
