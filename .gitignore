@@ -18,6 +18,7 @@ cmd/puzzlegen
 test/bitpdbtest
 test/hitanalysis
 test/indextest
+test/morphtest
 test/qualitytest
 test/rankcount
 test/ranktest

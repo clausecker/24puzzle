@@ -11,7 +11,7 @@ OBJ=index.o puzzle.o tileset.o validation.o ranktbl.o rank.o random.o pdb.o \
 BINARIES=cmd/pdbstats test/indextest util/rankgen test/ranktest cmd/genpdb \
 	cmd/verifypdb cmd/bitpdb cmd/diffcode test/rankcount cmd/puzzlegen \
 	test/qualitytest test/hitanalysis cmd/parsearch cmd/pdbsearch \
-	cmd/pdbcount test/bitpdbtest
+	cmd/pdbcount test/bitpdbtest test/morphtest
 
 all: $(BINARIES) 24puzzle.a
 
@@ -46,6 +46,7 @@ cmd/puzzlegen: cmd/puzzlegen.o 24puzzle.a
 cmd/pdbcount: cmd/pdbcount.o 24puzzle.a
 cmd/bitpdb: cmd/bitpdb.o 24puzzle.a
 test/bitpdbtest: test/bitpdbtest.o 24puzzle.a
+test/morphtest: test/morphtest.o 24puzzle.a
 
 .c.o:
 	@echo "CC	$<"
