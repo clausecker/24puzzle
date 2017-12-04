@@ -67,6 +67,7 @@
  */
 struct bitpdb {
 	struct index_aux aux;
+	int mapped;
 	unsigned char *data;
 };
 
@@ -74,17 +75,15 @@ struct bitpdb {
 extern struct bitpdb	*bitpdb_allocate(tileset);
 extern void		 bitpdb_free(struct bitpdb *);
 extern struct bitpdb	*bitpdb_load(tileset, FILE *);
-// extern struct bitpdb	*bitpdb_mmap(tileset, int, int);
+extern struct bitpdb	*bitpdb_mmap(tileset, int, int);
 extern int		 bitpdb_store(FILE *, struct bitpdb *);
+extern struct bitpdb	*bitpdb_from_pdb(struct patterndb *);
 extern int		 bitpdb_lookup_puzzle(struct bitpdb *, const struct puzzle *);
 extern int		 bitpdb_diff_lookup(struct bitpdb *, const struct puzzle *, int);
 
 /* bitpdbzstd.c */
 extern struct bitpdb	*bitpdb_load_compressed(tileset, FILE *);
 extern int		 bitpdb_store_compressed(FILE *, struct bitpdb *);
-
-/* bitreduce.c */
-extern struct bitpdb	*bitpdb_from_pdb(struct patterndb *);
 
 /*
  * Return the size of the data table for a bitpdb corresponding to aux.

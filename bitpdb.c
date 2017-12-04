@@ -25,10 +25,12 @@
 
 /* bitpdb.c -- functionality to deal with bitpdbs */
 
+#define _POSIX_C_SOURCE 200809L
 #include <assert.h>
 #include <errno.h>
 #include <limits.h>
 #include <stdlib.h>
+#include <sys/mman.h>
 
 #include "bitpdb.h"
 #include "index.h"
@@ -52,6 +54,7 @@ bitpdb_allocate(tileset ts)
 		return (NULL);
 
 	make_index_aux(&bpdb->aux, ts);
+	bpdb->mapped = 0;
 	bpdb->data = malloc(bitpdb_size(&bpdb->aux));
 	if (bpdb->data == NULL) {
 		error = errno;
@@ -70,7 +73,11 @@ extern void
 bitpdb_free(struct bitpdb *bpdb)
 {
 
-	free(bpdb->data);
+	if (bpdb->mapped)
+		munmap(bpdb->data, bitpdb_size(&bpdb->aux));
+	else
+		free(bpdb->data);
+
 	free(bpdb);
 }
 
@@ -138,6 +145,84 @@ bitpdb_store(FILE *f, struct bitpdb *bpdb)
 	fflush(f);
 
 	return (0);
+}
+
+/*
+ * Load a bitpdb from file descriptor fd by mapping it into RAM.  This
+ * might perform better than bitpdb_load().  Use flags to decide what
+ * protection the mapping has and whether changes are written back to
+ * the input file.
+ */
+extern struct bitpdb *
+bitpdb_mmap(tileset ts, int fd, int mapflags)
+{
+	struct bitpdb *bpdb;
+	int prot, flags, error;
+
+	switch (mapflags) {
+	case PDB_MAP_RDONLY:
+		prot = PROT_READ;
+		flags = MAP_SHARED;
+		break;
+
+	case PDB_MAP_RDWR:
+		prot = PROT_READ | PROT_WRITE;
+		flags = MAP_PRIVATE;
+		break;
+
+	case PDB_MAP_SHARED:
+		prot = PROT_READ | PROT_WRITE;
+		flags = MAP_SHARED;
+		break;
+
+	default:
+		errno = EINVAL;
+		return (NULL);
+	}
+
+	bpdb = malloc(sizeof *bpdb);
+	if (bpdb == NULL)
+		return (NULL);
+
+	make_index_aux(&bpdb->aux, ts);
+	bpdb->mapped = 1;
+	bpdb->data = mmap(NULL, bitpdb_size(&bpdb->aux), prot, flags, fd, 0);
+	if (bpdb->data == MAP_FAILED) {
+		error = errno;
+		free(bpdb);
+		errno = error;
+		return (NULL);
+	}
+
+	return (bpdb);
+}
+
+/*
+ * Generate a bitpdb from pdb by throwing away all but the second least
+ * significant bit of each entry.  On success, return the bitpdb, on
+ * failure return NULL and set errno to indicate the error that occurred.
+ */
+extern struct bitpdb *
+bitpdb_from_pdb(struct patterndb *pdb)
+{
+	struct bitpdb *bpdb = bitpdb_allocate(pdb->aux.ts);
+	size_t i, j, n;
+	unsigned char buf, *data = (unsigned char *)pdb->data;
+
+	if (bpdb == NULL)
+		return (NULL);
+
+	n = search_space_size(&pdb->aux);
+	assert(n % 8 == 0);
+	for (i = 0; i < n; i += 8) {
+		buf = 0;
+		for (j = 0; j < 8; j++)
+			buf |= (data[i + j] >> 1 & 1) << j;
+
+		bpdb->data[i] = buf;
+	}
+
+	return (bpdb);
 }
 
 /*
