@@ -190,7 +190,7 @@ morph(struct puzzle *p, unsigned a)
 	_mm256_storeu_si256((__m256i*)p->tiles, tiles);
 
 	__m256i grid = _mm256_loadu_si256((__m256i*)p->grid);
-	grid = compose_avx(invmask, compose_avx(grid, mormask));
+	grid = compose_avx(mormask, compose_avx(grid, invmask));
 	_mm256_storeu_si256((__m256i*)p->grid, grid);
 #elif defined(__SSSE3__)
 	/* automorphism mask */
@@ -208,8 +208,8 @@ morph(struct puzzle *p, unsigned a)
 
 	__m128i gridlo = _mm_loadu_si128((__m128i*)p->grid + 0);
 	__m128i gridhi = _mm_loadu_si128((__m128i*)p->grid + 1);
-	compose_sse(&gridlo, &gridhi, gridlo, gridhi, mormasklo, mormaskhi);
-	compose_sse(&gridlo, &gridhi, invmasklo, invmaskhi, gridlo, gridhi);
+	compose_sse(&gridlo, &gridhi, gridlo, gridhi, invmasklo, invmaskhi);
+	compose_sse(&gridlo, &gridhi, mormasklo, mormaskhi, gridlo, gridhi);
 	_mm_storeu_si128((__m128i*)p->grid + 0, gridlo);
 	_mm_storeu_si128((__m128i*)p->grid + 1, gridhi);
 #else
@@ -223,6 +223,14 @@ morph(struct puzzle *p, unsigned a)
 		p->grid[p->tiles[i]] = i;
 	}
 #endif
+
+	/*
+	 * When using a zero-aware pattern database, we need to make
+	 * sure that the zero tile is in the same zero-tile region as
+	 * before.  This is ensured by undoing the last transform for
+	 * the zero tile.
+	 */
+	move(p, p->tiles[automorphisms[a][0][0]]);
 }
 
 /*
