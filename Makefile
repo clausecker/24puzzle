@@ -1,7 +1,11 @@
 CC=clang
 CFLAGS=-march=native -O3 -g
 COPTS=-std=c11 -I. -Wall -Wno-missing-braces -Wno-parentheses
-LDLIBS=-lpthread
+LDLIBS=-lpthread -lzstd
+
+ZSTDCOPTS=-I$(HOME)/include
+ZSTDLDFLAGS=-L$(HOME)/lib
+ZSTDLDLIBS=$(HOME)/lib/libzstd.a
 
 OBJ=index.o puzzle.o tileset.o validation.o ranktbl.o rank.o random.o pdb.o \
 	moves.o parallel.o pdbgen.o pdbverify.o pdbdiff.o histogram.o \
@@ -17,7 +21,7 @@ all: $(BINARIES) 24puzzle.a
 
 .o:
 	@echo "CCLD	$@"
-	@$(CC) $(LDFLAGS) -o $@ $^ $(LDLIBS)
+	@$(CC) $(ZSTDLDFLAGS) $(LDFLAGS) -o $@ $^ $(LDLIBS)
 
 24puzzle.a: $(OBJ)
 	@echo "AR	$@"
@@ -40,7 +44,7 @@ cmd/diffcode: cmd/diffcode.o 24puzzle.a
 test/rankcount: test/rankcount.o 24puzzle.a
 cmd/pdbstats: cmd/pdbstats.o 24puzzle.a
 	@echo "CCLD	$@"
-	@$(CC) $(LDFLAGS) -o $@ $^ $(LDLIBS) -lm
+	@$(CC) $(ZSTDLDFLAGS) $(LDFLAGS) -o $@ $^ $(LDLIBS) -lm
 cmd/pdbsearch: cmd/pdbsearch.o 24puzzle.a
 cmd/puzzlegen: cmd/puzzlegen.o 24puzzle.a
 cmd/pdbcount: cmd/pdbcount.o 24puzzle.a
@@ -50,7 +54,7 @@ test/morphtest: test/morphtest.o 24puzzle.a
 
 .c.o:
 	@echo "CC	$<"
-	@$(CC) $(COPTS) $(CFLAGS) -c -o $@ $<
+	@$(CC) $(ZSTDCOPTS) $(COPTS) $(CFLAGS) -c -o $@ $<
 
 clean:
 	@echo "CLEAN"
