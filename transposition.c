@@ -242,23 +242,17 @@ tileset_morph(tileset ts, unsigned a)
 	return (t);
 }
 
-
 /*
- * Given a tile set ts, find the automorphism leading to the
- * lexicographically least tile set whose PDB computes the same
- * distances as this one.  This function does the right thing both
- * for zero-unaware and zero-aware pattern databases.
+ * Given a tileset ts and an automorphism a, return nonzero if ts
+ * morphed by a yields the same distances as ts.
  */
-extern unsigned
-canonical_automorphism(tileset ts)
+extern int
+is_admissible_morphism(tileset ts, unsigned a)
 {
-	unsigned i, min, has_zero_tile = tileset_has(ts, ZERO_TILE);
-	tileset mints, r, morphts;
+	int has_zero_tile = tileset_has(ts, ZERO_TILE);
+	tileset r;
 
-	/* i == 0 is the identity and needs not be checked */
 	ts = tileset_remove(ts, ZERO_TILE);
-	mints = ts;
-	min = 0;
 
 	/*
 	 * r is the region the zero tile is in in the solved
@@ -270,19 +264,34 @@ canonical_automorphism(tileset ts)
 	if (has_zero_tile)
 		r = tileset_flood(r, ZERO_TILE);
 
+	return (tileset_has(tileset_morph(r, a), ZERO_TILE));
+}
+
+
+/*
+ * Given a tile set ts, find the automorphism leading to the
+ * lexicographically least tile set whose PDB computes the same
+ * distances as this one.  This function does the right thing both
+ * for zero-unaware and zero-aware pattern databases.
+ */
+extern unsigned
+canonical_automorphism(tileset ts)
+{
+	unsigned i, min;
+	tileset mints, morphts, tsnz;
+
+	/* i == 0 is the identity and needs not be checked */
+	tsnz = tileset_remove(ts, ZERO_TILE);
+	mints = tsnz;
+	min = 0;
+
 	for (i = 1; i < AUTOMORPHISM_COUNT; i++) {
-		morphts = tileset_morph(ts, i);
-		if (morphts >= mints)
+		morphts = tileset_morph(tsnz, i);
+		if (morphts >= mints || !is_admissible_morphism(ts, i))
 			continue;
 
-		/*
-		 * Check if automorphism i preserves the region the
-		 * solved configuration is in.
-		 */
-		if (tileset_has(tileset_morph(r, i), ZERO_TILE)) {
-			mints = morphts;
-			min = i;
-		}
+		mints = morphts;
+		min = i;
 	}
 
 	return (min);

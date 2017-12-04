@@ -45,6 +45,7 @@ extern alignas(64) const unsigned char automorphisms[AUTOMORPHISM_COUNT][2][32];
 extern void	transpose(struct puzzle *);
 extern void	morph(struct puzzle *, unsigned);
 extern tileset	tileset_morph(tileset, unsigned);
+extern int	is_admissible_morphism(tileset, unsigned);
 extern unsigned	canonical_automorphism(tileset);
 extern unsigned	compose_morphisms(unsigned, unsigned);
 
