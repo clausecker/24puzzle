@@ -221,9 +221,10 @@ bitpdb_lookup_puzzle(struct bitpdb *bpdb, const struct puzzle *parg)
 
 	compute_index(&bpdb->aux, &idx, &p);
 	initial_h = DUMMY_HVAL | partial_parity(&bpdb->aux, &p) | bitpdb_lookup_bit(bpdb, &idx);
-	cur_h = initial_h;
+	next_h = initial_h;
 
-	while (cur_h % 4 != 0 || !puzzle_partially_equal(&p, &solved_puzzle, &bpdb->aux)) {
+	do {
+		cur_h = next_h;
 		n_moves = generate_moves(moves, eqclass_from_index(&bpdb->aux, &idx));
 
 		assert(n_moves > 0);
@@ -239,13 +240,11 @@ bitpdb_lookup_puzzle(struct bitpdb *bpdb, const struct puzzle *parg)
 			move(&p, moves[i].zloc);
 		}
 
-		/* make sure we made progess */
-		assert(next_h < cur_h);
-		cur_h = next_h;
-
 		/* sanity check: make sure we don't descend infinitely */
-		assert(cur_h > 0);
-	}
+		assert(next_h > 0);
+	} while (next_h < cur_h);
 
+	/* if we couldn't make any progess, we are done */
+	assert(puzzle_partially_equal(&solved_puzzle, &p, &bpdb->aux));
 	return (initial_h - cur_h);
 }
