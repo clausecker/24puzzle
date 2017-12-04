@@ -37,6 +37,35 @@
 #include "puzzle.h"
 #include "pdb.h"
 
+/* the number of PDBs with the given size, i.e. (TILE_COUNT choose i) */
+const unsigned pdbcount[TILE_COUNT] = {
+	1,
+	24,
+	276,
+	2024,
+	10626,
+	42504,
+	134596,
+	346104,
+	735471,
+	1307504,
+	1961256,
+	2496144,
+	2704156,
+	2496144,
+	1961256,
+	1307504,
+	735471,
+	346104,
+	134596,
+	42504,
+	10626,
+	2024,
+	276,
+	24,
+	1
+};
+
 /*
  * Allocate storage for a pattern database representing ts.  If storage
  * is insufficient, return NULL and set errno.  The entries in PDB are

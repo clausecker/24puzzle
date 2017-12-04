@@ -32,35 +32,7 @@
 
 #include "tileset.h"
 #include "transposition.h"
-
-/* the number of PDBs with the given size */
-static const unsigned pdbcount[25] = {
-	1,
-	24,
-	276,
-	2024,
-	10626,
-	42504,
-	134596,
-	346104,
-	735471,
-	1307504,
-	1961256,
-	2496144,
-	2704156,
-	2496144,
-	1961256,
-	1307504,
-	735471,
-	346104,
-	134596,
-	42504,
-	10626,
-	2024,
-	276,
-	24,
-	1
-};
+#include "pdb.h"
 
 /*
  * Count how many unique PDBs with n_tiles tiles exist.  If zero is 0,

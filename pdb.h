@@ -81,6 +81,8 @@ enum {
  */
 extern int pdb_jobs;
 
+extern const unsigned pdbcount[TILE_COUNT];
+
 /* pdb.c */
 extern struct patterndb	*pdb_allocate(tileset);
 extern void	pdb_free(struct patterndb *);
