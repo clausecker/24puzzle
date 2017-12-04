@@ -257,11 +257,11 @@ tile_map(const struct index_aux *aux, const struct puzzle *p)
 	/* load grid and complement to circumvent pcmpistri's string termination check */
 	__m128i gridmask = _mm_set1_epi8(0xff);
 	__m128i gridlo = _mm_andnot_si128(_mm_loadu_si128((const __m128i*)p->grid + 0), gridmask);
-	__m128i gridhi = _mm_andnot_si128(_mm_loadu_si128((const __m128i*)p->grid + 1), _mm_bsrli_si128(gridmask, 7));
 
 	/* compute the bitmasks */
 #define OPERATION (_SIDD_UBYTE_OPS|_SIDD_CMP_EQUAL_ANY|_SIDD_BIT_MASK)
 	__m128i maplo = _mm_cmpistrm(tiles, gridlo, OPERATION);
+	__m128i gridhi = _mm_andnot_si128(_mm_loadu_si128((const __m128i*)p->grid + 1), _mm_bsrli_si128(gridmask, 7));
 	__m128i maphi = _mm_cmpistrm(tiles, gridhi, OPERATION);
 	maplo = _mm_unpacklo_epi16(maplo, maphi);
 #undef OPERATION
@@ -313,24 +313,22 @@ puzzle_partially_equal(const struct puzzle *a, const struct puzzle *b,
 #elif defined(__SSE4_2__)
 	/* same algorithm as the AVX2 version, but with 128 bit registers */
 
-	/* complemented tiles */
-	__m128i tiles = _mm_loadu_si128((const __m128i*)aux->tiles);
-
-	/* load grid and complement to circumvent pcmpistri's string termination check */
+	/* load tiles, grid and complement to circumvent pcmpistri's string termination check */
 	__m128i agridlo = _mm_loadu_si128((const __m128i*)a->grid + 0);
-	__m128i agridhi = _mm_loadu_si128((const __m128i*)a->grid + 1);
-	__m128i bgridlo = _mm_loadu_si128((const __m128i*)b->grid + 0);
-	__m128i bgridhi = _mm_loadu_si128((const __m128i*)b->grid + 1);
 	__m128i gridmask = _mm_set1_epi8(0xff);
+	__m128i tiles = _mm_loadu_si128((const __m128i*)aux->tiles);
 	__m128i invgridlo = _mm_andnot_si128(agridlo, gridmask);
-	__m128i invgridhi = _mm_andnot_si128(agridhi, _mm_bsrli_si128(gridmask, 7));
 
 	/* compute masks */
 #define OPERATION (_SIDD_UBYTE_OPS|_SIDD_CMP_EQUAL_ANY|_SIDD_UNIT_MASK)
 	__m128i masklo = _mm_cmpistrm(tiles, invgridlo, OPERATION);
+	__m128i agridhi = _mm_loadu_si128((const __m128i*)a->grid + 1);
+	__m128i invgridhi = _mm_andnot_si128(agridhi, _mm_bsrli_si128(gridmask, 7));
 	__m128i maskhi = _mm_cmpistrm(tiles, invgridhi, OPERATION);
 #undef OPERATION
 
+	__m128i bgridlo = _mm_loadu_si128((const __m128i*)b->grid + 0);
+	__m128i bgridhi = _mm_loadu_si128((const __m128i*)b->grid + 1);
 	__m128i uneqlo = _mm_andnot_si128(_mm_cmpeq_epi8(agridlo, bgridlo), masklo);
 	__m128i uneqhi = _mm_andnot_si128(_mm_cmpeq_epi8(agridhi, bgridhi), maskhi);
 	__m128i uneq = _mm_or_si128(uneqlo, uneqhi);
