@@ -83,14 +83,11 @@ extern int		 bitpdb_diff_lookup(struct bitpdb *, const struct puzzle *, int);
 
 /* bitpdbzstd.c */
 
-/*
- * The last argument to bitpdb_store_compressed() is an integer between 0 and
- * BITPDB_MAX_COMPRESSION, indicating the strength of the data compression.
- */
-enum { BITPDB_MAX_COMPRESSION = 22, };
+/* The zstd compression level used by bitpdb_store_compressed */
+enum { BITPDB_COMPRESSION_LEVEL = 22, };
 
 extern struct bitpdb	*bitpdb_load_compressed(tileset, FILE *);
-extern int		 bitpdb_store_compressed(FILE *, struct bitpdb *, int);
+extern int		 bitpdb_store_compressed(FILE *, struct bitpdb *);
 
 /*
  * Return the size of the data table for a bitpdb corresponding to aux.

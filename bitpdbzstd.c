@@ -109,18 +109,15 @@ fail1:	bitpdb_free(bpdb);
 }
 
 /*
- * Compress bpdb and store the compressed data to pdbfile.  Set the
- * strength of the compression to level, an integer between 0 and
- * BITPDB_MAX_COMPRESSION.  Return 0 on success, -1 on failure.
+ * Compress bpdb and store the compressed data to pdbfile.
+ * Return 0 on success, -1 on failure.
  */
 extern int
-bitpdb_store_compressed(FILE *pdbfile, struct bitpdb *bpdb, int level)
+bitpdb_store_compressed(FILE *pdbfile, struct bitpdb *bpdb)
 {
 	void *outbuf;
 	size_t insize, outcap, outsize, size;
 	int error;
-
-	assert(0 <= level && level <= BITPDB_MAX_COMPRESSION);
 
 	insize = bitpdb_size(&bpdb->aux);
 	outcap = ZSTD_compressBound(insize);
@@ -128,7 +125,8 @@ bitpdb_store_compressed(FILE *pdbfile, struct bitpdb *bpdb, int level)
 	if (outbuf == NULL)
 		return (-1);
 
-	outsize = ZSTD_compress(outbuf, outcap, bpdb->data, insize, level);
+	outsize = ZSTD_compress(outbuf, outcap, bpdb->data, insize,
+	    BITPDB_COMPRESSION_LEVEL);
 	if (ZSTD_isError(outsize)) {
 		error = EINVAL;
 		goto fail;
