@@ -60,6 +60,7 @@ enum {
 	HEU_NOMORPH = 1 << 1,   /* do not try to apply morphisms */
 	HEU_VERBOSE = 1 << 2,   /* print status messages to stderr */
 	HEU_SIMILAR = 1 << 3,   /* try to find a similar PDB, too */
+	HEU_ZEROTILE = 1 << 4,	/* heuristic pays attention to the zero tile */
 };
 
 /*

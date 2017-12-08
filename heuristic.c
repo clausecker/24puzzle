@@ -57,7 +57,8 @@ static heu_driver bitpdb_zstd_driver, zbitpdb_zstd_driver;
 /*
  * All available drivers.  The array is terminated with a NULL sentinel.
  * If the HEU_SIMILAR flag is provided in flags, this entry is only to
- * be used if HEU_SIMILAR was provided to heu_open().
+ * be used if HEU_SIMILAR was provided to heu_open().  If HEU_ZEROTILE is
+ * provided in flags, this heuristic pays attention to the zero tile.
  */
 const struct {
 	const char *typestr;
@@ -66,28 +67,28 @@ const struct {
 } drivers[] = {
 	"pdb",	pdb_driver, 0,
 	"ipdb", ipdb_driver, 0,
-	"zpdb", zpdb_driver, 0,
+	"zpdb", zpdb_driver, HEU_ZEROTILE,
 
 	"bpdb", bitpdb_driver, 0,
-	"zbpdb", zbitpdb_driver, 0,
+	"zbpdb", zbitpdb_driver, HEU_ZEROTILE,
 
 	"bpdb.zst", bitpdb_zstd_driver, 0,
-	"zbpdb.zst", zbitpdb_zstd_driver, 0,
+	"zbpdb.zst", zbitpdb_zstd_driver, HEU_ZEROTILE,
 
 	"pdb", bitpdb_driver, HEU_SIMILAR,
-	"zpdb", zbitpdb_driver, HEU_SIMILAR,
+	"zpdb", zbitpdb_driver, HEU_SIMILAR | HEU_ZEROTILE,
 	"bpdb.zst", bitpdb_driver, HEU_SIMILAR,
-	"zbpdb.zst", zbitpdb_driver, HEU_SIMILAR,
+	"zbpdb.zst", zbitpdb_driver, HEU_SIMILAR | HEU_ZEROTILE,
 
 	"bpdb", pdb_driver, HEU_SIMILAR,
-	"zbpdb", zpdb_driver, HEU_SIMILAR,
+	"zbpdb", zpdb_driver, HEU_SIMILAR | HEU_ZEROTILE,
 	"bpdb.zst", pdb_driver, HEU_SIMILAR,
-	"zbpdb.zst", zpdb_driver, HEU_SIMILAR,
+	"zbpdb.zst", zpdb_driver, HEU_SIMILAR | HEU_ZEROTILE,
 
 	"pdb", bitpdb_zstd_driver, HEU_SIMILAR,
-	"zpdb", zbitpdb_zstd_driver, HEU_SIMILAR,
+	"zpdb", zbitpdb_zstd_driver, HEU_SIMILAR | HEU_ZEROTILE,
 	"bpdb", bitpdb_zstd_driver, HEU_SIMILAR,
-	"zbpdb", zbitpdb_zstd_driver, HEU_SIMILAR,
+	"zbpdb", zbitpdb_zstd_driver, HEU_SIMILAR | HEU_ZEROTILE,
 
 	NULL,	NULL, 0,
 };
@@ -107,20 +108,26 @@ heu_open(struct heuristic *heu,
     const char *heudir, tileset ts, const char *typestr, int flags)
 {
 	size_t i;
+	tileset morphts, zmorphts;
+	unsigned morphism, zmorphism;
 	int saved_errno = errno, type_match = 0;
-	char tsstr[TILESET_LIST_LEN];
+	char morphtsstr[TILESET_LIST_LEN], zmorphtsstr[TILESET_LIST_LEN], *tsstr;
 
 	ts = tileset_remove(ts, ZERO_TILE);
-	heu->ts = ts;
 
-	if (flags & HEU_NOMORPH)
-		heu->morphism = 0;
-	else {
-		heu->morphism = canonical_automorphism(ts);
-		ts = tileset_morph(ts, heu->morphism);
+	if (flags & HEU_NOMORPH) {
+		morphts = zmorphts = ts;
+		morphism = zmorphism = 0;
+	} else {
+		morphism = canonical_automorphism(ts);
+		zmorphism = canonical_automorphism(tileset_add(ts, ZERO_TILE));
+		morphts = tileset_morph(ts, morphism);
+		zmorphts = tileset_morph(ts, zmorphism);
 	}
 
-	tileset_list_string(tsstr, ts);
+	tileset_list_string(morphtsstr, morphts);
+	tileset_list_string(zmorphtsstr, zmorphts);
+	tsstr = morphtsstr;
 
 	/* is there an exact match? */
 	for (i = 0; drivers[i].typestr != NULL; i++) {
@@ -129,7 +136,17 @@ heu_open(struct heuristic *heu,
 
 		type_match = 1;
 
-		if (drivers[i].drvfun(heu, heudir, ts, tsstr, flags & ~HEU_CREATE) == 0)
+		if (drivers[i].flags & HEU_ZEROTILE) {
+			heu->ts = zmorphts;
+			heu->morphism = zmorphism;
+			tsstr = zmorphtsstr;
+		} else {
+			heu->ts = morphts;
+			heu->morphism = morphism;
+			tsstr = morphtsstr;
+		}
+
+		if (drivers[i].drvfun(heu, heudir, heu->ts, tsstr, flags & ~HEU_CREATE) == 0)
 			goto success;
 	}
 
@@ -142,7 +159,17 @@ heu_open(struct heuristic *heu,
 
 			type_match = 1;
 
-			if (drivers[i].drvfun(heu, heudir, ts, tsstr, flags & ~HEU_CREATE) == 0)
+			if (drivers[i].flags & HEU_ZEROTILE) {
+				heu->ts = zmorphts;
+				heu->morphism = zmorphism;
+				tsstr = zmorphtsstr;
+			} else {
+				heu->ts = morphts;
+				heu->morphism = morphism;
+				tsstr = morphtsstr;
+			}
+
+			if (drivers[i].drvfun(heu, heudir, heu->ts, tsstr, flags & ~HEU_CREATE) == 0)
 				goto success;
 		}
 
@@ -152,7 +179,17 @@ heu_open(struct heuristic *heu,
 			if (drivers[i].flags & HEU_SIMILAR || strcmp(typestr, drivers[i].typestr) != 0)
 				continue;
 
-			if (drivers[i].drvfun(heu, heudir, ts, tsstr, flags) == 0)
+			if (drivers[i].flags & HEU_ZEROTILE) {
+				heu->ts = zmorphts;
+				heu->morphism = zmorphism;
+				tsstr = zmorphtsstr;
+			} else {
+				heu->ts = morphts;
+				heu->morphism = morphism;
+				tsstr = morphtsstr;
+			}
+
+			if (drivers[i].drvfun(heu, heudir, heu->ts, tsstr, flags) == 0)
 				goto success;
 
 			/* drvfun failed to create the heuristic */
