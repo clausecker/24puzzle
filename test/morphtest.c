@@ -115,18 +115,19 @@ main(int argc, char *argv[])
 	if (argc != optind + 1)
 		usage(argv[0]);
 
+
+	morphism = atoi(argv[optind]);
+	if (!is_admissible_morphism(ts, morphism)) {
+		printf("Morphism %d not admissible.\n", morphism);
+		return (EXIT_FAILURE);
+	}
+
 	if (tileset_has(ts, ZERO_TILE)) {
 		zero = tileset_add(zero, ZERO_TILE);
 		ts = tileset_remove(ts, ZERO_TILE);
 	}
 
-	morphism = atoi(argv[optind]);
 	morphts = tileset_remove(tileset_morph(ts, morphism), ZERO_TILE);
-
-	if (!is_admissible_morphism(ts, morphism)) {
-		printf("Morphism %d not admissible.\n", morphism);
-		return (EXIT_FAILURE);
-	}
 
 	ts = tileset_union(ts, zero);
 	morphts = tileset_union(morphts, zero);
