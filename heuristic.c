@@ -52,6 +52,7 @@ typedef int heu_driver(struct heuristic *heu, const char *heudir,
 
 static heu_driver pdb_driver, ipdb_driver, zpdb_driver;
 static heu_driver bitpdb_driver, zbitpdb_driver;
+static heu_driver bitpdb_zstd_driver, zbitpdb_zstd_driver;
 
 /*
  * All available drivers.  The array is terminated with a NULL sentinel.
@@ -66,13 +67,27 @@ const struct {
 	"pdb",	pdb_driver, 0,
 	"ipdb", ipdb_driver, 0,
 	"zpdb", zpdb_driver, 0,
+
 	"bpdb", bitpdb_driver, 0,
 	"zbpdb", zbitpdb_driver, 0,
 
+	"bpdb.zst", bitpdb_zstd_driver, 0,
+	"zbpdb.zst", zbitpdb_zstd_driver, 0,
+
 	"pdb", bitpdb_driver, HEU_SIMILAR,
 	"zpdb", zbitpdb_driver, HEU_SIMILAR,
+	"bpdb.zst", bitpdb_driver, HEU_SIMILAR,
+	"zbpdb.zst", zbitpdb_driver, HEU_SIMILAR,
+
 	"bpdb", pdb_driver, HEU_SIMILAR,
 	"zbpdb", zpdb_driver, HEU_SIMILAR,
+	"bpdb.zst", pdb_driver, HEU_SIMILAR,
+	"zbpdb.zst", zpdb_driver, HEU_SIMILAR,
+
+	"pdb", bitpdb_zstd_driver, HEU_SIMILAR,
+	"zpdb", zbitpdb_zstd_driver, HEU_SIMILAR,
+	"bpdb", bitpdb_zstd_driver, HEU_SIMILAR,
+	"zbpdb", zbitpdb_zstd_driver, HEU_SIMILAR,
 
 	NULL,	NULL, 0,
 };
@@ -404,34 +419,19 @@ bitpdb_free_wrapper(void *provider)
 }
 
 /*
- * Driver for bitpdbs that account for the zero tile.
+ * Common code for all bitpdb drivers.  load_func and store_func
+ * abstract over bitpdb_load vs. bitpdb_load_compressed.
  */
 static int
-zbitpdb_driver(struct heuristic *heu, const char *heudir,
-    tileset ts, char *tsstr_arg, int flags)
-{
-	char tsstr[TILESET_LIST_LEN];
-
-	(void)tsstr_arg;
-	ts = tileset_add(ts, ZERO_TILE);
-	tileset_list_string(tsstr, ts);
-
-	return (bitpdb_driver(heu, heudir, ts, tsstr, flags));
-}
-
-/*
- * Driver for bitpdbs that do not account for the zero tile.  If ts
- * contains the zero tile, a bitpdb accounting for the zero tile is
- * used instead.
- */
-static int
-bitpdb_driver(struct heuristic *heu, const char *heudir,
-    tileset ts, char *tsstr, int flags)
+common_bitpdb_driver(struct heuristic *heu, const char *heudir,
+    tileset ts, char *tsstr, int flags, const char *suffix,
+    struct bitpdb *(*load_func)(tileset, FILE *),
+    int (*store_func)(FILE *, struct bitpdb *))
 {
 	FILE *pdbfile;
 	struct patterndb *pdb;
 	struct bitpdb *bpdb;
-	int fd, saved_errno;
+	int saved_errno;
 	char pathbuf[PATH_MAX];
 
 	if (heudir == NULL) {
@@ -442,7 +442,7 @@ bitpdb_driver(struct heuristic *heu, const char *heudir,
 		return (-1);
 	}
 
-	if (snprintf(pathbuf, PATH_MAX, "%s/%s.bpdb", heudir, tsstr) >= PATH_MAX) {
+	if (snprintf(pathbuf, PATH_MAX, "%s/%s.%s", heudir, tsstr, suffix) >= PATH_MAX) {
 		errno = ENAMETOOLONG;
 		if (flags & HEU_VERBOSE) {
 			perror("bitpdb_driver");
@@ -452,8 +452,8 @@ bitpdb_driver(struct heuristic *heu, const char *heudir,
 		return (-1);
 	}
 
-	fd = open(pathbuf, O_RDONLY);
-	if (fd == -1) {
+	pdbfile = fopen(pathbuf, "rb");
+	if (pdbfile == NULL) {
 		/* don't annoy the user with useless ENOENT messages */
 		if (flags & HEU_VERBOSE && errno != ENOENT) {
 			saved_errno = errno;
@@ -470,9 +470,9 @@ bitpdb_driver(struct heuristic *heu, const char *heudir,
 	if (flags & HEU_VERBOSE)
 		fprintf(stderr, "Loading bitpdb file %s\n", pathbuf);
 
-	bpdb = bitpdb_mmap(ts, fd, PDB_MAP_RDONLY);
+	bpdb = load_func(ts, pdbfile);
 	saved_errno = errno;
-	close(fd);
+	fclose(pdbfile);
 
 	/*
 	 * if we can open the file but not map the bitpdb,
@@ -482,7 +482,7 @@ bitpdb_driver(struct heuristic *heu, const char *heudir,
 	if (bpdb == NULL) {
 		errno = saved_errno;
 		if (flags & HEU_VERBOSE) {
-			perror("bitpdb_mmap");
+			perror("bitpdb_load(_compressed)");
 			errno = saved_errno;
 		}
 
@@ -509,7 +509,6 @@ create_pdb:
 	if (heudir == NULL)
 		pdbfile = NULL;
 	else {
-
 		pdbfile = fopen(pathbuf, "w+b");
 
 		/*
@@ -528,46 +527,37 @@ create_pdb:
 
 	bpdb = bitpdb_from_pdb(pdb);
 	if (bpdb == NULL) {
+		saved_errno = errno;
+
 		if (flags & HEU_VERBOSE) {
-			saved_errno = errno;
 			perror("bitpdb_from_pdb");
 			errno = saved_errno;
 		}
 
+		pdb_free(pdb);
 		fclose(pdbfile);
+		errno = saved_errno;
+
 		return (-1);
 	}
+
+	pdb_free(pdb);
 
 	if (pdbfile == NULL)
 		goto success;
 
-	pdb_free(pdb);
-
 	if (flags & HEU_VERBOSE)
 		fprintf(stderr, "Writing bitpdb to file %s\n", pathbuf);
 
-	if (bitpdb_store(pdbfile, bpdb) != 0) {
+	if (store_func(pdbfile, bpdb) != 0) {
 		if (flags & HEU_VERBOSE)
-			perror("bitpdb_store");
+			perror("bitpdb_store(_compressed)");
 
 		fclose(pdbfile);
 		goto success;
 	}
 
-	bitpdb_free(bpdb);
-	bpdb = bitpdb_mmap(ts, fileno(pdbfile), PDB_MAP_RDONLY);
-	saved_errno = errno;
 	fclose(pdbfile);
-
-	if (bpdb == NULL) {
-		if (flags & HEU_VERBOSE) {
-			errno = saved_errno;
-			perror("bitpdb_mmap");
-		}
-
-		errno = saved_errno;
-		return (-1);
-	}
 
 success:
 	heu->provider = bpdb;
@@ -576,4 +566,60 @@ success:
 	heu->free = bitpdb_free_wrapper;
 
 	return (0);
+}
+
+/*
+ * Driver for bitpdbs that account for the zero tile.
+ */
+static int
+zbitpdb_driver(struct heuristic *heu, const char *heudir,
+    tileset ts, char *tsstr_arg, int flags)
+{
+	char tsstr[TILESET_LIST_LEN];
+
+	(void)tsstr_arg;
+	ts = tileset_add(ts, ZERO_TILE);
+	tileset_list_string(tsstr, ts);
+
+	return (common_bitpdb_driver(heu, heudir, ts, tsstr, flags,
+	    "bpdb", bitpdb_load, bitpdb_store));
+}
+
+/*
+ * Driver for bitpdbs that do not account for the zero tile.
+ */
+static int
+bitpdb_driver(struct heuristic *heu, const char *heudir,
+    tileset ts, char *tsstr, int flags)
+{
+	return (common_bitpdb_driver(heu, heudir, ts, tsstr, flags,
+	    "bpdb", bitpdb_load, bitpdb_store));
+}
+
+/*
+ * Driver for compressed bitpdbs that acount for the zero tile.
+ */
+static int
+zbitpdb_zstd_driver(struct heuristic *heu, const char *heudir,
+    tileset ts, char *tsstr_arg, int flags)
+{
+	char tsstr[TILESET_LIST_LEN];
+
+	(void)tsstr_arg;
+	ts = tileset_add(ts, ZERO_TILE);
+	tileset_list_string(tsstr, ts);
+
+	return (common_bitpdb_driver(heu, heudir, ts, tsstr, flags,
+	    "bpdb.zst", bitpdb_load_compressed, bitpdb_store_compressed));
+}
+
+/*
+ * Driver for compressed bitpdbs that do not account for the zero tile.
+ */
+static int
+bitpdb_zstd_driver(struct heuristic *heu, const char *heudir,
+    tileset ts, char *tsstr, int flags)
+{
+	return (common_bitpdb_driver(heu, heudir, ts, tsstr, flags,
+	    "bpdb.zst", bitpdb_load_compressed, bitpdb_store_compressed));
 }
