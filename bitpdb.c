@@ -214,10 +214,10 @@ bitpdb_from_pdb(struct patterndb *pdb)
 
 	n = search_space_size(&pdb->aux);
 	assert(n % 8 == 0);
-	for (i = 0; i < n; i += 8) {
+	for (i = 0; i < n / 8; i++) {
 		buf = 0;
 		for (j = 0; j < 8; j++)
-			buf |= (data[i + j] >> 1 & 1) << j;
+			buf |= (data[i * 8 + j] >> 1 & 1) << j;
 
 		bpdb->data[i] = buf;
 	}
