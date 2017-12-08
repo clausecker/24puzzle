@@ -49,4 +49,14 @@ extern int	is_admissible_morphism(tileset, unsigned);
 extern unsigned	canonical_automorphism(tileset);
 extern unsigned	compose_morphisms(unsigned, unsigned);
 
+/*
+ * Invert an automorphism.  All automorphisms are self-inverse except
+ * for 1 and 3 which are inverse to each other.
+ */
+static inline unsigned
+inverse_morphism(unsigned a)
+{
+	return ((a | 2) == 3 ? a ^ 2 : a);
+}
+
 #endif /* TRANSPOSITION_H */
