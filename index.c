@@ -290,7 +290,11 @@ make_index_aux(struct index_aux *aux, tileset ts)
 	for (; !tileset_empty(tsnz); tsnz = tileset_remove_least(tsnz))
 		aux->tiles[i++] = ~tileset_get_least(tsnz);
 
-	aux->solved_parity = tileset_parity(tile_map(aux, &solved_puzzle));
+	/* see puzzle_partially_equal() for details */
+	for (i = 0; i < sizeof aux->tsmask; i++)
+		aux->tsmask[i] = tsnz & 1 << i ? -1 : 0;
+
+	aux->solved_parity = tileset_parity(tsnz);
 	aux->idxt = make_index_table(aux->ts);
 }
 

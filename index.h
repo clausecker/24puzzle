@@ -95,11 +95,13 @@ struct index_table {
  * appropriate strzct index_table.
  */
 struct index_aux {
+	alignas(32) unsigned char tsmask[32]; /* for use with SSE 4.2 and AVX2 puzzle_partially_equal() */
+	alignas(16) unsigned char tiles[16]; /* for use with the SSE 4.2 tileset_map() */
+
 	unsigned n_tile; /* number of tiles not including the zero tile */
 	unsigned n_maprank; /* number of different maprank values */
 	unsigned n_perm; /* number of permutations */
 	unsigned solved_parity; /* parity of the solved configuration */
-	alignas(16) unsigned char tiles[16]; /* for use with the SSE 4.2 tileset_map() */
 
 	tileset ts;
 	struct index_table *idxt;
@@ -287,50 +289,23 @@ puzzle_partially_equal(const struct puzzle *a, const struct puzzle *b,
     const struct index_aux *aux)
 {
 #ifdef __AVX2__
-	/*
-	 * This algorithm is very similar to how tile_map() works: it
-	 * uses pcmpistri to generate a mask of locations we are
-	 * interested in and uses that to mask the comparison results.
-	 */
-	/* complemented tiles */
-	__m128i tiles = _mm_loadu_si128((const __m128i*)aux->tiles);
+	__m256i atiles = _mm256_loadu_si256((const __m256i*)a->tiles);
+	__m256i btiles = _mm256_loadu_si256((const __m256i*)b->tiles);
+	__m256i tsmask = _mm256_loadu_si256((const __m256i*)aux->tsmask);
 
-	/* load grid and complement to circumvent pcmpistri's string termination check */
-	__m256i agrid = _mm256_loadu_si256((const __m256i*)a->grid);
-	__m256i bgrid = _mm256_loadu_si256((const __m256i*)b->grid);
-	__m256i invgrid = _mm256_andnot_si256(agrid, _mm256_set_epi64x(0xffull, -1ull, -1ull, -1ull));
-
-	/* compute masks */
-#define OPERATION (_SIDD_UBYTE_OPS|_SIDD_CMP_EQUAL_ANY|_SIDD_UNIT_MASK)
-	__m128i masklo = _mm_cmpistrm(tiles, _mm256_castsi256_si128(invgrid), OPERATION);
-	__m128i maskhi = _mm_cmpistrm(tiles, _mm256_extracti128_si256(invgrid, 1), OPERATION);
-	__m256i mask = _mm256_inserti128_si256(_mm256_castsi128_si256(masklo), maskhi, 1);
-#undef OPERATION
-
-	__m256i equal = _mm256_cmpeq_epi8(agrid, bgrid);
-
-	return (_mm256_testc_si256(equal, mask));
-#elif defined(__SSE4_2__)
+	return (_mm256_testc_si256(_mm256_cmpeq_epi8(atiles, btiles), tsmask));
+#elif defined(__SSE4_1__)
 	/* same algorithm as the AVX2 version, but with 128 bit registers */
 
-	/* load tiles, grid and complement to circumvent pcmpistri's string termination check */
-	__m128i agridlo = _mm_loadu_si128((const __m128i*)a->grid + 0);
-	__m128i gridmask = _mm_set1_epi8(0xff);
-	__m128i tiles = _mm_loadu_si128((const __m128i*)aux->tiles);
-	__m128i invgridlo = _mm_andnot_si128(agridlo, gridmask);
+	__m128i atileslo = _mm_loadu_si128((const __m128i*)a->tiles + 0);
+	__m128i atileshi = _mm_loadu_si128((const __m128i*)b->tiles + 1);
+	__m128i btileslo = _mm_loadu_si128((const __m128i*)a->tiles + 0);
+	__m128i btileshi = _mm_loadu_si128((const __m128i*)b->tiles + 1);
+	__m128i tsmasklo = _mm_loadu_si128((const __m128i*)aux->tsmask + 0);
+	__m128i tsmaskhi = _mm_loadu_si128((const __m128i*)aux->tsmask + 1);
 
-	/* compute masks */
-#define OPERATION (_SIDD_UBYTE_OPS|_SIDD_CMP_EQUAL_ANY|_SIDD_UNIT_MASK)
-	__m128i masklo = _mm_cmpistrm(tiles, invgridlo, OPERATION);
-	__m128i agridhi = _mm_loadu_si128((const __m128i*)a->grid + 1);
-	__m128i invgridhi = _mm_andnot_si128(agridhi, _mm_bsrli_si128(gridmask, 7));
-	__m128i maskhi = _mm_cmpistrm(tiles, invgridhi, OPERATION);
-#undef OPERATION
-
-	__m128i bgridlo = _mm_loadu_si128((const __m128i*)b->grid + 0);
-	__m128i bgridhi = _mm_loadu_si128((const __m128i*)b->grid + 1);
-	__m128i uneqlo = _mm_andnot_si128(_mm_cmpeq_epi8(agridlo, bgridlo), masklo);
-	__m128i uneqhi = _mm_andnot_si128(_mm_cmpeq_epi8(agridhi, bgridhi), maskhi);
+	__m128i uneqlo = _mm_andnot_si128(_mm_cmpeq_epi8(atileslo, btileslo), tsmasklo);
+	__m128i uneqhi = _mm_andnot_si128(_mm_cmpeq_epi8(atileshi, btileshi), tsmaskhi);
 	__m128i uneq = _mm_or_si128(uneqlo, uneqhi);
 
 	return (_mm_testz_si128(uneq, uneq));
