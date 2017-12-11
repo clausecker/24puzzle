@@ -12,6 +12,7 @@ cmd/genpdb
 cmd/verifypdb
 cmd/parsearch
 cmd/pdbcount
+cmd/pdbmatch
 cmd/pdbstats
 cmd/pdbsearch
 cmd/puzzlegen
