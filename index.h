@@ -298,8 +298,8 @@ puzzle_partially_equal(const struct puzzle *a, const struct puzzle *b,
 	/* same algorithm as the AVX2 version, but with 128 bit registers */
 
 	__m128i atileslo = _mm_loadu_si128((const __m128i*)a->tiles + 0);
-	__m128i atileshi = _mm_loadu_si128((const __m128i*)b->tiles + 1);
-	__m128i btileslo = _mm_loadu_si128((const __m128i*)a->tiles + 0);
+	__m128i atileshi = _mm_loadu_si128((const __m128i*)a->tiles + 1);
+	__m128i btileslo = _mm_loadu_si128((const __m128i*)b->tiles + 0);
 	__m128i btileshi = _mm_loadu_si128((const __m128i*)b->tiles + 1);
 	__m128i tsmasklo = _mm_loadu_si128((const __m128i*)aux->tsmask + 0);
 	__m128i tsmaskhi = _mm_loadu_si128((const __m128i*)aux->tsmask + 1);
