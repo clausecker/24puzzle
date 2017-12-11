@@ -1,6 +1,6 @@
 /*-
  * Copyright (c) 2017 Robert Clausecker. All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
@@ -9,7 +9,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND
  * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -175,6 +175,29 @@ rankselect(unsigned x, unsigned i)
 		x &= x - 1;
 
 	return (x & ~(x - 1));
+#endif
+}
+
+/*
+ * Deposit bits in src into the bits in mask.
+ */
+static inline unsigned
+pdep(unsigned mask, unsigned src)
+{
+#if HAS_PDEP == 1
+	return (_pdep_u32(mask, src));
+#else
+	/* derived from http://wm.ite.pl/articles/pdep-soft-emu.html */
+	unsigned result = 0, idx;
+
+	while (mask != 0) {
+		idx = ctz(mask);
+		result |= (src & 1) << idx;
+		src >>= 1;
+		mask &= mask - 1;
+	}
+
+	return (result);
 #endif
 }
 
