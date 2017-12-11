@@ -282,19 +282,19 @@ make_index_aux(struct index_aux *aux, tileset ts)
 	aux->n_tile = tileset_count(tsnz);
 	aux->n_maprank = combination_count[aux->n_tile];
 	aux->n_perm = factorials[aux->n_tile];
+	aux->solved_parity = tileset_parity(tsnz);
 
 	tileset_unrank_init(aux->n_tile);
 
-	/* see tileset_map() for details */
-	memset(aux->tiles, 0, sizeof aux->tiles);
-	for (; !tileset_empty(tsnz); tsnz = tileset_remove_least(tsnz))
-		aux->tiles[i++] = ~tileset_get_least(tsnz);
-
 	/* see puzzle_partially_equal() for details */
 	for (i = 0; i < sizeof aux->tsmask; i++)
-		aux->tsmask[i] = tsnz & 1 << i ? -1 : 0;
+		aux->tsmask[i] = tsnz & (1 << i) ? -1 : 0;
 
-	aux->solved_parity = tileset_parity(tsnz);
+	/* see tileset_map() for details */
+	memset(aux->tiles, 0, sizeof aux->tiles);
+	for (i = 0; !tileset_empty(tsnz); tsnz = tileset_remove_least(tsnz))
+		aux->tiles[i++] = ~tileset_get_least(tsnz);
+
 	aux->idxt = make_index_table(aux->ts);
 }
 
