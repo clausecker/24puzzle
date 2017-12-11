@@ -87,7 +87,7 @@ bitpdb_load_compressed(tileset ts, FILE *pdbfile)
 
 	/* sanity check: make sure the PDB size matches */
 	size = ZSTD_getFrameContentSize(inbuf, (size_t)st.st_size);
-	if (size != cap) {
+	if (size != ZSTD_CONTENTSIZE_UNKNOWN && size != cap) {
 		error = EINVAL;
 		goto fail2;
 	}
