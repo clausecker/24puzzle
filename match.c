@@ -67,6 +67,7 @@ match_find_best(struct match *match, const unsigned char *matchv)
 	tileset half;
 	unsigned char (*halves)[2], max;
 
+	tileset_unrank_init(6);
 	tileset_unrank_init(12);
 
 	halves = malloc(TWELVE_TILES);

@@ -26,7 +26,7 @@
 #ifndef MATCH_H
 #define MATCH_H
 
-#include <stdio.h>
+#include <assert.h>
 
 #include "tileset.h"
 #include "heuristic.h"
