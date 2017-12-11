@@ -299,6 +299,63 @@ make_index_aux(struct index_aux *aux, tileset ts)
 }
 
 /*
+ * Check if puzzle configurations a and b are equal with respect to the
+ * tiles specified in aux->ts.  Return nonzero if they are, zero
+ * otherwise.
+ */
+extern int
+puzzle_partially_equal(const struct puzzle *a, const struct puzzle *b,
+    const struct index_aux *aux)
+{
+	const signed char *eqclasses;
+
+#ifdef __AVX2__
+	__m256i atiles = _mm256_loadu_si256((const __m256i*)a->tiles);
+	__m256i btiles = _mm256_loadu_si256((const __m256i*)b->tiles);
+	__m256i tsmask = _mm256_loadu_si256((const __m256i*)aux->tsmask);
+
+	if (!_mm256_testc_si256(_mm256_cmpeq_epi8(atiles, btiles), tsmask))
+		return (0);
+#elif defined(__SSE4_1__)
+	/* same algorithm as the AVX2 version, but with 128 bit registers */
+
+	__m128i atileslo = _mm_loadu_si128((const __m128i*)a->tiles + 0);
+	__m128i atileshi = _mm_loadu_si128((const __m128i*)a->tiles + 1);
+	__m128i btileslo = _mm_loadu_si128((const __m128i*)b->tiles + 0);
+	__m128i btileshi = _mm_loadu_si128((const __m128i*)b->tiles + 1);
+	__m128i tsmasklo = _mm_loadu_si128((const __m128i*)aux->tsmask + 0);
+	__m128i tsmaskhi = _mm_loadu_si128((const __m128i*)aux->tsmask + 1);
+
+	__m128i uneqlo = _mm_andnot_si128(_mm_cmpeq_epi8(atileslo, btileslo), tsmasklo);
+	__m128i uneqhi = _mm_andnot_si128(_mm_cmpeq_epi8(atileshi, btileshi), tsmaskhi);
+	__m128i uneq = _mm_or_si128(uneqlo, uneqhi);
+
+	if (!_mm_testz_si128(uneq, uneq))
+		return (0);
+#else
+	size_t i;
+	tileset tsnz = tileset_remove(aux->ts, ZERO_TILE);
+
+	for (; !tileset_empty(tsnz); tsnz = tileset_remove_least(tsnz)) {
+		i = tileset_get_least(tsnz);
+		if (a->tiles[i] != b->tiles[i])
+			return (0);
+	}
+#endif
+	if (!tileset_has(aux->ts, ZERO_TILE))
+		return (1);
+
+	/*
+	 * if we care about the zero tile, make sure both puzzles
+	 * have the same zero tile region.
+	 */
+	eqclasses = aux->idxt[tileset_rank(tile_map(aux, a))].eqclasses;
+
+	return (eqclasses[zero_location(a)] == eqclasses[zero_location(b)]);
+}
+
+
+/*
  * Describe idx as a string and write the result to str.  Only the tiles
  * in ts are printed.
  */

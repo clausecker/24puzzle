@@ -121,6 +121,8 @@ extern void	invert_index_map(const struct index_aux*, struct puzzle*, const stru
 extern void	invert_index_rest(const struct index_aux*, struct puzzle*, const struct index*);
 extern void	index_string(tileset, char[INDEX_STR_LEN], const struct index*);
 extern void	make_index_aux(struct index_aux*, tileset);
+extern int	puzzle_partially_equal(const struct puzzle *, const struct puzzle *, const struct index_aux *);
+
 
 extern const unsigned factorials[INDEX_MAX_TILES + 1];
 
@@ -276,50 +278,6 @@ tile_map(const struct index_aux *aux, const struct puzzle *p)
 		map |= 1 << p->tiles[tileset_get_least(tsnz)];
 
 	return (map);
-#endif
-}
-
-/*
- * Check if puzzle configurations a and b are equal with respect to the
- * tiles specified in aux->ts.  Return nonzero if they are, zero
- * otherwise.
- */
-static inline int
-puzzle_partially_equal(const struct puzzle *a, const struct puzzle *b,
-    const struct index_aux *aux)
-{
-#ifdef __AVX2__
-	__m256i atiles = _mm256_loadu_si256((const __m256i*)a->tiles);
-	__m256i btiles = _mm256_loadu_si256((const __m256i*)b->tiles);
-	__m256i tsmask = _mm256_loadu_si256((const __m256i*)aux->tsmask);
-
-	return (_mm256_testc_si256(_mm256_cmpeq_epi8(atiles, btiles), tsmask));
-#elif defined(__SSE4_1__)
-	/* same algorithm as the AVX2 version, but with 128 bit registers */
-
-	__m128i atileslo = _mm_loadu_si128((const __m128i*)a->tiles + 0);
-	__m128i atileshi = _mm_loadu_si128((const __m128i*)a->tiles + 1);
-	__m128i btileslo = _mm_loadu_si128((const __m128i*)b->tiles + 0);
-	__m128i btileshi = _mm_loadu_si128((const __m128i*)b->tiles + 1);
-	__m128i tsmasklo = _mm_loadu_si128((const __m128i*)aux->tsmask + 0);
-	__m128i tsmaskhi = _mm_loadu_si128((const __m128i*)aux->tsmask + 1);
-
-	__m128i uneqlo = _mm_andnot_si128(_mm_cmpeq_epi8(atileslo, btileslo), tsmasklo);
-	__m128i uneqhi = _mm_andnot_si128(_mm_cmpeq_epi8(atileshi, btileshi), tsmaskhi);
-	__m128i uneq = _mm_or_si128(uneqlo, uneqhi);
-
-	return (_mm_testz_si128(uneq, uneq));
-#else
-	size_t i;
-	tileset tsnz = tileset_remove(aux->ts, ZERO_TILE);
-
-	for (; !tileset_empty(tsnz); tsnz = tileset_remove_least(tsnz)) {
-		i = tileset_get_least(tsnz);
-		if (a->tiles[i] != b->tiles[i])
-			return (0);
-	}
-
-	return (1);
 #endif
 }
 
