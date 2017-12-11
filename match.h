@@ -41,27 +41,26 @@ enum {
 };
 
 /*
- * A match vector record a way to partition the 24 tiles in the tray into
+ * A match records a way to partition the 24 tiles in the tray into
  * 4 groups of 6 tiles.  By incrementally looking up configurations in
  * various pattern databases with match_amend, a vector of partial
  * h values can be created.  Using this vector, an optimal partitioning
  * can be determined with match_find_best.  Similarly, a pessimal
  * partitioning can be determined with match_find_worst.
  */
-struct matchv {
+struct match {
 	tileset ts[4];
 	unsigned char hval[4];
 };
 
-extern void	match_amend(unsigned char *, const struct puzzle *, struct heuristic *);
-extern size_t	match_find_best(struct matchv *, size_t, unsigned char *);
-extern size_t	match_find_worst(struct matchv *, size_t, unsigned char *);
+extern int	match_find_best(struct match *, const unsigned char *);
+//extern size_t	match_find_worst(struct match *, size_t, const unsigned char *);
 
 /*
  * Allocate a match vector.  This function wraps malloc() for convenience.
  */
 static inline unsigned char *
-match_allocate(void)
+matchv_allocate(void)
 {
 	return (calloc(MATCH_SIZE, 1));
 }
@@ -70,9 +69,20 @@ match_allocate(void)
  * Release a match vector.  This function wraps free() for convenience.
  */
 static inline void
-match_free(unsigned char *match)
+matchv_free(unsigned char *v)
 {
-	free(match);
+	free(v);
+}
+
+/*
+ * Add the value predicted by heuristic h to match vector v.
+ */
+static inline void
+match_amend(unsigned char *v, const struct puzzle *p, struct heuristic *heu)
+{
+	assert(!tileset_has(heu->ts, ZERO_TILE));
+	assert(tileset_count(heu->ts) == 6);
+	v[tileset_rank(heu->ts)] = heu_hval(heu, p);
 }
 
 #endif /* MATCH_H */
