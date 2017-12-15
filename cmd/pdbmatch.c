@@ -38,13 +38,15 @@
 static struct puzzle	 *read_puzzles(size_t *, FILE *);
 static unsigned char	**lookup_puzzles(const struct puzzle *, size_t, const char *);
 static void		  lookup_pattern(unsigned char **, tileset, const struct puzzle *, size_t, const char *);
+static void		  store_match_vector(const char *, unsigned char **, size_t);
+static unsigned char	**load_match_vector(const char *, size_t);
 static void		  find_matches(struct match *, const struct puzzle *, unsigned char **, size_t);
 static void		  print_matches(struct match *, const struct puzzle *, size_t);
 
 static void
 usage(const char *argv0)
 {
-	fprintf(stderr, "Usage: %s -d pdbdir [puzzles]\n", argv0);
+	fprintf(stderr, "Usage: %s [-r|-d pdbdir] [-m matchfile] [puzzles]\n", argv0);
 
 	exit(EXIT_FAILURE);
 }
@@ -56,14 +58,22 @@ main(int argc, char *argv[])
 	struct puzzle *puzzles;
 	struct match *matches;
 	size_t n_puzzle;
-	int optchar;
-	char *pdbdir = NULL;
+	int optchar, read_matches = 0;
+	char *pdbdir = NULL, *matchfile = NULL;
 	unsigned char **vs;
 
-	while (optchar = getopt(argc, argv, "d:"), optchar != -1)
+	while (optchar = getopt(argc, argv, "d:m:r"), optchar != -1)
 		switch (optchar) {
 		case 'd':
 			pdbdir = optarg;
+			break;
+
+		case 'm':
+			matchfile = optarg;
+			break;
+
+		case 'r':
+			read_matches = 1;
 			break;
 
 		default:
@@ -88,8 +98,6 @@ main(int argc, char *argv[])
 		usage(argv[0]);
 	}
 
-	if (pdbdir == NULL)
-		usage(argv[0]);
 
 	puzzles = read_puzzles(&n_puzzle, puzzlefile);
 	fclose(puzzlefile);
@@ -99,7 +107,20 @@ main(int argc, char *argv[])
 		return (EXIT_FAILURE);
 	}
 
-	vs = lookup_puzzles(puzzles, n_puzzle, pdbdir);
+	if (!read_matches) {
+		if (pdbdir == NULL)
+			usage(argv[0]);
+
+		vs = lookup_puzzles(puzzles, n_puzzle, pdbdir);
+		if (matchfile != NULL)
+			store_match_vector(matchfile, vs, n_puzzle);
+	} else {
+		if (matchfile == NULL)
+			usage(argv[0]);
+
+		vs = load_match_vector(matchfile, n_puzzle);
+	}
+
 	find_matches(matches, puzzles, vs, n_puzzle);
 	print_matches(matches, puzzles, n_puzzle);
 
@@ -169,9 +190,11 @@ lookup_puzzles(const struct puzzle *puzzles, size_t n_puzzles, const char *pdbdi
 
 	tileset_unrank_init(6);
 
-	for (i = 0; i < MATCH_SIZE; i++)
+	for (i = 0; i < MATCH_SIZE; i++) {
+//		printf("%6zu: %07x\n", i, tileset_unrank(6, (tsrank)i));
 		lookup_pattern(vs, tileset_unrank(6, (tsrank)i) << 1,
 		    puzzles, n_puzzles, pdbdir);
+	}
 
 	return (vs);
 }
@@ -183,6 +206,8 @@ lookup_pattern(unsigned char **vs, tileset ts, const struct puzzle *puzzles,
 	struct heuristic heu, morphheu;
 	size_t j;
 	unsigned i;
+
+	assert(tileset_count(ts) == 6);
 
 	if (canonical_automorphism(ts) != 0)
 		return;
@@ -206,16 +231,87 @@ lookup_pattern(unsigned char **vs, tileset ts, const struct puzzle *puzzles,
 }
 
 static void
+store_match_vector(const char *matchfile, unsigned char **vs, size_t n_puzzle)
+{
+	FILE *matchf;
+	size_t i, count;
+
+	fprintf(stderr, "Storing match vector to file %s\n", matchfile);
+
+	matchf = fopen(matchfile, "wb");
+	if (matchf == NULL) {
+		perror(matchfile);
+		exit(EXIT_FAILURE);
+	}
+
+	for (i = 0; i < n_puzzle; i++) {
+		count = fwrite(vs[i], 1, MATCH_SIZE, matchf);
+		if (count != MATCH_SIZE) {
+			perror(matchfile);
+			exit(EXIT_FAILURE);
+		}
+	}
+
+	fclose(matchf);
+}
+
+static unsigned char **
+load_match_vector(const char *matchfile, size_t n_puzzle)
+{
+	FILE *matchf;
+	size_t count, i;
+	unsigned char **vs;
+
+	vs = malloc(n_puzzle * sizeof *vs);
+	if (vs == NULL) {
+		perror("malloc");
+		exit(EXIT_FAILURE);
+	}
+
+	fprintf(stderr, "Loading match vector from file %s\n", matchfile);
+	matchf = fopen(matchfile, "rb");
+	if (matchf == NULL) {
+		perror(matchfile);
+		exit(EXIT_FAILURE);
+	}
+
+	for (i = 0; i < n_puzzle; i++) {
+		vs[i] = matchv_allocate();
+		if (vs[i] == NULL) {
+			perror("matchv_allocate");
+			exit(EXIT_FAILURE);
+		}
+
+		count = fread(vs[i], 1, MATCH_SIZE, matchf);
+		if (count != MATCH_SIZE) {
+			if (ferror(matchf))
+				perror(matchfile);
+			else
+				fprintf(stderr, "%s: unexpected end of file\n", matchfile);
+
+			exit(EXIT_FAILURE);
+		}
+	}
+
+	fclose(matchf);
+
+	return (vs);
+}
+
+static void
 find_matches(struct match *matches, const struct puzzle *puzzles,
     unsigned char **vs, size_t n_puzzle)
 {
 	size_t i;
 
-	for (i = 0; i < n_puzzle; i++)
+	for (i = 0; i < n_puzzle; i++) {
+		assert(match_all_filled_in(vs[i]));
+
 		if (match_find_best(matches + i, vs[i]) == 0) {
 			perror("match_find_best");
 			exit(EXIT_FAILURE);
 		}
+	}
 }
 
 static void
