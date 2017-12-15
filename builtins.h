@@ -185,7 +185,7 @@ static inline unsigned
 pdep(unsigned mask, unsigned src)
 {
 #if HAS_PDEP == 1
-	return (_pdep_u32(mask, src));
+	return (_pdep_u32(src, mask));
 #else
 	/* derived from http://wm.ite.pl/articles/pdep-soft-emu.html */
 	unsigned result = 0, idx;
