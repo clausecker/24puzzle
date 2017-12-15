@@ -27,6 +27,7 @@
 
 #include <assert.h>
 #include <stdlib.h>
+#include <stdio.h>
 
 #include "builtins.h"
 #include "match.h"
@@ -117,9 +118,9 @@ match_half_best(const unsigned char *matchv, tileset half)
 
 	for (i = 0; i < SIX_OF_TWELVE / 2; i++) {
 		quarter = pdep(half, tileset_unrank(6, i));
-		hval = matchv[tileset_rank(quarter)];
+		hval = matchv[tileset_rank(quarter >> 1)];
 		quarter = tileset_difference(half, quarter);
-		hval += matchv[tileset_rank(quarter)];
+		hval += matchv[tileset_rank(quarter >> 1)];
 		if (hval > max)
 			max = hval;
 	}
@@ -143,9 +144,9 @@ get_best_match(const unsigned char *matchv, struct match *match,
 	/* lower half */
 	for (i = 0; i < SIX_OF_TWELVE / 2; i++) {
 		quarter = pdep(half, tileset_unrank(6, i));
-		hval0 = matchv[tileset_rank(quarter)];
+		hval0 = matchv[tileset_rank(quarter >> 1)];
 		quarter = tileset_difference(half, quarter);
-		hval1 = matchv[tileset_rank(quarter)];
+		hval1 = matchv[tileset_rank(quarter >> 1)];
 		if (hval0 + hval1 == lohval)
 			break;
 	}
@@ -162,9 +163,9 @@ get_best_match(const unsigned char *matchv, struct match *match,
 	half = tileset_difference(NONZERO_TILES, half);
 	for (i = 0; i < SIX_OF_TWELVE / 2; i++) {
 		quarter = pdep(half, tileset_unrank(6, i));
-		hval0 = matchv[tileset_rank(quarter)];
+		hval0 = matchv[tileset_rank(quarter >> 1)];
 		quarter = tileset_difference(half, quarter);
-		hval1 = matchv[tileset_rank(quarter)];
+		hval1 = matchv[tileset_rank(quarter >> 1)];
 		if (hval0 + hval1 == hihval)
 			break;
 	}
