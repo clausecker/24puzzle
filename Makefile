@@ -1,4 +1,5 @@
 CC=clang
+HOSTCC=cc
 CFLAGS=-march=native -O3 -g
 COPTS=-std=c11 -I. -Wall -Wno-missing-braces -Wno-parentheses
 LDLIBS=-lpthread -lzstd
@@ -27,7 +28,10 @@ all: $(BINARIES) 24puzzle.a
 	@echo "AR	$@"
 	@ar -src $@ $?
 
-util/rankgen: util/rankgen.o
+util/rankgen: util/rankgen.c
+	@echo "HOSTCC  $<"
+	@$(HOSTCC) -I. -o $@ $<
+
 ranktbl.c: util/rankgen
 	@echo "RANKGEN	$@"
 	@util/rankgen >$@
