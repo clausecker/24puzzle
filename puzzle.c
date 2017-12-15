@@ -75,7 +75,7 @@ puzzle_string(char str[PUZZLE_STR_LEN], const struct puzzle *p)
 	for (i = 0; i < TILE_COUNT; i++)
 		str += sprintf(str, "%d,", p->grid[i]);
 
-	str[-1] = '\n';
+	str[-1] = '\0';
 }
 
 /*

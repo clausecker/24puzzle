@@ -58,7 +58,7 @@ main(int argc, char *argv[])
 	for (i = 0; i < n_puzzle; i++) {
 		random_puzzle(&p);
 		puzzle_string(puzzlestr, &p);
-		printf("%s", puzzlestr);
+		puts(puzzlestr);
 	}
 
 	return (EXIT_SUCCESS);
