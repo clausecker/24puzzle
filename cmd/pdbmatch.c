@@ -208,6 +208,7 @@ lookup_pattern(unsigned char **vs, tileset ts, const struct puzzle *puzzles,
 	unsigned i;
 
 	assert(tileset_count(ts) == 6);
+	ts = tileset_add(ts, ZERO_TILE);
 
 	if (canonical_automorphism(ts) != 0)
 		return;
@@ -317,18 +318,18 @@ find_matches(struct match *matches, const struct puzzle *puzzles,
 static void
 print_matches(struct match *matches, const struct puzzle *puzzles, size_t n_puzzle)
 {
-	size_t i;
+	size_t i, j;
 	int hval;
-	char puzstr[PUZZLE_STR_LEN], tsstr[TILESET_LIST_LEN][4];
+	char puzstr[PUZZLE_STR_LEN], tsstr[4][TILESET_LIST_LEN];
 
 	for (i = 0; i < n_puzzle; i++) {
 		puzzle_string(puzstr, puzzles + i);
-		tileset_list_string(tsstr[0], matches[i].ts[0]);
-		tileset_list_string(tsstr[1], matches[i].ts[1]);
-		tileset_list_string(tsstr[2], matches[i].ts[2]);
-		tileset_list_string(tsstr[3], matches[i].ts[3]);
-		hval = matches[i].hval[0] + matches[i].hval[1]
-		    + matches[i].hval[2] + matches[i].hval[3];
+		hval = 0;
+		for (j = 0; j < 4; j++) {
+			assert(tileset_count(matches[i].ts[j]) == 6);
+			tileset_list_string(tsstr[j], matches[i].ts[j]);
+			hval += matches[i].hval[j];
+		}
 
 		printf("%s %3d %2d %2d %2d %2d %s %s %s %s\n",
 		    puzstr, hval, matches[i].hval[0], matches[i].hval[1],
