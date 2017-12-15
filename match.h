@@ -27,10 +27,12 @@
 #define MATCH_H
 
 #include <assert.h>
+#include <string.h>
 
 #include "tileset.h"
 #include "heuristic.h"
 #include "puzzle.h"
+#include "pdb.h"
 
 enum {
 	/*
@@ -62,7 +64,12 @@ extern int	match_find_best(struct match *, const unsigned char *);
 static inline unsigned char *
 matchv_allocate(void)
 {
-	return (calloc(MATCH_SIZE, 1));
+	unsigned char *v = malloc(MATCH_SIZE);
+
+	if (v != NULL)
+		memset(v, UNREACHED, MATCH_SIZE);
+
+	return (v);
 }
 
 /*
@@ -80,9 +87,29 @@ matchv_free(unsigned char *v)
 static inline void
 match_amend(unsigned char *v, const struct puzzle *p, struct heuristic *heu)
 {
+	tsrank heurank = tileset_rank(heu->ts >> 1);
+
 	assert(!tileset_has(heu->ts, ZERO_TILE));
 	assert(tileset_count(heu->ts) == 6);
-	v[tileset_rank(heu->ts)] = heu_hval(heu, p);
+	assert(heurank < MATCH_SIZE);
+
+	v[heurank] = heu_hval(heu, p);
+}
+
+/*
+ * Make sure all entries in the match vector have been filled in.
+ * Return zero if any entry remains UNREACHED, nonzero otherwise.
+ */
+static inline int
+match_all_filled_in(const unsigned char *v)
+{
+	size_t i;
+
+	for (i = 0; i < MATCH_SIZE; i++)
+		if (v[i] == UNREACHED)
+			return (0);
+
+	return (1);
 }
 
 #endif /* MATCH_H */
