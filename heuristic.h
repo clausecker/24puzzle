@@ -138,7 +138,7 @@ heu_morph(struct heuristic *heu, struct heuristic *oldheu, int morphism)
 	heu->hval = oldheu->hval;
 	heu->free = oldheu->free;
 	heu->ts = tileset_morph(oldheu->ts, morphism);
-	heu->morphism = compose_morphisms(oldheu->morphism, morphism);
+	heu->morphism = compose_morphisms(oldheu->morphism, inverse_morphism(morphism));
 }
 
 
