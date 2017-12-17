@@ -145,7 +145,8 @@ read_puzzles(size_t *n_puzzle, FILE *puzzlefile)
 		if (*n_puzzle >= cap) {
 			/* Fibonacci growth */
 			cap = cap * 13 / 8;
-			puzzles = realloc(puzzles, cap);
+			assert(cap > *n_puzzle);
+			puzzles = realloc(puzzles, cap * sizeof *puzzles);
 			if (puzzles == NULL) {
 				perror("realloc");
 				exit(EXIT_FAILURE);
@@ -156,6 +157,8 @@ read_puzzles(size_t *n_puzzle, FILE *puzzlefile)
 			fprintf(stderr, "Invalid puzzle: %s", linebuf);
 			exit(EXIT_FAILURE);
 		}
+
+		assert(puzzle_valid(puzzles + *n_puzzle - 1));
 	}
 
 	if (ferror(puzzlefile)) {
