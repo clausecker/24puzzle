@@ -23,7 +23,7 @@
  * SUCH DAMAGE.
  */
 
-/* genpdb.c -- generate pattern databases */
+/* pdbgen.c -- generate pattern databases */
 
 #include <stdatomic.h>
 #include <stdio.h>
