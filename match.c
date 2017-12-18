@@ -28,6 +28,7 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 
 #include "builtins.h"
 #include "match.h"
@@ -53,8 +54,7 @@ enum {
 	SIX_OF_TWELVE = 924, /* 12 choose 6 */
 };
 
-static int	match_half_best(const unsigned char *, tileset);
-static void	get_best_match(const unsigned char *matchv, struct match *match, tileset, int, int);
+static int	match_half_best(const unsigned char[MATCH_SIZE], tileset, tileset[2], unsigned long long *);
 
 /*
  * Find the best way to partition the tray into 4 groups of six tiles
@@ -62,119 +62,77 @@ static void	get_best_match(const unsigned char *matchv, struct match *match, til
  * error, return 0 and set errno to indicate a reason.
  */
 extern int
-match_find_best(struct match *match, const unsigned char *matchv)
+match_find_best(struct match *match, const unsigned char matchv[MATCH_SIZE])
 {
-	size_t i;
-	tileset half;
-	unsigned char (*halves)[2], max;
+	unsigned long long locount, hicount;
+	size_t i, j;
+	tileset half, quarters[4];
+	int max, hlo, hhi;
 
 	tileset_unrank_init(6);
 	tileset_unrank_init(12);
 
-	halves = malloc(TWELVE_TILES);
-	if (halves == NULL)
-		return (0);
+	memset(match, 0, sizeof *match);
 
-	/* find maximum matchings for halves */
-	for (i = 0; i < TWELVE_TILES / 2; i++) {
-		half = tileset_unrank(12, i) << 1;
-		halves[i][0] = match_half_best(matchv, half);
-		half = tileset_difference(NONZERO_TILES, half);
-		prefetch(&unrank_tables[12][i + 1]);
-		halves[i][1] = match_half_best(matchv, half);
-	}
-
-	/* find maximum matching value */
 	max = 0;
-	for (i = 0; i < TWELVE_TILES / 2; i++)
-		if (halves[i][0] + halves[i][1] > max)
-			max = halves[i][0] + halves[i][1];
-
-	/* return maximum matchings */
 	for (i = 0; i < TWELVE_TILES / 2; i++) {
-		if (halves[i][0] + halves[i][1] != max)
-			continue;
-
 		half = tileset_unrank(12, i) << 1;
-		get_best_match(matchv, match, half, halves[i][0], halves[i][1]);
-		break;
+		hlo = match_half_best(matchv, half, quarters, &locount);
+		hhi = match_half_best(matchv, tileset_difference(NONZERO_TILES, half), quarters + 2, &hicount);
+		assert(locount != 0);
+		assert(hicount != 0);
+		if (hlo + hhi > max) {
+			max = hlo + hhi;
+			match->count = 0;
+		}
+
+		if (hlo + hhi >= max) {
+			match->count += locount * hicount;
+			for (j = 0; j < 4; j++) {
+				match->ts[j] = quarters[j];
+				match->hval[j] = matchv[tileset_rank(quarters[j] >> 1)];
+			}
+		}
 	}
 
-	free(halves);
+	/* each partitioning was tried twice, account for this in count */
+	match->count /= 2;
 
 	return (1);
 }
 
 /*
- * Try all ways to partition the given mask of twelve tiles into
- * two sets of six tiles and return the highest h value found.
+ * Try all ways to match the given half into two quarters.  Return the
+ * highest h value found, store one partitioning with the highest
+ * h value to quarters and the number of partitionings with that h value
+ * to count.
  */
 static int
-match_half_best(const unsigned char *matchv, tileset half)
+match_half_best(const unsigned char matchv[MATCH_SIZE], tileset half,
+    tileset quarters[2], unsigned long long *count)
 {
 	size_t i;
-	tileset quarter;
+	tileset loquarter, hiquarter;
 	int max = 0, hval;
 
+	*count = 0;
+
 	for (i = 0; i < SIX_OF_TWELVE / 2; i++) {
-		quarter = pdep(half, tileset_unrank(6, i));
-		hval = matchv[tileset_rank(quarter >> 1)];
-		quarter = tileset_difference(half, quarter);
-		hval += matchv[tileset_rank(quarter >> 1)];
-		if (hval > max)
+		loquarter = pdep(half, tileset_unrank(6, i));
+		hval = matchv[tileset_rank(loquarter >> 1)];
+		hiquarter = tileset_difference(half, loquarter);
+		hval += matchv[tileset_rank(hiquarter >> 1)];
+		if (hval > max) {
 			max = hval;
+			*count = 0;
+		}
+
+		if (hval >= max) {
+			quarters[0] = loquarter;
+			quarters[1] = hiquarter;
+			++*count;
+		}
 	}
 
 	return (max);
-}
-
-/*
- * Find a match with half the tiles in half, the h value for the tiles
- * in half being lohval and the h value for the remaining tiles being
- * hihval and store it in match.
- */
-static void
-get_best_match(const unsigned char *matchv, struct match *match,
-	tileset half, int lohval, int hihval)
-{
-	size_t i;
-	tileset quarter;
-	int hval0, hval1;
-
-	/* lower half */
-	for (i = 0; i < SIX_OF_TWELVE / 2; i++) {
-		quarter = pdep(half, tileset_unrank(6, i));
-		hval0 = matchv[tileset_rank(quarter >> 1)];
-		quarter = tileset_difference(half, quarter);
-		hval1 = matchv[tileset_rank(quarter >> 1)];
-		if (hval0 + hval1 == lohval)
-			break;
-	}
-
-	assert(hval0 + hval1 == lohval);
-
-	match->ts[0] = tileset_difference(half, quarter);
-	match->ts[1] = quarter;
-
-	match->hval[0] = hval0;
-	match->hval[1] = hval1;
-
-	/* upper half */
-	half = tileset_difference(NONZERO_TILES, half);
-	for (i = 0; i < SIX_OF_TWELVE / 2; i++) {
-		quarter = pdep(half, tileset_unrank(6, i));
-		hval0 = matchv[tileset_rank(quarter >> 1)];
-		quarter = tileset_difference(half, quarter);
-		hval1 = matchv[tileset_rank(quarter >> 1)];
-		if (hval0 + hval1 == hihval)
-			break;
-	}
-
-	assert(hval0 + hval1 == hihval);
-
-	match->ts[2] = tileset_difference(half, quarter);
-	match->ts[3] = quarter;
-
-	match->hval[2] = hval0;
-	match->hval[3] = hval1;
 }

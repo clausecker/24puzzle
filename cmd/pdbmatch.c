@@ -194,7 +194,6 @@ lookup_puzzles(const struct puzzle *puzzles, size_t n_puzzles, const char *pdbdi
 	tileset_unrank_init(6);
 
 	for (i = 0; i < MATCH_SIZE; i++) {
-//		printf("%6zu: %07x\n", i, tileset_unrank(6, (tsrank)i));
 		lookup_pattern(vs, tileset_unrank(6, (tsrank)i) << 1,
 		    puzzles, n_puzzles, pdbdir);
 	}
@@ -334,9 +333,9 @@ print_matches(struct match *matches, const struct puzzle *puzzles, size_t n_puzz
 			hval += matches[i].hval[j];
 		}
 
-		printf("%s %3d %2d %2d %2d %2d %s %s %s %s\n",
-		    puzstr, hval, matches[i].hval[0], matches[i].hval[1],
-		    matches[i].hval[2], matches[i].hval[3], tsstr[0],
-		    tsstr[1], tsstr[2], tsstr[3]);
+		printf("%s %10llu %3d %2d %2d %2d %2d %s %s %s %s\n",
+		    puzstr, matches[i].count, hval, matches[i].hval[0],
+		    matches[i].hval[1], matches[i].hval[2], matches[i].hval[3],
+		    tsstr[0], tsstr[1], tsstr[2], tsstr[3]);
 	}
 }

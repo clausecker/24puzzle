@@ -48,14 +48,16 @@ enum {
  * various pattern databases with match_amend, a vector of partial
  * h values can be created.  Using this vector, an optimal partitioning
  * can be determined with match_find_best.  Similarly, a pessimal
- * partitioning can be determined with match_find_worst.
+ * partitioning can be determined with match_find_worst.  The member
+ * count contains the number of matches with this h value.
  */
 struct match {
 	tileset ts[4];
 	unsigned char hval[4];
+	unsigned long long count;
 };
 
-extern int	match_find_best(struct match *, const unsigned char *);
+extern int	match_find_best(struct match *, const unsigned char[MATCH_SIZE]);
 //extern size_t	match_find_worst(struct match *, size_t, const unsigned char *);
 
 /*
@@ -76,7 +78,7 @@ matchv_allocate(void)
  * Release a match vector.  This function wraps free() for convenience.
  */
 static inline void
-matchv_free(unsigned char *v)
+matchv_free(unsigned char v[MATCH_SIZE])
 {
 	free(v);
 }
@@ -85,7 +87,7 @@ matchv_free(unsigned char *v)
  * Add the value predicted by heuristic h to match vector v.
  */
 static inline void
-match_amend(unsigned char *v, const struct puzzle *p, struct heuristic *heu)
+match_amend(unsigned char v[MATCH_SIZE], const struct puzzle *p, struct heuristic *heu)
 {
 	tsrank heurank = tileset_rank(heu->ts >> 1);
 
@@ -101,7 +103,7 @@ match_amend(unsigned char *v, const struct puzzle *p, struct heuristic *heu)
  * Return zero if any entry remains UNREACHED, nonzero otherwise.
  */
 static inline int
-match_all_filled_in(const unsigned char *v)
+match_all_filled_in(const unsigned char v[MATCH_SIZE])
 {
 	size_t i;
 
