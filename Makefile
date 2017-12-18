@@ -13,12 +13,13 @@ ZSTDLDLIBS=$(HOME)/lib/libzstd.a
 OBJ=index.o puzzle.o tileset.o validation.o ranktbl.o rank.o random.o pdb.o \
 	moves.o parallel.o pdbgen.o pdbverify.o pdbdiff.o histogram.o \
 	ida.o search.o catalogue.o pdbident.o transposition.o \
-	heuristic.o bitpdb.o bitpdbzstd.o match.o
+	heuristic.o bitpdb.o bitpdbzstd.o match.o pdbquality.o
 
 BINARIES=cmd/pdbstats test/indextest util/rankgen test/ranktest cmd/genpdb \
 	cmd/verifypdb cmd/bitpdb cmd/diffcode test/rankcount cmd/puzzlegen \
 	test/qualitytest test/hitanalysis cmd/parsearch cmd/pdbsearch \
-	cmd/pdbcount test/bitpdbtest test/morphtest cmd/pdbmatch
+	cmd/pdbcount test/bitpdbtest test/morphtest cmd/pdbmatch \
+	cmd/pdbquality
 
 all: $(BINARIES) 24puzzle.a
 
@@ -55,6 +56,7 @@ cmd/pdbsearch: cmd/pdbsearch.o 24puzzle.a
 cmd/puzzlegen: cmd/puzzlegen.o 24puzzle.a
 cmd/pdbcount: cmd/pdbcount.o 24puzzle.a
 cmd/pdbmatch: cmd/pdbmatch.o 24puzzle.a
+cmd/pdbquality: cmd/pdbquality.o 24puzzle.a
 cmd/bitpdb: cmd/bitpdb.o 24puzzle.a
 test/bitpdbtest: test/bitpdbtest.o 24puzzle.a
 test/morphtest: test/morphtest.o 24puzzle.a

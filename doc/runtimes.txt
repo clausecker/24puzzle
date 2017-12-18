@@ -18,3 +18,13 @@ revision					host		real		user		jobs
 8e14e094eabca383b31bc3d20d6f03aeabadbdf5	pvs-pc04	16m0.566s	16m0.460s	1
 10c0b5726802b30281a08fcc7387f3313e399e5e	pvs-pc04	6m3.779s	6m3.668s	1
 52cdd4cad51dcdeb994a53ebe868a2aad326a485	pvs-pc04	7m40.444s	7m40.232s	1
+
+time ./pdbmatch -d pdbdir -m 400.match ../doc/400-random.txt
+
+revision					host		real		user		jobs
+6e615052c23dc64ddc8a522e1d8210e0f0b01373	buildbot	83m31.231s	78m30.180s	1
+
+time ./pdbmatch -r -m 400.match ../doc/400-random.txt
+
+revision					host		real		user		jobs
+6e615052c23dc64ddc8a522e1d8210e0f0b01373	buildbot	151m14.388s	151m13.932s	1

@@ -8,6 +8,7 @@ tiles=6
 pdbdir=/local/bzcclaus/scratch/pdbs
 cmddir=.
 datefmt="%Y-%m-%d %T:"
+qualities="$pdbdir/qualities.txt"
 
 PATH="$cmddir:$PATH"
 
@@ -25,6 +26,7 @@ then
 	fi
 
 	genpdb -q -j 1 -t "$ts" -f "$pdbstem.pdb"
+	pdbquality -j 1 -t "$ts" "$pdbstem.pdb" >>$qualities
 	bitpdb -t "$ts" -o "$pdbstem.bpdb" "$pdbstem.pdb"
 	rm -f "$pdbstem.pdb"
 	zstd -q --rm --ultra -22 -f "$pdbstem.bpdb"

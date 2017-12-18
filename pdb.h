@@ -97,6 +97,7 @@ extern int	pdb_verify(struct patterndb *, FILE *);
 extern int	pdb_histogram(size_t[PDB_HISTOGRAM_LEN], struct patterndb *);
 extern void	pdb_identify(struct patterndb *);
 extern void	pdb_diffcode(struct patterndb *, unsigned char[]);
+extern long long int	pdb_quality(struct patterndb *);
 
 /*
  * Return a pointer to the PDB entry for idx.
