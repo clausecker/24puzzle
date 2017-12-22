@@ -29,3 +29,4 @@ time ./pdbmatch -r -m 400.match ../doc/400-random.txt
 revision					host		real		user		jobs
 6e615052c23dc64ddc8a522e1d8210e0f0b01373	buildbot	151m14.388s	151m13.932s	1
 08a0c96eb45b2f209cd6b4f2e22967cf07c604b0	buildbot	67m58.345s	67m58.260s	1
+626c65b9dedeb911570e1d2232c5473a0627853d	buildbot	73m52.259s	73m52.192s	1
