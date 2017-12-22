@@ -253,8 +253,7 @@ extern const tsrank combination_count[TILE_COUNT + 1];
 extern void	tileset_unrank_init(size_t);
 
 /*
- * Compute the rank of a tile set.  tileset_rank_init() must have been
- * called before this function.
+ * Compute the rank of a tile set.
  */
 static inline tsrank
 tileset_rank(tileset ts)
@@ -268,6 +267,16 @@ tileset_rank(tileset ts)
 }
 
 /*
+ * Compute the rank of a tile set, not accounting for the zero tile.
+ */
+static inline tsrank
+tileset_ranknz(tileset ts)
+{
+
+	return (tileset_rank(ts >> 1));
+}
+
+/*
  * Compute the tileset with k tiles belonging to rank rk.  The unrank
  * table for k must be initialized by a call to tileset_unrank_init(k)
  * beforehand.
@@ -276,6 +285,18 @@ static inline tileset
 tileset_unrank(size_t k, tsrank rk)
 {
 	return (unrank_tables[k][rk]);
+}
+
+/*
+ * Compute the tileset with k tiles belonging to rank rk.  The unrank
+ * table for k must be initialized by a call to tileset_unrank_init(k)
+ * beforehand.  This function corresponds to tileset_ranknu.
+ */
+static inline tileset
+tileset_unranknz(size_t k, tsrank rk)
+{
+
+	return (tileset_unrank(k, rk) << 1);
 }
 
 /*

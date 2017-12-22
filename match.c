@@ -76,7 +76,7 @@ match_find_best(struct match *match, const unsigned char matchv[MATCH_SIZE])
 
 	max = 0;
 	for (i = 0; i < TWELVE_TILES / 2; i++) {
-		half = tileset_unrank(12, i) << 1;
+		half = tileset_unranknz(12, i);
 		hlo = match_half_best(matchv, half, quarters, &locount);
 		hhi = match_half_best(matchv, tileset_difference(NONZERO_TILES, half), quarters + 2, &hicount);
 		assert(locount != 0);
@@ -90,7 +90,7 @@ match_find_best(struct match *match, const unsigned char matchv[MATCH_SIZE])
 			match->count += locount * hicount;
 			for (j = 0; j < 4; j++) {
 				match->ts[j] = quarters[j];
-				match->hval[j] = matchv[tileset_rank(quarters[j] >> 1)];
+				match->hval[j] = matchv[tileset_ranknz(quarters[j])];
 			}
 		}
 	}
@@ -119,9 +119,9 @@ match_half_best(const unsigned char matchv[MATCH_SIZE], tileset half,
 
 	for (i = 0; i < SIX_OF_TWELVE / 2; i++) {
 		loquarter = pdep(half, tileset_unrank(6, i));
-		hval = matchv[tileset_rank(loquarter >> 1)];
+		hval = matchv[tileset_ranknz(loquarter)];
 		hiquarter = tileset_difference(half, loquarter);
-		hval += matchv[tileset_rank(hiquarter >> 1)];
+		hval += matchv[tileset_ranknz(hiquarter)];
 		if (hval > max) {
 			max = hval;
 			*count = 0;
