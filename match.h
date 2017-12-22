@@ -42,6 +42,9 @@ enum {
 	MATCH_SIZE = 134596,
 };
 
+/* scaling factor for the quality vector */
+#define	QUALITY_SCALE (25ULL * 24 * 23 * 22 * 21 * 20 * 19)
+
 /*
  * A match records a way to partition the 24 tiles in the tray into
  * 4 groups of 6 tiles.  By incrementally looking up configurations in
@@ -49,15 +52,18 @@ enum {
  * h values can be created.  Using this vector, an optimal partitioning
  * can be determined with match_find_best.  Similarly, a pessimal
  * partitioning can be determined with match_find_worst.  The member
- * count contains the number of matches with this h value.
+ * count contains the number of matches with this h value, quality
+ * contains the quality of the partitioning found.
  */
 struct match {
 	tileset ts[4];
 	unsigned char hval[4];
 	unsigned long long count;
+	unsigned long long quality;
 };
 
-extern int	match_find_best(struct match *, const unsigned char[MATCH_SIZE]);
+extern unsigned long long *qualities_load(const char *);
+extern int	match_find_best(struct match *, const unsigned char[MATCH_SIZE], const unsigned long long[MATCH_SIZE]);
 //extern size_t	match_find_worst(struct match *, size_t, const unsigned char *);
 
 /*
@@ -80,6 +86,7 @@ matchv_allocate(void)
 static inline void
 matchv_free(unsigned char v[MATCH_SIZE])
 {
+
 	free(v);
 }
 
@@ -112,6 +119,37 @@ match_all_filled_in(const unsigned char v[MATCH_SIZE])
 			return (0);
 
 	return (1);
+}
+
+/*
+ * Allocate a quality vector of all zeroes, effectively ignoring the
+ * maximum quality behaviour.
+ */
+static inline unsigned long long *
+qualities_dummy(void)
+{
+
+	return (calloc(MATCH_SIZE, sizeof (unsigned long long)));
+}
+
+/*
+ * Release a quality vector.  This is just a thin wrapper around free().
+ */
+static inline void
+qualities_free(unsigned long long qualities[MATCH_SIZE])
+{
+
+	free(qualities);
+}
+
+/*
+ * Convert a heuristic quality into an average h value.
+ */
+static inline double
+quality_to_hval(unsigned long long q)
+{
+
+	return ((double)q / QUALITY_SCALE);
 }
 
 #endif /* MATCH_H */

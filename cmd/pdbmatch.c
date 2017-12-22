@@ -35,12 +35,14 @@
 #include "match.h"
 #include "transposition.h"
 
+#define QUALITIES_FILENAME "qualities.txt"
+
 static struct puzzle	 *read_puzzles(size_t *, FILE *);
 static unsigned char	**lookup_puzzles(const struct puzzle *, size_t, const char *);
 static void		  lookup_pattern(unsigned char **, tileset, const struct puzzle *, size_t, const char *);
 static void		  store_match_vector(const char *, unsigned char **, size_t);
 static unsigned char	**load_match_vector(const char *, size_t);
-static void		  find_matches(struct match *, const struct puzzle *, unsigned char **, size_t);
+static void		  find_matches(unsigned long long[MATCH_SIZE], struct match *, const struct puzzle *, unsigned char **, size_t);
 static void		  print_matches(struct match *, const struct puzzle *, size_t);
 
 static void
@@ -57,9 +59,10 @@ main(int argc, char *argv[])
 	FILE *puzzlefile = NULL;
 	struct puzzle *puzzles;
 	struct match *matches;
+	unsigned long long *qualities;
 	size_t n_puzzle;
 	int optchar, read_matches = 0;
-	char *pdbdir = NULL, *matchfile = NULL;
+	char *pdbdir = NULL, *matchfile = NULL, pathbuf[PATH_MAX];
 	unsigned char **vs;
 
 	while (optchar = getopt(argc, argv, "d:m:r"), optchar != -1)
@@ -121,7 +124,18 @@ main(int argc, char *argv[])
 		vs = load_match_vector(matchfile, n_puzzle);
 	}
 
-	find_matches(matches, puzzles, vs, n_puzzle);
+	snprintf(pathbuf, sizeof pathbuf, "%s/%s", pdbdir, QUALITIES_FILENAME);
+	qualities = qualities_load(pathbuf);
+	if (qualities == NULL) {
+		perror(pathbuf);
+		qualities = qualities_dummy();
+		if (qualities == NULL) {
+			perror("qualities_dummy");
+			return (EXIT_FAILURE);
+		}
+	}
+
+	find_matches(qualities, matches, puzzles, vs, n_puzzle);
 	print_matches(matches, puzzles, n_puzzle);
 
 	return (EXIT_SUCCESS);
@@ -302,15 +316,18 @@ load_match_vector(const char *matchfile, size_t n_puzzle)
 }
 
 static void
-find_matches(struct match *matches, const struct puzzle *puzzles,
+find_matches(unsigned long long qualities[MATCH_SIZE],
+    struct match *matches, const struct puzzle *puzzles,
     unsigned char **vs, size_t n_puzzle)
 {
 	size_t i;
 
+
+
 	for (i = 0; i < n_puzzle; i++) {
 		assert(match_all_filled_in(vs[i]));
 
-		if (match_find_best(matches + i, vs[i]) == 0) {
+		if (match_find_best(matches + i, vs[i], qualities) == 0) {
 			perror("match_find_best");
 			exit(EXIT_FAILURE);
 		}
@@ -333,9 +350,10 @@ print_matches(struct match *matches, const struct puzzle *puzzles, size_t n_puzz
 			hval += matches[i].hval[j];
 		}
 
-		printf("%s %10llu %3d %2d %2d %2d %2d %s %s %s %s\n",
-		    puzstr, matches[i].count, hval, matches[i].hval[0],
-		    matches[i].hval[1], matches[i].hval[2], matches[i].hval[3],
+		printf("%s %10llu %5.2f %3d %2d %2d %2d %2d %s %s %s %s\n",
+		    puzstr, matches[i].count, quality_to_hval(matches[i].quality),
+		    hval, matches[i].hval[0], matches[i].hval[1],
+		    matches[i].hval[2], matches[i].hval[3],
 		    tsstr[0], tsstr[1], tsstr[2], tsstr[3]);
 	}
 }
