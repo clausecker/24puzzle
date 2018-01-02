@@ -190,7 +190,7 @@ random_puzzle_histograms(struct qualitytest_config *qtcfg)
 static void
 print_statistics(size_t histogram[PDB_HISTOGRAM_LEN], size_t n_puzzle)
 {
-	double pfactor = 100.0 / n_puzzle, sfactor;
+	double pfactor = 1.0 / n_puzzle, sfactor, p, eta = 0, etafactor = 1;
 	size_t min = UNREACHED, max = 0, sum = 0, prev = 0, count = 0, i;
 
 	for (i = 0; i < PDB_HISTOGRAM_LEN; i++)
@@ -199,8 +199,10 @@ print_statistics(size_t histogram[PDB_HISTOGRAM_LEN], size_t n_puzzle)
 	sfactor = 1.0 / sum;
 
 	for (i = 0; i < PDB_HISTOGRAM_LEN; i++) {
-		if (histogram[i] == 0)
+		if (histogram[i] == 0) {
+			etafactor /= B;
 			continue;
+		}
 
 		if (i < min)
 			min = i;
@@ -210,13 +212,17 @@ print_statistics(size_t histogram[PDB_HISTOGRAM_LEN], size_t n_puzzle)
 
 		count += histogram[i];
 		prev += histogram[i] * i;
+		p = histogram[i] * pfactor;
+		eta += p * etafactor;
 
-		printf("%3zu: %20zu  (%5.2f%%)  p(X <= h) = %6.4f\n",
-			i, histogram[i], histogram[i] * pfactor, prev * sfactor);
+		printf("%3zu: %20zu  (%5.2f%%)  p(X <= h) = %6.4f  p_h/b^h = %e\n",
+		    i, histogram[i], 100 * p, prev * sfactor, p * etafactor);
+
+		etafactor /= B;
 	}
 
-	printf("n_puzzle = %zu, min = %zu, max = %zu, avg = %.2f\n",
-	    n_puzzle, min, max, (double)sum / n_puzzle);
+	printf("n_puzzle = %zu, min = %zu, max = %zu, avg = %.2f, eta = %e, 1/eta = %e\n",
+	    n_puzzle, min, max, (double)sum / n_puzzle, eta, 1/eta);
 }
 
 static void

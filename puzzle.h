@@ -56,6 +56,12 @@
  */
 enum { TILE_COUNT = 25, ZERO_TILE = 0 };
 
+/*
+ * The branching factor of the 24 puzzle's search space.  This is
+ * just sqrt(2 + sqrt(13)).
+ */
+#define B 2.367604543724308131130874
+
 struct puzzle {
 	alignas(8) unsigned char tiles[TILE_COUNT], grid[TILE_COUNT];
 };
