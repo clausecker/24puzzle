@@ -39,7 +39,7 @@
 static void
 usage(const char *argv0)
 {
-	fprintf(stderr, "Usage: %s pdbfile\n", argv0);
+	fprintf(stderr, "Usage: %s [-t tileset] [-p] pdbfile\n", argv0);
 
 	exit(EXIT_FAILURE);
 }
@@ -161,17 +161,53 @@ print_runs(off_t histogram[PDB_HISTOGRAM_LEN], size_t n_pdb, off_t runs[], size_
 	    run_accum, hist_accum, run_accum + hist_accum, (run_accum + hist_accum) / 8);
 }
 
+/*
+ * Print a single-line histogram as requested from the option -p.  This
+ * is used to build the histograms.txt file in genallpdbs.sh.  The line
+ * contains first the tile set, and then a space separated histogram,
+ * ending with the first 0 entry.
+ */
+static void
+histogram_line(const char *tsstr, off_t histogram[PDB_HISTOGRAM_LEN])
+{
+	size_t i;
+
+	if (tsstr != NULL)
+		printf("%s ", tsstr);
+
+	for (i = 0; i < PDB_HISTOGRAM_LEN && histogram[i] != 0; i++)
+		printf("%llu ", (unsigned long long)histogram[i]);
+
+	printf("0\n");
+}
+
 extern int
 main(int argc, char *argv[])
 {
 	FILE *pdbfile;
 	off_t *runs = NULL, size, histogram[PDB_HISTOGRAM_LEN] = {};
 	size_t n_runs = 0;
+	int single_line = 0, optchar;
+	const char *tsstr = NULL;
 
-	if (argc != 2)
-	usage(argv[0]);
+	while (optchar = getopt(argc, argv, "t:p"), optchar != -1)
+		switch (optchar) {
+		case 'p':
+			single_line = 1;
+			break;
 
-	pdbfile = fopen(argv[1], "rb");
+		case 't':
+			tsstr = optarg;
+			break;
+
+		default:
+			usage(argv[0]);
+		}
+
+	if (argc - optind != 1)
+		usage(argv[0]);
+
+	pdbfile = fopen(argv[optind], "rb");
 	if (pdbfile == NULL) {
 		perror("fopen");
 		return (EXIT_FAILURE);
@@ -179,10 +215,15 @@ main(int argc, char *argv[])
 
 
 	size = gather_data(pdbfile, histogram, &runs, &n_runs);
-	printf("size %zuB\n\n", size);
-	print_histogram(histogram, size);
-	if (histogram[UNREACHED] != 0)
-		print_runs(histogram, size, runs, n_runs);
+
+	if (single_line)
+		histogram_line(tsstr, histogram);
+	else {
+		printf("size %zuB\n\n", size);
+		print_histogram(histogram, size);
+		if (histogram[UNREACHED] != 0)
+			print_runs(histogram, size, runs, n_runs);
+	}
 
 	return (EXIT_SUCCESS);
 }

@@ -9,6 +9,7 @@ pdbdir=/local/bzcclaus/scratch/pdbs
 cmddir=.
 datefmt="%Y-%m-%d %T:"
 qualities="$pdbdir/qualities.txt"
+histograms="$pdbdir/histograms.txt"
 
 PATH="$cmddir:$PATH"
 
@@ -27,6 +28,7 @@ then
 
 	genpdb -q -j 1 -t "$ts" -f "$pdbstem.pdb"
 	pdbquality -j 1 -t "$ts" "$pdbstem.pdb" >>$qualities
+	pdbstats -p -t "$ts" "$pdbstem.pdb" >>$histograms
 	bitpdb -t "$ts" -o "$pdbstem.bpdb" "$pdbstem.pdb"
 	rm -f "$pdbstem.pdb"
 	zstd -q --rm --ultra -22 -f "$pdbstem.bpdb"
