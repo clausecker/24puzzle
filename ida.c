@@ -25,10 +25,13 @@
 
 /* ida.c -- the IDA* algorithm */
 
+#define _POSIX_C_SOURCE 200809L
 #include <assert.h>
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 #include "catalogue.h"
 #include "pdb.h"
@@ -193,6 +196,26 @@ search_to_bound(struct pdb_catalogue *cat, const struct puzzle *parg,
 }
 
 /*
+ * Compute the difference between two struct timespec and
+ * return it.
+ */
+static struct timespec
+timediff(struct timespec begin, struct timespec end)
+{
+	struct timespec result;
+
+	if (end.tv_nsec < begin.tv_nsec) {
+		result.tv_sec = end.tv_sec - begin.tv_sec - 1;
+		result.tv_nsec = end.tv_nsec - begin.tv_nsec + 1000000000;
+	} else {
+		result.tv_sec = end.tv_sec - begin.tv_sec;
+		result.tv_nsec = end.tv_nsec - begin.tv_nsec;
+	}
+
+	return (result);
+}
+
+/*
  * Try to find a solution for parg wit the IDA* algorithm using the
  * disjoint pattern databases pdbs as heuristic functions.  Store the
  * path found in path and return the number of nodes expanded.  If
@@ -202,15 +225,26 @@ extern unsigned long long
 search_ida(struct pdb_catalogue *cat, const struct puzzle *p, struct path *path, FILE *f)
 {
 	struct search_node *spath;
+	struct timespec begin, round_begin, round_end, duration;
 	unsigned long long expanded, total_expanded = 0;
+	double dur;
 	size_t i, bound = 0;
-	int unfinished;
+	int unfinished, no_clocks = 0;
 
 	spath = malloc(sizeof *spath * (SEARCH_PATH_LEN + 2));
 	if (spath == NULL) {
 		perror("malloc");
 		abort();
 	}
+
+	if (f == NULL)
+		no_clocks = 1;
+
+	if (clock_gettime(CLOCK_THREAD_CPUTIME_ID, &begin) != 0) {
+		fprintf(f, "clock_gettime: %s\n", strerror(errno));
+		no_clocks = 1;
+	} else
+		round_end = begin;
 
 	do {
 		expanded = 0;
@@ -219,10 +253,33 @@ search_ida(struct pdb_catalogue *cat, const struct puzzle *p, struct path *path,
 
 		if (f != NULL)
 			fprintf(f, "Expanded %llu nodes during previous round.\n", expanded);
+
+		if (no_clocks)
+			continue;
+
+		round_begin = round_end;
+
+		if (clock_gettime(CLOCK_THREAD_CPUTIME_ID, &round_end) != 0) {
+			fprintf(f, "clock_gettime: %s\n", strerror(errno));
+			no_clocks = 1;
+			continue;
+		}
+
+		duration = timediff(round_begin, round_end);
+		dur = duration.tv_sec + duration.tv_nsec / 1000000000.0;
+		fprintf(f, "Spent %.3f seconds computing the last round, %.2f nodes/s\n",
+		    dur, expanded / dur);
 	} while (unfinished);
 
 	if (f != NULL)
 		fprintf(f, "Expanded %llu nodes in total.\n", total_expanded);
+
+	if (!no_clocks) {
+		duration = timediff(begin, round_end);
+		dur = duration.tv_sec + duration.tv_nsec / 1000000000.0;
+		fprintf(f, "Spent %.3f seconds in total, %.2f nodes/s\n",
+		    dur, total_expanded / dur);
+	}
 
 	/* copy spath to path */
 	path->pathlen = bound;
