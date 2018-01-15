@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2017--2018 Robert Clausecker. All rights reserved.
+ * Copyright (c) 2018 Robert Clausecker. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -23,44 +23,17 @@
  * SUCH DAMAGE.
  */
 
-/* puzzlegen.c -- generate random puzzles */
+#ifndef RANDOM_H
+#define RANDOM_H
 
-#define _POSIX_C_SOURCE 200809L
-#include <stdlib.h>
-#include <stdio.h>
+#include <stdatomic.h>
 
 #include "puzzle.h"
-#include "random.h"
+#include "index.h"
 
-extern int
-main(int argc, char *argv[])
-{
-	struct puzzle p;
-	size_t i, n_puzzle = 1;
-	char puzzlestr[PUZZLE_STR_LEN];
+extern atomic_ullong	random_seed;
+extern unsigned long long	xorshift(void);
+extern void	random_puzzle(struct puzzle *);
+extern void	random_index(const struct index_aux *, struct index *);
 
-	switch (argc) {
-	case 3:
-		random_seed = strtoull(argv[2], NULL, 0);
-		/* FALLTHROUGH */
-
-	case 2:
-		n_puzzle = strtoull(argv[1], NULL, 0);
-		/* FALLTHROUGH */
-
-	case 1:
-		break;
-
-	default:
-		fprintf(stderr, "Usage: %s [n_puzzle [seed]]\n", argv[0]);
-		return (EXIT_FAILURE);
-	}
-
-	for (i = 0; i < n_puzzle; i++) {
-		random_puzzle(&p);
-		puzzle_string(puzzlestr, &p);
-		puts(puzzlestr);
-	}
-
-	return (EXIT_SUCCESS);
-}
+#endif /* RANDOM_H */

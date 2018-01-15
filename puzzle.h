@@ -135,8 +135,4 @@ get_moves(size_t z)
 /* validation.c */
 extern int	puzzle_valid(const struct puzzle *);
 
-/* random.c */
-extern atomic_ullong	random_seed;
-extern void	random_puzzle(struct puzzle *);
-
 #endif /* PUZZLE_H */

@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2017 Robert Clausecker. All rights reserved.
+ * Copyright (c) 2017--2018 Robert Clausecker. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,7 +29,7 @@
 #include "puzzle.h"
 #include "tileset.h"
 #include "index.h"
-
+#include "random.h"
 /*
  * The seed used for the xorshift random number number generator.  This
  * variable is updated by all functions generating random objects.  Its
@@ -56,7 +56,7 @@ xorshift_step(unsigned long long x)
  * between 0 and 2^64 - 1.  We use an atomic exchange operation to make
  * sure that each result of the RNG is consumed exactly once.
  */
-static unsigned long long
+extern unsigned long long
 xorshift(void)
 {
 	unsigned long long seed = random_seed, state;
@@ -77,8 +77,8 @@ xorshift(void)
 extern void
 random_puzzle(struct puzzle *p)
 {
-	unsigned long long rnd1 = xorshift(), rnd2 = xorshift_step(rnd1);
 	__uint128_t rnd;
+	unsigned long long rnd1, rnd2;
 	size_t i, j, parity = 0;
 	int ipos, jpos;
 

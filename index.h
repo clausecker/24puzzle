@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2017 Robert Clausecker. All rights reserved.
+ * Copyright (c) 2017--2018 Robert Clausecker. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -280,9 +280,5 @@ tile_map(const struct index_aux *aux, const struct puzzle *p)
 	return (map);
 #endif
 }
-
-/* random.c */
-extern atomic_ullong random_seed;
-extern void	random_index(const struct index_aux *, struct index *);
 
 #endif /* INDEX_H */
