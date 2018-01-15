@@ -38,20 +38,6 @@
 atomic_ullong random_seed = 0x70184fb2;
 
 /*
- * A 64 bit xorshift step function with parameters (13, 7, 17).
- */
-static unsigned long long
-xorshift_step(unsigned long long x)
-{
-	x ^= x >> 13;
-	x ^= x << 7;
-	x &= 0xffffffffffffffffull;
-	x ^= x >> 17;
-
-	return (x);
-}
-
-/*
  * Use the xorshift random number generator to generate a random number
  * between 0 and 2^64 - 1.  We use an atomic exchange operation to make
  * sure that each result of the RNG is consumed exactly once.

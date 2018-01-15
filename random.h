@@ -36,4 +36,18 @@ extern unsigned long long	xorshift(void);
 extern void	random_puzzle(struct puzzle *);
 extern void	random_index(const struct index_aux *, struct index *);
 
+/*
+ * A 64 bit xorshift step function with parameters (13, 7, 17).
+ */
+static inline unsigned long long
+xorshift_step(unsigned long long x)
+{
+	x ^= x >> 13;
+	x ^= x << 7;
+	x &= 0xffffffffffffffffull;
+	x ^= x >> 17;
+
+	return (x);
+}
+
 #endif /* RANDOM_H */
