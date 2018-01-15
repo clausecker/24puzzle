@@ -231,6 +231,16 @@ search_ida(struct pdb_catalogue *cat, const struct puzzle *p, struct path *path,
 	size_t i, bound = 0;
 	int unfinished, no_clocks = 0;
 
+	/*
+	 * the code doesn't work correctly when used on the solved
+	 * configuration directly, so test for this situation and
+	 * return an empty path.
+	 */
+	if (memcmp(p->tiles, solved_puzzle.tiles, TILE_COUNT) == 0) {
+		path->pathlen = 0;
+		return (0);
+	}
+
 	spath = malloc(sizeof *spath * (SEARCH_PATH_LEN + 2));
 	if (spath == NULL) {
 		perror("malloc");
