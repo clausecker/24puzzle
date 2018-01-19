@@ -135,7 +135,8 @@ random_walk(struct puzzle *p, int steps)
 }
 
 static void
-collect_walks(size_t samples[SEARCH_PATH_LEN], int steps, size_t n_puzzle, struct pdb_catalogue *cat)
+collect_walks(size_t samples[SEARCH_PATH_LEN], int steps, size_t n_puzzle,
+    struct pdb_catalogue *cat, int give_heu)
 {
 	struct puzzle p;
 	struct path path;
@@ -144,9 +145,13 @@ collect_walks(size_t samples[SEARCH_PATH_LEN], int steps, size_t n_puzzle, struc
 	for (i = 0; i < n_puzzle; i++) {
 		p = solved_puzzle;
 		random_walk(&p, steps);
-		search_ida(cat, &p, &path, NULL);
-		assert(path.pathlen != SEARCH_NO_PATH);
-		samples[path.pathlen]++;
+		if (give_heu)
+			samples[catalogue_hval(cat, &p)]++;
+		else {
+			search_ida(cat, &p, &path, NULL);
+			assert(path.pathlen != SEARCH_NO_PATH);
+			samples[path.pathlen]++;
+		}
 	}
 }
 
@@ -174,10 +179,10 @@ main(int argc, char *argv[])
 {
 	struct pdb_catalogue *cat;
 	size_t samples[SEARCH_PATH_LEN], n_puzzle = 1000;
-	int optchar, catflags = 0, steps;
+	int optchar, catflags = 0, give_heu = 0, steps;
 	char *pdbdir = NULL;
 
-	while (optchar = getopt(argc, argv, "d:ij:n:s:"), optchar != -1)
+	while (optchar = getopt(argc, argv, "d:ij:hn:s:"), optchar != -1)
 		switch (optchar) {
 		case 'd':
 			pdbdir = optarg;
@@ -195,6 +200,10 @@ main(int argc, char *argv[])
 				return (EXIT_FAILURE);
 			}
 
+			break;
+
+		case 'h':
+			give_heu = 1;
 			break;
 
 		case 'n':
@@ -226,7 +235,7 @@ main(int argc, char *argv[])
 
 	memset(samples, 0, sizeof samples);
 
-	collect_walks(samples, steps, n_puzzle, cat);
+	collect_walks(samples, steps, n_puzzle, cat, give_heu);
 	print_statistics(samples, steps, n_puzzle);
 
 	return (EXIT_SUCCESS);
