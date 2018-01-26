@@ -25,6 +25,11 @@
 
 /* puzzledist.c -- compute the number of puzzles with the given distance */
 
+#ifdef __SSE__
+# include <immintrin.h>
+#endif
+
+#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -39,18 +44,27 @@
  * Additionally, four bits are used to store all moves that lead back to
  * the previous generation.  This leads to 24 * 5 + 4 = 124 bits of
  * storage being required in total, split into two 64 bit quantities.
- * The lo member starts with the four source bits and continues with 12
- * tile location entries.  The high member contains the other 12 tile
- * locations.
+ * lo and hi store 12 tiles @ 5 bits each, lo additionally stores 4 move
+ * mask bits in its least significant bits.
  */
 struct compact_puzzle {
 	unsigned long long lo, hi;
 };
 
+#define MOVE_MASK 0xfull
+
+/*
+ * An array of struct compact_puzzle with the given length and capacity.
+ */
+struct cp_slice {
+	struct compact_puzzle *data;
+	size_t len, cap;
+};
+
 /*
  * Translate a struct puzzle into a struct compact_puzzle.
  */
-void
+static void
 pack_puzzle(struct compact_puzzle *restrict cp, const struct puzzle *restrict p)
 {
 #if HAS_PDEP == 1
@@ -77,24 +91,43 @@ pack_puzzle(struct compact_puzzle *restrict cp, const struct puzzle *restrict p)
 	cp->hi = 0;
 
 	for (i = 1; i <= 12; i++)
-		cp->lo |= (unsigned long long)p->tiles[i] << 5 * i + 4;
+		cp->lo |= (unsigned long long)p->tiles[i] << 5 * (i - 1) + 4;
 
 	for (; i < TILE_COUNT; i++)
-		cp->hi |= (unsigned long long)p->tiles[i] << 5 * (i - 12);
+		cp->hi |= (unsigned long long)p->tiles[i] << 5 * (i - 13);
 #endif /* HAS_PDEP */
 }
 
 /*
- * Translate a struct compact_puzzle back into a struct puzzle.
- * TODO: pdep implementation.
+ * Pack p into cp, masking out the move that leads to dest.
  */
-void
+static void
+pack_puzzle_masked(struct compact_puzzle *restrict cp, const struct puzzle *restrict p,
+    int dest)
+{
+	size_t i, n_moves;
+	int zloc;
+	const signed char *moves;
+
+	pack_puzzle(cp, p);
+	zloc = zero_location(p);
+	n_moves = move_count(zloc);
+	moves = get_moves(zloc);
+
+	for (i = 0; i < n_moves; i++)
+		if (moves[i] == dest)
+			cp->lo |= 1 << i;
+}
+
+/*
+ * Translate a struct compact_puzzle back into a struct puzzle.
+ */
+static void
 unpack_puzzle(struct puzzle *restrict p, const struct compact_puzzle *restrict cp)
 {
 #if HAS_PDEP == 1
 	size_t i;
-	unsigned long long scratch, data;
-	__m256i grid, gridmask;
+	unsigned long long data;
 
 	memset(p, 0, sizeof *p);
 
@@ -110,11 +143,6 @@ unpack_puzzle(struct puzzle *restrict p, const struct compact_puzzle *restrict c
 
 	for (i = 1; i < TILE_COUNT; i++)
 		p->grid[p->tiles[i]] = i;
-
-	/* if we have pdep, we also have AVX2 to find p->tiles[0] */
-	grid = _mm256_loadu_si256((const __m256i*)&p->grid);
-	gridmask = _mm256_cmpeq_epi8(grid, _mm256_setzero_si256());
-	p->tiles[0] = ctz(_mm256_movemask_epi8(gridmask));
 #else /* HAS_PDEP != 1 */
 	size_t i;
 	unsigned long long accum;
@@ -123,18 +151,199 @@ unpack_puzzle(struct puzzle *restrict p, const struct compact_puzzle *restrict c
 
 	accum = cp->lo >> 4;
 	for (i = 1; i <= 12; i++) {
+		p->tiles[i] = accum & 31;
 		p->grid[accum & 31] = i;
 		accum >>= 5;
 	}
 
 	accum = cp->hi;
 	for (; i < TILE_COUNT; i++) {
+		p->tiles[i] = accum & 31;
 		p->grid[accum & 31] = i;
 		accum >>= 5;
 	}
-
-	/* the zero tile's location has been set to zero by memset before */
-	for (i = 0; i < TILE_COUNT; i++)
-		p->tiles[p->grid[i]] = i;
 #endif /* HAS_PDEP */
+
+	/* find the location of the zero tile in grid and set p->tiles[0] */
+#ifdef __AVX2__
+	__m256i grid, gridmask;
+
+	grid = _mm256_loadu_si256((const __m256i*)&p->grid);
+	gridmask = _mm256_cmpeq_epi8(grid, _mm256_setzero_si256());
+	p->tiles[0] = ctz(_mm256_movemask_epi8(gridmask));
+#elif defined(__SSE2__)
+	__m128i gridlo, gridhi, gridmasklo, gridmaskhi, zero;
+
+	gridlo = _mm_loadu_si128((const __m128i*)&p->grid + 0);
+	gridhi = _mm_loadu_si128((const __m128i*)&p->grid + 1);
+
+	zero = _mm_setzero_si128();
+
+	gridmasklo = _mm_cmpeq_epi8(gridlo, zero);
+	gridmaskhi = _mm_cmpeq_epi8(gridhi, zero);
+
+	p->tiles[0] = ctz(_mm_movemask_epi8(gridmaskhi) << 16 | _mm_movemask_epi8(gridmasklo));
+#else
+	p->tiles[0] = strlen(p->grid);
+#endif
+}
+
+/*
+ * Append cp to slice cps and resize if required.
+ */
+static void
+cps_append(struct cp_slice *cps, const struct compact_puzzle *cp)
+{
+	struct compact_puzzle *newdata;
+	size_t newcap;
+
+	if (cps->len >= cps->cap) {
+		newcap = cps->cap < 64 ? 64 : cps->cap * 13 / 8;
+		newdata = realloc(cps->data, newcap * sizeof *cps->data);
+		if (newdata == NULL) {
+			perror("realloc");
+			exit(EXIT_FAILURE);
+		}
+
+		cps->data = newdata;
+		cps->cap = newcap;
+	}
+
+	cps->data[cps->len++] = *cp;
+}
+
+/*
+ * Initialize the content of cps to an empty slice.
+ */
+static void
+cps_init(struct cp_slice *cps)
+{
+	cps->data = NULL;
+	cps->len = 0;
+	cps->cap = 0;
+}
+
+/*
+ * Release all storage associated with cps.  The content of cps is
+ * undefined afterwards.
+ */
+static void
+cps_free(struct cp_slice *cps)
+{
+	free(cps->data);
+}
+
+/*
+ * Perform all unmasked moves from cp and add them to cps.
+ */
+static void
+expand(struct cp_slice *cps, const struct compact_puzzle *cp)
+{
+	struct puzzle p;
+	struct compact_puzzle ncp;
+	size_t i, n_move;
+	int movemask = cp->lo & MOVE_MASK, zloc;
+	const signed char *moves;
+
+	unpack_puzzle(&p, cp);
+	zloc = zero_location(&p);
+	n_move = move_count(zloc);
+	moves = get_moves(zloc);
+
+	for (i = 0; i < n_move; i++) {
+		if (movemask & 1 << i)
+			continue;
+
+		move(&p, moves[i]);
+		pack_puzzle_masked(&ncp, &p, zloc);
+		move(&p, zloc);
+
+		cps_append(cps, &ncp);
+	}
+}
+
+/*
+ * Given a sorted struct cp_slice cps, coalesce identical puzzles,
+ * oring their move masks.  Since the move mask bits are the least
+ * significatn bits in lo, puzzles differing only by their move
+ * masks end up next to each other.
+ */
+static void
+coalesce(struct cp_slice *cps)
+{
+	struct compact_puzzle *a, *b, *newdata;
+	size_t i, j;
+
+	if (cps->len == 0)
+		return;
+
+	/* invariant: i < j */
+	for (i = 0, j = 1; j < cps->len; j++) {
+		a = &cps->data[i];
+		b = &cps->data[j];
+
+		/* are a and b equal, ignoring the move mask? */
+		if (a->hi == b->hi && ((a->lo ^ b->lo) & ~MOVE_MASK) == 0)
+			a->lo |= b->lo;
+		else
+			cps->data[++i] = *b;
+	}
+
+	cps->len = i + 1;
+
+	/* conserve storage */
+	newdata = realloc(cps->data, cps->len * sizeof *cps->data);
+	if (newdata != NULL) {
+		cps->data = newdata;
+		cps->cap = cps->len;
+	}
+}
+
+/*
+ * Compare two struct compact_puzzle in a manner suitable for qsort.
+ */
+static int
+compare_cp(const void *a_arg, const void *b_arg)
+{
+	const struct compact_puzzle *a = a_arg, *b = b_arg;
+
+	if (a->hi != b->hi)
+		return ((a->hi > b->hi) - (a->hi < b->hi));
+	else
+		return ((a->lo > b->lo) - (a->lo < b->lo));
+}
+
+/*
+ * Expand vertices in cps and store them in new_cps.  Then sort and
+ * coalesce new_cps.
+ */
+void
+do_round(struct cp_slice *restrict new_cps, const struct cp_slice *restrict cps)
+{
+	size_t i;
+
+	for (i = 0; i < cps->len; i++)
+		expand(new_cps, &cps->data[i]);
+
+	qsort(new_cps->data, new_cps->len, sizeof *new_cps->data, compare_cp);
+	coalesce(new_cps);
+}
+
+extern int
+main()
+{
+	struct cp_slice old_cps, new_cps;
+	struct compact_puzzle cp;
+
+	cps_init(&new_cps);
+	pack_puzzle(&cp, &solved_puzzle);
+	cps_append(&new_cps, &cp);
+
+	for (;;) {
+		printf("%zu\n", new_cps.len);
+		old_cps = new_cps;
+		cps_init(&new_cps);
+		do_round(&new_cps, &old_cps);
+		cps_free(&old_cps);
+	}
 }
