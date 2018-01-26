@@ -341,6 +341,7 @@ main()
 
 	for (;;) {
 		printf("%zu\n", new_cps.len);
+		fflush(stdout);
 		old_cps = new_cps;
 		cps_init(&new_cps);
 		do_round(&new_cps, &old_cps);
