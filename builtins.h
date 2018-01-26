@@ -202,6 +202,30 @@ pdep(unsigned mask, unsigned src)
 }
 
 /*
+ * Deposit bits in src into the bits in mask.
+ * 64 bit version.
+ */
+static inline unsigned long long
+pdepll(unsigned long long mask, unsigned long long src)
+{
+#if HAS_PDEP == 1
+	return (_pdep_u64(src, mask));
+#else
+	/* derived from http://wm.ite.pl/articles/pdep-soft-emu.html */
+	unsigned long long result = 0, idx;
+
+	while (mask != 0) {
+		idx = ctzll(mask);
+		result |= (src & 1) << idx;
+		src >>= 1;
+		mask &= mask - 1;
+	}
+
+	return (result);
+#endif
+}
+
+/*
  * Prefetch the cache line in which addr is located.  addr does not need
  * to point to valid data necessarily.
  */
