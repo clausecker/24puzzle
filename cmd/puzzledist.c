@@ -25,18 +25,24 @@
 
 /* puzzledist.c -- compute the number of puzzles with the given distance */
 
+#define _POSIX_C_SOURCE 200809L
+
 #ifdef __SSE__
 # include <immintrin.h>
 #endif
 
 #include <assert.h>
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
 
+#include <unistd.h>
+
 #include "puzzle.h"
 #include "builtins.h"
+#include "random.h"
 
 /*
  * To save storage, we store puzzles using a compact representation with
@@ -329,22 +335,120 @@ do_round(struct cp_slice *restrict new_cps, const struct cp_slice *restrict cps)
 	coalesce(new_cps);
 }
 
+/*
+ * Use samplefile as a prefix for a file name of the form %s.%d suffixed
+ * with round and store up to n_samples randomly selected samples from
+ * cps in it.  The samples are stored as struct cps with the move bits
+ * undefined.  On error, report the error, discard the sample file, and
+ * then continue.  The ordering of cps is destroyed in the process.
+ */
+static void
+do_sampling(const char *samplefile, struct cp_slice *cps, int round, size_t n_samples)
+{
+	FILE *f;
+	struct compact_puzzle tmp;
+	size_t i, j, count;
+	char pathbuf[PATH_MAX];
+
+	snprintf(pathbuf, PATH_MAX, "%s.%d", samplefile, round);
+	f = fopen(pathbuf, "wb");
+	if (f == NULL) {
+		perror(pathbuf);
+		return;
+	}
+
+	/*
+	 * if we have enough space, write all samples.  Otherwise, use a
+	 * partial Fisher-Yates shuffle to generate samples.  Sort
+	 * samples before writing for better cache locality in
+	 * PDB lookup.
+	 */
+	if (n_samples >= cps->len)
+		n_samples = cps->len;
+	else {
+		// TODO eliminate modulo bias
+		for (i = 0; i < n_samples; i++) {
+			j = i + xorshift() % (cps->len - i);
+			tmp = cps->data[i];
+			cps->data[i] = cps->data[j];
+			cps->data[j] = tmp;
+		}
+
+		qsort(cps->data, cps->len, sizeof *cps->data, compare_cp);
+	}
+
+	count = fwrite(cps->data, sizeof *cps->data, n_samples, f);
+	if (count != cps->len) {
+		if (ferror(f))
+			perror(pathbuf);
+		else
+			fprintf(stderr, "%s: end of file encountered while writing\n", pathbuf);
+
+		fclose(f);
+		remove(pathbuf);
+		return;
+	}
+
+	fclose(f);
+}
+
+static void
+usage(const char *argv0)
+{
+	fprintf(stderr, "Usage: %s [-l limit] [-f filename] [-n n_samples] [-s seed]\n", argv0);
+	exit(EXIT_FAILURE);
+}
+
 extern int
-main()
+main(int argc, char *argv[])
 {
 	struct cp_slice old_cps, new_cps;
 	struct compact_puzzle cp;
+	int optchar, i, limit = INT_MAX;
+	size_t n_samples = 1000000;
+	const char *samplefile = NULL;
+
+	while (optchar = getopt(argc, argv, "f:l:n:s:"), optchar != -1)
+		switch (optchar) {
+		case 'f':
+			samplefile = optarg;
+			break;
+
+		case 'l':
+			limit = atoi(optarg);
+			break;
+
+		case 'n':
+			n_samples = strtoull(optarg, NULL, 0);
+			break;
+
+		case 's':
+			random_seed = strtoull(optarg, NULL, 0);
+			break;
+
+		default:
+			usage(argv[0]);
+			break;
+		}
+
+	if (argc != optind)
+		usage(argv[0]);
 
 	cps_init(&new_cps);
 	pack_puzzle(&cp, &solved_puzzle);
 	cps_append(&new_cps, &cp);
 
-	for (;;) {
+	for (i = 0; i <= limit; i++) {
 		printf("%zu\n", new_cps.len);
 		fflush(stdout);
+
 		old_cps = new_cps;
 		cps_init(&new_cps);
+
 		do_round(&new_cps, &old_cps);
+		if (samplefile != NULL)
+			do_sampling(samplefile, &new_cps, i, n_samples);
+
 		cps_free(&old_cps);
 	}
 }
