@@ -317,7 +317,7 @@ compare_cp(const void *a_arg, const void *b_arg)
  * Expand vertices in cps and store them in new_cps.  Then sort and
  * coalesce new_cps.
  */
-void
+static void
 do_round(struct cp_slice *restrict new_cps, const struct cp_slice *restrict cps)
 {
 	size_t i;
