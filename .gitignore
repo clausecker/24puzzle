@@ -19,6 +19,7 @@ cmd/pdbsearch
 cmd/puzzledist
 cmd/puzzlegen
 test/bitpdbtest
+test/etatest
 test/hitanalysis
 test/indextest
 test/morphtest
