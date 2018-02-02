@@ -374,7 +374,7 @@ do_sampling(const char *samplefile, struct cp_slice *cps, int round, size_t n_sa
 			cps->data[j] = tmp;
 		}
 
-		qsort(cps->data, cps->len, sizeof *cps->data, compare_cp);
+		qsort(cps->data, n_samples, sizeof *cps->data, compare_cp);
 	}
 
 	count = fwrite(cps->data, sizeof *cps->data, n_samples, f);
