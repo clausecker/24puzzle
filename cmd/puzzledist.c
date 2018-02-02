@@ -378,7 +378,7 @@ do_sampling(const char *samplefile, struct cp_slice *cps, int round, size_t n_sa
 	}
 
 	count = fwrite(cps->data, sizeof *cps->data, n_samples, f);
-	if (count != cps->len) {
+	if (count != n_samples) {
 		if (ferror(f))
 			perror(pathbuf);
 		else
@@ -437,8 +437,9 @@ main(int argc, char *argv[])
 	cps_init(&new_cps);
 	pack_puzzle(&cp, &solved_puzzle);
 	cps_append(&new_cps, &cp);
+	do_sampling(samplefile, &new_cps, 0, n_samples);
 
-	for (i = 0; i <= limit; i++) {
+	for (i = 1; i <= limit; i++) {
 		printf("%zu\n", new_cps.len);
 		fflush(stdout);
 
