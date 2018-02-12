@@ -110,6 +110,23 @@ print_histogram(off_t histogram[PDB_HISTOGRAM_LEN], off_t size)
 }
 
 /*
+ * Compute eta from the histogram and print it out.
+ */
+static void
+print_eta(off_t histogram[PDB_HISTOGRAM_LEN], off_t size)
+{
+	double eta = 0.0, invb = 1.0 / B;
+	size_t i;
+
+	for (i = 1; i <= PDB_HISTOGRAM_LEN; i++)
+		eta = eta * invb + (double)histogram[PDB_HISTOGRAM_LEN - i];
+
+	eta /= (double)size;
+
+	printf("eta = %.20e\n", eta);
+}
+
+/*
  * Print a distribution of UNREACHED runs in the PDB.  Then compute
  * entropies and print how long a PDB with run-length encoded blanks
  * would be.  Do nothing if no UNREACHED entries occur.
@@ -221,6 +238,7 @@ main(int argc, char *argv[])
 	else {
 		printf("size %zuB\n\n", size);
 		print_histogram(histogram, size);
+		print_eta(histogram, size);
 		if (histogram[UNREACHED] != 0)
 			print_runs(histogram, size, runs, n_runs);
 	}
