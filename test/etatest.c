@@ -87,12 +87,6 @@ static double eqdist_sizes[] = {
 /* size of the eqdist_sizes array */
 enum { EQDIST_SIZES_LEN = sizeof eqdist_sizes / sizeof eqdist_sizes[0] };
 
-/*
- * the branching factor of IDA* without FSM pruning but omission of
- * moves that immediately undo the previous move.  This is equal to
- * sqrt(2 + sqrt(13)).
- */
-#define BRANCHING_FACTOR 2.367604543724308286
 
 /*
  * Accumulate samples from sample file f into histogramm.  On IO error,
@@ -127,7 +121,7 @@ do_samples(size_t histogram[PDB_HISTOGRAM_LEN], FILE *samplefile, struct pdb_cat
 static double
 partial_eta(size_t histogram[PDB_HISTOGRAM_LEN], size_t n_samples, int d, FILE *f)
 {
-	double eta = 0, invb = 1.0 / BRANCHING_FACTOR;
+	double eta = 0, invb = 1.0 / B;
 	size_t i, end;
 
 	for (i = 1; i <= PDB_HISTOGRAM_LEN; i++)
