@@ -122,7 +122,6 @@ do_sample(struct sample_config *cfg)
 
 
 	old_histogram_entry = atomic_fetch_add(cfg->histogram + path.pathlen, 1);
-	// DEBUG
 	if (!quiet)
 		fprintf(stderr, "Distance %3zu: %zu samples\n", path.pathlen, old_histogram_entry + 1);
 
@@ -155,6 +154,8 @@ samples_worker(void *cfgarg)
 		if (old_puzzles_taken + CHUNK_SIZE > cfg->n_puzzle) {
 			n_chunk = cfg->n_puzzle - old_puzzles_taken;
 			cfg->puzzles_taken -= CHUNK_SIZE - n_chunk;
+			if (n_chunk == 0)
+				break;
 		} else
 			n_chunk = CHUNK_SIZE;
 
@@ -260,7 +261,7 @@ write_statistics(const char *prefix, size_t histogram[PDB_HISTOGRAM_LEN], size_t
 		if (histogram[i] == 0)
 			continue;
 
-		fprintf(statfile, "%3zu: %20zu/%20zu = %24.18f\n",
+		fprintf(statfile, "%3zu: %20zu/%20zu = %24.18e\n",
 		    i, histogram[i], n_puzzle, histogram[i] * scale);
 	}
 
