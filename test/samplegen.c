@@ -27,17 +27,21 @@
 
 #define _POSIX_C_SOURCE 200809L
 #include <assert.h>
+#include <errno.h>
 #include <limits.h>
 #include <signal.h>
 #include <stdatomic.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <pthreads.h>
+#include <pthread.h>
 
 #include "parallel.h"
 #include "puzzle.h"
+#include "random.h"
+#include "search.h"
 #include "compact.h"
 #include "catalogue.h"
 
@@ -75,7 +79,7 @@ open_sample_files(FILE *sample_files[PDB_HISTOGRAM_LEN], const char *prefix,
 	for (i = 0; i <= distance_limit; i++) {
 		snprintf(pathbuf, PATH_MAX, "%s.%d", prefix, i);
 		sample_files[i] = fopen(pathbuf, "wb");
-		if (samples_files[i] == NULL) {
+		if (sample_files[i] == NULL) {
 			perror(pathbuf);
 			exit(EXIT_FAILURE);
 		}
@@ -88,9 +92,50 @@ struct sample_config {
 	size_t n_puzzle, n_saved;
 	int distance_limit;
 
-	_Atomic size_t puzzles_done;
+	_Atomic size_t puzzles_taken, puzzles_done;
 	_Atomic size_t histogram[PDB_HISTOGRAM_LEN];
 };
+
+/*
+ * Collect a single sample and add it to the structures in cfg.  Only
+ * collect samples whose distance is less than cfg->distance_limit.
+ * Only save up to cfg->n_saved samples per sample file.
+ */
+static void
+do_sample(struct sample_config *cfg)
+{
+	struct path path;
+	struct puzzle p;
+	struct compact_puzzle cp;
+	size_t old_histogram_entry, count;
+	int heu;
+
+	random_puzzle(&p);
+	heu = catalogue_hval(cfg->cat, &p);
+
+	if (heu > cfg->distance_limit)
+		return;
+
+	search_ida(cfg->cat, &p, &path, NULL);
+	if (path.pathlen > cfg->distance_limit)
+		return;
+
+
+	old_histogram_entry = atomic_fetch_add(cfg->histogram + path.pathlen, 1);
+	// DEBUG
+	if (!quiet)
+		fprintf(stderr, "Distance %3zu: %zu samples\n", path.pathlen, old_histogram_entry + 1);
+
+	if (old_histogram_entry >= cfg->n_saved)
+		return;
+
+	pack_puzzle(&cp, &p);
+	count = fwrite(&cp, sizeof cp, 1, cfg->sample_files[path.pathlen]);
+	if (count != 1) {
+		perror("fwrite");
+		interrupted = 1;
+	}
+}
 
 /*
  * One thread gathering samples.
@@ -98,7 +143,28 @@ struct sample_config {
 static void *
 samples_worker(void *cfgarg)
 {
+	/* do that many puzzles in one go */
+	enum { CHUNK_SIZE = 1000 };
+
 	struct sample_config *cfg = cfgarg;
+	size_t old_puzzles_taken, i, n_chunk;
+
+	while (!interrupted) {
+		/* fetch up to CHUNK_SIZE puzzles */
+		old_puzzles_taken = atomic_fetch_add(&cfg->puzzles_taken, CHUNK_SIZE);
+		if (old_puzzles_taken + CHUNK_SIZE > cfg->n_puzzle) {
+			n_chunk = cfg->n_puzzle - old_puzzles_taken;
+			cfg->puzzles_taken -= CHUNK_SIZE - n_chunk;
+		} else
+			n_chunk = CHUNK_SIZE;
+
+		for (i = 0; i < n_chunk && !interrupted; i++)
+			do_sample(cfgarg);
+
+		cfg->puzzles_done += i;
+	}
+
+	return (NULL);
 }
 
 /*
@@ -117,7 +183,6 @@ generate_samples(size_t histogram[PDB_HISTOGRAM_LEN],
 {
 	struct sample_config cfg;
 	pthread_t pool[PDB_MAX_JOBS];
-	size_t j;
 	int i, jobs = pdb_jobs, error;
 
 	cfg.sample_files = sample_files;
@@ -126,6 +191,7 @@ generate_samples(size_t histogram[PDB_HISTOGRAM_LEN],
 	cfg.n_saved = n_saved;
 	cfg.distance_limit = distance_limit;
 
+	cfg.puzzles_taken = 0;
 	cfg.puzzles_done = 0;
 	memset((size_t *)cfg.histogram, 0, sizeof cfg.histogram);
 
@@ -172,6 +238,33 @@ generate_samples(size_t histogram[PDB_HISTOGRAM_LEN],
 }
 
 static void
+write_statistics(const char *prefix, size_t histogram[PDB_HISTOGRAM_LEN], size_t n_puzzle)
+{
+	FILE *statfile;
+	double scale = 1.0 / n_puzzle;
+	size_t i;
+	char pathbuf[PATH_MAX];
+
+	snprintf(pathbuf, sizeof pathbuf, "%s.stat", prefix);
+	statfile = fopen(pathbuf, "w");
+	if (statfile == NULL) {
+		perror(pathbuf);
+		exit(EXIT_FAILURE);
+	}
+
+	fprintf(statfile, "%zu\n\n", n_puzzle);
+	for (i = 0; i < PDB_HISTOGRAM_LEN; i++) {
+		if (histogram[i] == 0)
+			continue;
+
+		fprintf(statfile, "%3zu: %20zu/%20zu = %24.18f\n",
+		    i, histogram[i], n_puzzle, histogram[i] * scale);
+	}
+
+	fclose(statfile);
+}
+
+static void
 usage(const char *argv0)
 {
 	fprintf(stderr, "Usage: %s [-iq] [-n n_samples] [-N saved_samples] [-s seed]"
@@ -182,13 +275,13 @@ usage(const char *argv0)
 extern int
 main(int argc, char *argv[])
 {
-	FILE *messages = stderr, *sample_files[PDB_HISTOGRAM_LEN];
+	FILE *sample_files[PDB_HISTOGRAM_LEN];
 	struct pdb_catalogue *cat;
 	size_t n_puzzle = 1000, n_saved = SIZE_MAX, histogram[PDB_HISTOGRAM_LEN];
 	int i, optchar, catflags = 0, distance_limit = PDB_HISTOGRAM_LEN - 1;
 	char *pdbdir = NULL, *prefix = NULL;
 
-	while (optchar = getopt(argc, argv, "N:d:f:ij:l:n:qs:"), optchar != -1) {
+	while (optchar = getopt(argc, argv, "N:d:f:ij:l:n:qs:"), optchar != -1)
 		switch (optchar) {
 		case 'N':
 			n_saved = strtoll(optarg, NULL, 0);
@@ -228,7 +321,6 @@ main(int argc, char *argv[])
 			break;
 
 		case 'q':
-			messages = NULL;
 			quiet = 1;
 			break;
 
@@ -243,7 +335,7 @@ main(int argc, char *argv[])
 	if (argc != optind + 1)
 		usage(argv[0]);
 
-	cat = catalogue_load(argv[optind], pdbdir, catflags, messages);
+	cat = catalogue_load(argv[optind], pdbdir, catflags, quiet ? NULL : stderr);
 	if (cat == NULL) {
 		perror("catalogue_load");
 		return (EXIT_FAILURE);
