@@ -217,12 +217,15 @@ timediff(struct timespec begin, struct timespec end)
 
 /*
  * Try to find a solution for parg wit the IDA* algorithm using the
- * disjoint pattern databases pdbs as heuristic functions.  Store the
- * path found in path and return the number of nodes expanded.  If
- * f is not NULL, print diagnostic messages to f.
+ * disjoint pattern databases pdbs as heuristic functions.  If the
+ * goal is more than limit steps away, abort the search and set
+ * path->pathlen = SEARCH_NO_PATH.  Store the path found in path and
+ * return the number of nodes expanded.  If f is not NULL, print
+ * diagnostic messages to f.
  */
 extern unsigned long long
-search_ida(struct pdb_catalogue *cat, const struct puzzle *p, struct path *path, FILE *f)
+search_ida_bounded(struct pdb_catalogue *cat, const struct puzzle *p,
+    size_t limit, struct path *path, FILE *f)
 {
 	struct search_node *spath;
 	struct timespec begin, round_begin, round_end, duration;
@@ -279,7 +282,7 @@ search_ida(struct pdb_catalogue *cat, const struct puzzle *p, struct path *path,
 		dur = duration.tv_sec + duration.tv_nsec / 1000000000.0;
 		fprintf(f, "Spent %.3f seconds computing the last round, %.2f nodes/s\n",
 		    dur, expanded / dur);
-	} while (unfinished);
+	} while (unfinished && bound <= limit);
 
 	if (f != NULL)
 		fprintf(f, "Expanded %llu nodes in total.\n", total_expanded);
@@ -291,12 +294,25 @@ search_ida(struct pdb_catalogue *cat, const struct puzzle *p, struct path *path,
 		    dur, total_expanded / dur);
 	}
 
-	/* copy spath to path */
-	path->pathlen = bound;
-	for (i = 0; i < bound; i++)
-		path->moves[i] = spath[i + 2].zloc;
+	if (bound <= limit) {
+		/* copy spath to path */
+		path->pathlen = bound;
+		for (i = 0; i < bound; i++)
+			path->moves[i] = spath[i + 2].zloc;
+	} else
+		path->pathlen = SEARCH_NO_PATH;		
 
 	free(spath);
 
 	return (total_expanded);
+}
+
+/*
+ * Run search_ida_bounded but without a bound.
+ */
+extern unsigned long long
+search_ida(struct pdb_catalogue *cat, const struct puzzle *p,
+    struct path *path, FILE *f)
+{
+	return (search_ida_bounded(cat, p, SEARCH_PATH_LEN, path, f));
 }

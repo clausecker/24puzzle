@@ -116,8 +116,8 @@ do_sample(struct sample_config *cfg)
 	if (heu > cfg->distance_limit)
 		return;
 
-	search_ida(cfg->cat, &p, &path, NULL);
-	if (path.pathlen > cfg->distance_limit)
+	search_ida_bounded(cfg->cat, &p, cfg->distance_limit, &path, NULL);
+	if (path.pathlen == SEARCH_NO_PATH || path.pathlen > cfg->distance_limit)
 		return;
 
 
@@ -201,7 +201,7 @@ generate_samples(size_t histogram[PDB_HISTOGRAM_LEN],
 	if (jobs == 1) {
 		samples_worker(&cfg);
 
-		return (cfg.puzzles_done);
+		goto done;
 	}
 
 	/* spawn threads */
@@ -233,6 +233,9 @@ generate_samples(size_t histogram[PDB_HISTOGRAM_LEN],
 		perror("pthread_join");
 		abort();
 	}
+
+done:
+	memcpy(histogram, cfg.histogram, sizeof cfg.histogram);
 
 	return (cfg.puzzles_done);
 }
