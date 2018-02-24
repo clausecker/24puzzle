@@ -125,7 +125,7 @@ do_sample(struct sample_config *cfg)
 	if (!quiet)
 		fprintf(stderr, "Distance %3zu: %zu samples\n", path.pathlen, old_histogram_entry + 1);
 
-	if (old_histogram_entry >= cfg->n_saved)
+	if (old_histogram_entry >= cfg->n_saved || cfg->sample_files[path.pathlen] == NULL)
 		return;
 
 	pack_puzzle(&cp, &p);
@@ -241,6 +241,10 @@ done:
 	return (cfg.puzzles_done);
 }
 
+/*
+ * Write statistics about the samples generated.  Save them to prefix.stat; if
+ * prefix is NULL, instead print them to stdout.
+ */
 static void
 write_statistics(const char *prefix, size_t histogram[PDB_HISTOGRAM_LEN], size_t n_puzzle)
 {
@@ -249,12 +253,15 @@ write_statistics(const char *prefix, size_t histogram[PDB_HISTOGRAM_LEN], size_t
 	size_t i;
 	char pathbuf[PATH_MAX];
 
-	snprintf(pathbuf, sizeof pathbuf, "%s.stat", prefix);
-	statfile = fopen(pathbuf, "w");
-	if (statfile == NULL) {
-		perror(pathbuf);
-		exit(EXIT_FAILURE);
-	}
+	if (prefix != NULL) {
+		snprintf(pathbuf, sizeof pathbuf, "%s.stat", prefix);
+		statfile = fopen(pathbuf, "w");
+		if (statfile == NULL) {
+			perror(pathbuf);
+			exit(EXIT_FAILURE);
+		}
+	} else
+		statfile = stdout;
 
 	fprintf(statfile, "%zu\n\n", n_puzzle);
 	for (i = 0; i < PDB_HISTOGRAM_LEN; i++) {
@@ -265,7 +272,8 @@ write_statistics(const char *prefix, size_t histogram[PDB_HISTOGRAM_LEN], size_t
 		    i, histogram[i], n_puzzle, histogram[i] * scale);
 	}
 
-	fclose(statfile);
+	if (prefix != NULL)
+		fclose(statfile);
 }
 
 static void
@@ -345,7 +353,10 @@ main(int argc, char *argv[])
 		return (EXIT_FAILURE);
 	}
 
-	open_sample_files(sample_files, prefix, distance_limit);
+	memset(sample_files, 0, sizeof sample_files);
+	if (prefix != NULL)
+		open_sample_files(sample_files, prefix, distance_limit);
+
 	memset(histogram, 0, sizeof histogram);
 
 	signal(SIGHUP, interrupt_handler);
@@ -353,15 +364,21 @@ main(int argc, char *argv[])
 	signal(SIGQUIT, interrupt_handler);
 	signal(SIGTERM, interrupt_handler);
 
-	if (!quiet)
-		fprintf(stderr, "Generating %zu samples, storing data to %s...\n",
-		    n_puzzle, prefix);
+	if (!quiet) {
+		fprintf(stderr, "Generating %zu samples, ", n_puzzle);
+		if (prefix != NULL)
+			fprintf(stderr, "storing data to %s...\n", prefix);
+		else
+			fprintf(stderr, "discarding data\n");
+	}
 
 	n_puzzle = generate_samples(histogram, sample_files, cat,
 	    distance_limit, n_puzzle, n_saved);
 
-	for (i = 0; i <= distance_limit; i++)
-		fclose(sample_files[i]);
+	if (prefix != NULL) {
+		for (i = 0; i <= distance_limit; i++)
+			fclose(sample_files[i]);
+	}
 
 	write_statistics(prefix, histogram, n_puzzle);
 
