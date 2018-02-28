@@ -20,7 +20,7 @@ BINARIES=cmd/pdbstats test/indextest util/rankgen test/ranktest cmd/genpdb \
 	test/qualitytest test/hitanalysis cmd/parsearch cmd/pdbsearch \
 	cmd/pdbcount test/bitpdbtest test/morphtest cmd/pdbmatch \
 	cmd/pdbquality test/walkdist cmd/puzzledist test/etatest \
-	test/samplegen
+	test/samplegen test/statmerge
 
 all: $(BINARIES) 24puzzle.a
 
@@ -65,6 +65,7 @@ test/morphtest: test/morphtest.o 24puzzle.a
 test/walkdist: test/walkdist.o 24puzzle.a
 test/etatest: test/etatest.o 24puzzle.a
 test/samplegen: test/samplegen.o 24puzzle.a
+test/statmerge: test/statmerge.o
 
 .c.o:
 	@echo "CC	$<"

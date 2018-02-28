@@ -27,6 +27,7 @@ test/qualitytest
 test/rankcount
 test/ranktest
 test/samplegen
+test/statmerge
 test/walkdist
 util/rankgen
 
