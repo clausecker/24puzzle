@@ -97,10 +97,12 @@ extern int	pdb_store(FILE *, struct patterndb *);
 /* various */
 extern int	pdb_generate(struct patterndb *, FILE *);
 extern int	pdb_verify(struct patterndb *, FILE *);
-extern int	pdb_histogram(size_t[PDB_HISTOGRAM_LEN], struct patterndb *, int);
 extern void	pdb_identify(struct patterndb *);
 extern void	pdb_diffcode(struct patterndb *, unsigned char[]);
-extern long long int	pdb_quality(struct patterndb *);
+
+extern int	pdb_histogram(size_t[PDB_HISTOGRAM_LEN], struct patterndb *, int);
+extern size_t	pdb_quality(const size_t[PDB_HISTOGRAM_LEN]);
+extern double	pdb_partial_eta(const size_t[PDB_HISTOGRAM_LEN]);
 
 /*
  * Return a pointer to the PDB entry for idx.

@@ -45,6 +45,7 @@ main(int argc, char *argv[])
 {
 	struct patterndb *pdb;
 	FILE *pdbfile;
+	size_t histogram[PDB_HISTOGRAM_LEN];
 	tileset ts = DEFAULT_TILESET;
 	int optchar, jobs = pdb_jobs;
 	char tsstr[TILESET_LIST_LEN];
@@ -92,7 +93,8 @@ main(int argc, char *argv[])
 
 	fclose(pdbfile);
 	tileset_list_string(tsstr, ts);
-	printf("%lld %s\n", pdb_quality(pdb), tsstr);
+	pdb_histogram(histogram, pdb, PDB_HISTOGRAM_WEIGHTED);
+	printf("%zu %s\n", pdb_quality(histogram), tsstr);
 
 	return (EXIT_SUCCESS);
 }

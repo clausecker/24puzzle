@@ -36,22 +36,39 @@
 #include "parallel.h"
 
 /*
- * Compute the quality of PDB.  The quality of a PDB is the sum of all h
- * values in the PDB weighted by the size of the zero tile region.  This
- * number is proportional to the average h value and can be used to find
- * good pattern databases.
+ * From a PDB histogram, compute the quality of the PDB.  This is the
+ * sum of all h in the PDB, weighted by the size of the zero tile
+ * region.  This number is proportional to the average h value and can
+ * be used to find good pattern databases.
  */
-extern long long int
-pdb_quality(struct patterndb *pdb)
+extern size_t
+pdb_quality(const size_t histogram[PDB_HISTOGRAM_LEN])
 {
-	long long int quality;
-	size_t i, histogram[PDB_HISTOGRAM_LEN];
+	long long int quality = 0;
+	size_t i;
 
-	pdb_histogram(histogram, pdb, PDB_HISTOGRAM_WEIGHTED);
-
-	quality = 0;
 	for (i = 0; i < PDB_HISTOGRAM_LEN; i++)
 		quality += i * histogram[i];
 
 	return (quality);
+}
+
+/*
+ * Compute the partial eta value corresponding to a given PDB histogram.
+ */
+extern double
+pdb_partial_eta(const size_t histogram[PDB_HISTOGRAM_LEN])
+{
+	double eta = 0.0, invb = 1.0 / B;
+	size_t i, sum = 0;
+
+	for (i = 0; i < PDB_HISTOGRAM_LEN; i++)
+		sum += histogram[i];
+
+	for (i = 1; i <= PDB_HISTOGRAM_LEN; i++)
+		eta = histogram[PDB_HISTOGRAM_LEN - i] + eta * invb;
+
+	eta /= (double)sum;
+
+	return (eta);
 }
