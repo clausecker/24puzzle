@@ -36,36 +36,6 @@
 #include "parallel.h"
 
 /*
- * Configuration for pdb_quality.  quality is the accumulator for the
- * pattern database quality.
- */
-struct pdbquality_config {
-	struct parallel_config pcfg;
-	atomic_llong quality;
-};
-
-static void
-quality_worker(void *cfgarg, struct index *idx)
-{
-	struct pdbquality_config *cfg = cfgarg;
-	struct patterndb *pdb = cfg->pcfg.pdb;
-	long long int quality = 0, accum;
-	size_t n_eqclass = eqclass_count(&pdb->aux, idx->maprank);
-	tileset zreg;
-
-	for (idx->eqidx = 0; idx->eqidx < n_eqclass; idx->eqidx++) {
-		accum = 0;
-		for (idx->pidx = 0; idx->pidx < pdb->aux.n_perm; idx->pidx++)
-			accum += pdb_lookup(pdb, idx);
-
-		zreg = eqclass_from_index(&pdb->aux, idx);
-		quality += accum * tileset_count(zreg);
-	}
-
-	cfg->quality += quality;
-}
-
-/*
  * Compute the quality of PDB.  The quality of a PDB is the sum of all h
  * values in the PDB weighted by the size of the zero tile region.  This
  * number is proportional to the average h value and can be used to find
@@ -74,13 +44,14 @@ quality_worker(void *cfgarg, struct index *idx)
 extern long long int
 pdb_quality(struct patterndb *pdb)
 {
-	struct pdbquality_config cfg;
+	long long int quality;
+	size_t i, histogram[PDB_HISTOGRAM_LEN];
 
-	cfg.pcfg.pdb = pdb;
-	cfg.pcfg.worker = quality_worker;
-	cfg.quality = 0;
+	pdb_histogram(histogram, pdb, PDB_HISTOGRAM_WEIGHTED);
 
-	pdb_iterate_parallel(&cfg.pcfg);
+	quality = 0;
+	for (i = 0; i < PDB_HISTOGRAM_LEN; i++)
+		quality += i * histogram[i];
 
-	return (cfg.quality);
+	return (quality);
 }
