@@ -36,7 +36,7 @@
 static void
 usage(const char *argv0)
 {
-	fprintf(stderr, "Usage: %s [-t tile,...] [-j nproc] file.pdb\n", argv0);
+	fprintf(stderr, "Usage: %s [-w] [-t tile,...] [-j nproc] file.pdb\n", argv0);
 	exit(EXIT_FAILURE);
 }
 
@@ -47,10 +47,10 @@ main(int argc, char *argv[])
 	FILE *pdbfile;
 	size_t histogram[PDB_HISTOGRAM_LEN];
 	tileset ts = DEFAULT_TILESET;
-	int optchar, jobs = pdb_jobs;
+	int optchar, jobs = pdb_jobs, histogram_flags = PDB_HISTOGRAM_WEIGHTED;
 	char tsstr[TILESET_LIST_LEN];
 
-	while (optchar = getopt(argc, argv, "j:t:"), optchar != -1)
+	while (optchar = getopt(argc, argv, "j:t:w"), optchar != -1)
 		switch (optchar) {
 		case 'j':
 			jobs = atoi(optarg);
@@ -68,6 +68,10 @@ main(int argc, char *argv[])
 				return (EXIT_FAILURE);
 			}
 
+			break;
+
+		case 'w':
+			histogram_flags &= ~PDB_HISTOGRAM_WEIGHTED;
 			break;
 
 		default:
@@ -93,8 +97,8 @@ main(int argc, char *argv[])
 
 	fclose(pdbfile);
 	tileset_list_string(tsstr, ts);
-	pdb_histogram(histogram, pdb, PDB_HISTOGRAM_WEIGHTED);
-	printf("%zu %s\n", pdb_quality(histogram), tsstr);
+	pdb_histogram(histogram, pdb, histogram_flags);
+	printf("%zu %.18e %s\n", pdb_quality(histogram), pdb_partial_eta(histogram), tsstr);
 
 	return (EXIT_SUCCESS);
 }

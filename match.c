@@ -90,7 +90,7 @@ qualities_load(const char *qualityfile)
 		goto fail2;
 	}
 
-	while (count = fscanf(f, "%llu %99s\n", &quality, tsstr), count == 2) {
+	while (count = fscanf(f, "%llu %*e %99s\n", &quality, tsstr), count == 2) {
 		if (tileset_parse(&ts, tsstr) != 0) {
 			error = EINVAL;
 			goto fail1;
