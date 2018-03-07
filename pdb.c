@@ -67,6 +67,28 @@ const unsigned pdbcount[TILE_COUNT] = {
 };
 
 /*
+ * Allocate a struct patterndb for tileset ts and fill in all fields as
+ * appropriate.  Do not allocate any backing storage.  Return NULL in
+ * case of failure.  This function is mainly useful in case you want to
+ * use pdb_iterate_parallel without actually having an underlying PDB.
+ */
+extern struct patterndb *
+pdb_dummy(tileset ts)
+{
+	struct patterndb *pdb;
+
+	pdb = malloc(sizeof *pdb);
+	if (pdb == NULL)
+		return (NULL);
+
+	make_index_aux(&pdb->aux, ts);
+	pdb->mapped = 0;
+	pdb->data = NULL;
+
+	return (pdb);
+}
+
+/*
  * Allocate storage for a pattern database representing ts.  If storage
  * is insufficient, return NULL and set errno.  The entries in PDB are
  * undefined initially.  Use pdb_clear() to set the patterndb to a
@@ -75,15 +97,11 @@ const unsigned pdbcount[TILE_COUNT] = {
 extern struct patterndb *
 pdb_allocate(tileset ts)
 {
-	struct patterndb *pdb;
+	struct patterndb *pdb = pdb_dummy(ts);
 	int error;
 
-	pdb = malloc(sizeof *pdb);
 	if (pdb == NULL)
 		return (NULL);
-
-	make_index_aux(&pdb->aux, ts);
-	pdb->mapped = 0;
 
 	pdb->data = malloc(search_space_size(&pdb->aux));
 	if (pdb->data == NULL) {
@@ -196,7 +214,7 @@ pdb_store(FILE *pdbfile, struct patterndb *pdb)
 extern struct patterndb *
 pdb_mmap(tileset ts, int pdbfd, int mapflags)
 {
-	struct patterndb *pdb;
+	struct patterndb *pdb = pdb_dummy(ts);
 	int prot, flags, error;
 
 	switch (mapflags) {
@@ -220,11 +238,9 @@ pdb_mmap(tileset ts, int pdbfd, int mapflags)
 		return (NULL);
 	}
 
-	pdb = malloc(sizeof *pdb);
 	if (pdb == NULL)
 		return (NULL);
 
-	make_index_aux(&pdb->aux, ts);
 	pdb->mapped = 1;
 	pdb->data = mmap(NULL, search_space_size(&pdb->aux), prot, flags, pdbfd, 0);
 	if (pdb->data == MAP_FAILED) {
