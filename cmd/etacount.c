@@ -25,13 +25,17 @@
 
 /* etacount.c -- Compute eta by counting */
 
+#define _POSIX_C_SOURCE 200809L
+#include <assert.h>
 #include <stdio.h>
 #include <string.h>
+#include <unistd.h>
 
 #include "pdb.h"
 #include "puzzle.h"
 #include "parallel.h"
 #include "index.h"
+#include "heuristic.h"
 
 /*
  * This function computes the partial eta value for each cohort.  The
@@ -42,11 +46,15 @@
 double *
 make_cohort_etas(struct patterndb *pdb)
 {
-	size_t i, j, n_tables = eqclass_total(&pdb->aux);
+	size_t i, j, n_tables;
 	size_t histogram[PDB_HISTOGRAM_LEN];
 	double eta, *etas, scale;
 	const atomic_uchar *table;
 
+	// TODO: Adapt code to work with APDBs, not just ZPDBs.
+	assert(tileset_has(pdb->aux.ts, ZERO_TILE));
+
+	n_tables = eqclass_total(&pdb->aux);
 	etas = malloc(n_tables * sizeof *etas);
 	if (etas == NULL)
 		return (NULL);
@@ -70,9 +78,127 @@ make_cohort_etas(struct patterndb *pdb)
 	return (etas);
 }
 
+/*
+ * Combine cohort eta vectors etas_a and etas_b into a vector containing
+ * partial eta values for all possible combinations of the two.
+ */
+static double *
+make_half_etas(const double *restrict etas_a, const double *restrict etas_b)
+{
+	struct patterndb *pdbdummy;
+	size_t n_tables;
+	double *etas;
+
+	pdbdummy = pdb_dummy(tileset_least(6 + 6 + 1));
+	if (pdbdummy == NULL)
+		return (NULL);
+
+	n_tables = eqclass_total(&pdbdummy->aux);
+	etas = malloc(n_tables * sizeof *etas);
+	if (etas == NULL) {
+		pdb_free(pdbdummy);
+		return (NULL);
+	}
+
+	for (i = 0; i < n_tables; i++) {
+		// TODO
+	}
+
+}
+
 static void
 usage(const char *argv0)
 {
-	fprintf(stderr, "Usage: %s [-f prefix] [-d pdbdir] [-j nproc] tileset tileset tileset tileset\n", argv0);
+	fprintf(stderr, "Usage: %s [-d pdbdir] [-j nproc] tileset tileset tileset tileset\n", argv0);
 	exit(EXIT_FAILURE);
+}
+
+extern int
+main(int argc, char *argv[])
+{
+	struct heuristic heu;
+
+	double *cohort_etas[4], *half_etas[2], eta;
+	size_t i;
+	int optchar;
+	tileset ts, accum = EMPTY_TILESET;
+	const char *pdbdir;
+
+	while (optchar = getopt(argc, argv, "d:j:"), optchar != -1)
+		switch (optchar) {
+		case 'd':
+			pdbdir = optarg;
+			break;
+
+		case 'j':
+			pdb_jobs = atoi(optarg);
+			if (pdb_jobs < 1 || pdb_jobs > PDB_MAX_JOBS) {
+				fprintf(stderr, "Number of threads must be between 1 and %d\n",
+				    PDB_MAX_JOBS);
+				return (EXIT_FAILURE);
+			}
+
+			break;
+
+		default:
+			usage(argv[0]);
+		}
+
+	if (argc - optind != 4)
+		usage(argv[0]);
+
+	for (i = 0; i < 4; i++) {
+		if (tileset_parse(&ts, argv[optind + i]) != 0) {
+			fprintf(stderr, "Cannot parse tile set: %s\n", argv[optind + i]);
+			return (EXIT_FAILURE);
+		}
+
+		if (tileset_count(tileset_remove(ts, ZERO_TILE)) != 6) {
+			fprintf(stderr, "Tileset needs to have six tiles: %s\n", argv[optind + i]);
+			return (EXIT_FAILURE);
+		}
+
+		if (!tileset_empty(tileset_remove(tileset_intersect(ts, accum), ZERO_TILE))) {
+			fprintf(stderr, "Tilesets must not overlap.\n");
+			return (EXIT_FAILURE);
+		}
+
+		accum = tileset_union(accum, ts);
+
+		if (heu_open(&heu, pdbdir, ts, tileset_has(ts, ZERO_TILE) ? "zpdb" : "pdb",
+		    HEU_CREATE | HEU_NOMORPH | HEU_VERBOSE) != 0) {
+			perror("heu_open");
+			return (EXIT_FAILURE);
+		}
+
+		assert(heu.morphism == 0);
+		cohort_etas[i] = make_cohort_etas((struct patterndb *)heu.provider);
+		if (cohort_etas[i] == NULL) {
+			perror("make_cohort_etas");
+			return (EXIT_FAILURE);
+		}
+
+		heu_free(&heu);
+	}
+
+	assert(tileset_add(accum, ZERO_TILE) == FULL_TILESET);
+
+	half_etas[0] = make_half_etas(cohort_etas[0], cohort_etas[1]);
+	if (half_etas[0] == NULL) {
+		perror("make_half_etas");
+		return (EXIT_FAILURE);
+	}
+
+	half_etas[1] = make_half_etas(cohort_etas[2], cohort_etas[3]);
+	if (half_etas[1] == NULL) {
+		perror("make_half_etas");
+		return (EXIT_FAILURE);
+	}
+
+	eta = make_eta(half_etas[0], half_etas[1]);
+
+	printf("%.18e %s %s %s %s\n", eta,
+	    argv[optind], argv[optind + 1], argv[optind + 2], argv[optind + 3]);
+
+	return (EXIT_SUCCESS);
 }
