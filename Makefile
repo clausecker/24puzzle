@@ -13,14 +13,14 @@ ZSTDLDLIBS=$(HOME)/lib/libzstd.a
 OBJ=index.o puzzle.o tileset.o validation.o ranktbl.o rank.o random.o pdb.o \
 	moves.o parallel.o pdbgen.o pdbverify.o pdbdiff.o histogram.o \
 	ida.o search.o catalogue.o pdbident.o transposition.o \
-	heuristic.o bitpdb.o bitpdbzstd.o match.o quality.o compact.o \
+	heuristic.o bitpdb.o bitpdbzstd.o match.o quality.o compact.o
 
 BINARIES=cmd/pdbstats test/indextest util/rankgen test/ranktest cmd/genpdb \
 	cmd/verifypdb cmd/bitpdb cmd/diffcode test/rankcount cmd/puzzlegen \
 	test/qualitytest test/hitanalysis cmd/parsearch cmd/pdbsearch \
 	cmd/pdbcount test/bitpdbtest test/morphtest cmd/pdbmatch \
 	cmd/pdbquality test/walkdist cmd/puzzledist test/etatest \
-	test/samplegen test/statmerge
+	test/samplegen test/statmerge cmd/etacount
 
 all: $(BINARIES) 24puzzle.a
 
@@ -50,6 +50,7 @@ cmd/genpdb: cmd/genpdb.o 24puzzle.a
 cmd/verifypdb: cmd/verifypdb.o 24puzzle.a
 cmd/diffcode: cmd/diffcode.o 24puzzle.a
 test/rankcount: test/rankcount.o 24puzzle.a
+cmd/etacount: cmd/etacount.o 24puzzle.a
 cmd/pdbstats: cmd/pdbstats.o 24puzzle.a
 	@echo "CCLD	$@"
 	@$(CC) $(ZSTDLDFLAGS) $(LDFLAGS) -o $@ $^ $(LDLIBS) -lm

@@ -79,6 +79,19 @@ make_cohort_etas(struct patterndb *pdb)
 }
 
 /*
+ * Compute the partial eta for all possible subdivisions of map (a tileset
+ * of 12 tiles), assuming the zero tile is at zloc.  Return the computed
+ * partial eta.  aux6 is a pointer to an index_aux structure for a six
+ * tiles ZPDB.
+ */
+static double
+single_map_eta(const double *restrict etas_a, const double *restrict etas_b,
+    tileset map, unsigned zloc, struct index_aux *aux6)
+{
+	// TODO
+}
+
+/*
  * Combine cohort eta vectors etas_a and etas_b into a vector containing
  * partial eta values for all possible combinations of the two.
  */
@@ -86,8 +99,14 @@ static double *
 make_half_etas(const double *restrict etas_a, const double *restrict etas_b)
 {
 	struct patterndb *pdbdummy;
-	size_t n_tables;
+	struct index_aux aux6;
+	struct index idx;
+	size_t n_eqclass, n_tables, offset;
 	double *etas;
+	tileset map, eqclass;
+
+	/* it doesn't really matter which tile set we use as long as it has 6 tiles */
+	make_index_aux(&aux6, tileset_least(6 + 1));
 
 	pdbdummy = pdb_dummy(tileset_least(6 + 6 + 1));
 	if (pdbdummy == NULL)
@@ -100,10 +119,20 @@ make_half_etas(const double *restrict etas_a, const double *restrict etas_b)
 		return (NULL);
 	}
 
-	for (i = 0; i < n_tables; i++) {
-		// TODO
+	idx.pidx = 0;
+	for (idx.maprank = 0; idx.maprank < pdbdummy->aux.n_maprank; idx.maprank++) {
+		map = tileset_unrank(12, idx.maprank);
+		n_eqclass = eqclass_count(&pdbdummy->aux, idx.maprank);
+		for (idx.eqidx = 0; idx.eqidx < n_eqclass; idx.eqidx++) {
+			eqclass = eqclass_from_index(&pdbdummy->aux, &idx);
+			offset = pdbdummy->aux.idxt[idx.maprank].offset + idx.eqidx;
+			etas[offset] = single_map_eta(etas_a, etas_b, map, tileset_get_least(eqclass));
+		}
 	}
 
+	pdb_free(pdbdummy);
+
+	return (etas);
 }
 
 static void
