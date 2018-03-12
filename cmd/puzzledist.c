@@ -41,6 +41,14 @@
 #include "random.h"
 
 /*
+ * The number of legal puzzle configurations, i.e. 25! / 2.  This
+ * number is provided as a string, too, so we can generate fancier
+ * output.
+ */
+#define CONFCOUNT 7755605021665492992000000.0
+#define CONFCOUNTSTR "7755605021665492992000000"
+
+/*
  * An array of struct compact_puzzle with the given length and capacity.
  */
 struct cp_slice {
@@ -245,7 +253,7 @@ main(int argc, char *argv[])
 	struct cp_slice old_cps, new_cps;
 	struct compact_puzzle cp;
 	int optchar, i, limit = INT_MAX;
-	size_t n_samples = 1000000;
+	size_t n_samples = 1 << 20;
 	const char *samplefile = NULL;
 
 	while (optchar = getopt(argc, argv, "f:l:n:s:"), optchar != -1)
@@ -277,10 +285,18 @@ main(int argc, char *argv[])
 	cps_init(&new_cps);
 	pack_puzzle(&cp, &solved_puzzle);
 	cps_append(&new_cps, &cp);
-	do_sampling(samplefile, &new_cps, 0, n_samples);
+
+	if (samplefile != NULL)
+		do_sampling(samplefile, &new_cps, 0, n_samples);
+
+	/* keep format compatible with samplegen */
+	printf("%s\n\n", CONFCOUNTSTR);
+
+	printf("%3d: %18zu/%s = %24.18e\n", 0,
+	    new_cps.len, CONFCOUNTSTR, new_cps.len / CONFCOUNT);
 
 	for (i = 1; i <= limit; i++) {
-		printf("%zu\n", new_cps.len);
+
 		fflush(stdout);
 
 		old_cps = new_cps;
@@ -291,5 +307,8 @@ main(int argc, char *argv[])
 			do_sampling(samplefile, &new_cps, i, n_samples);
 
 		cps_free(&old_cps);
+
+		printf("%3d: %18zu/%s = %24.18e\n", i,
+		    new_cps.len, CONFCOUNTSTR, new_cps.len / CONFCOUNT);
 	}
 }
