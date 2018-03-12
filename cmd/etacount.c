@@ -84,33 +84,49 @@ make_cohort_etas(struct patterndb *pdb)
  * partial eta.  aux6 is a pointer to an index_aux structure for a six
  * tiles ZPDB.
  */
-static double
+double
 single_map_eta(const double *restrict etas_a, const double *restrict etas_b,
     tileset map, unsigned zloc, struct index_aux *aux6)
 {
-	// TODO
+	double eta = 0.0;
+	size_t i, off_a, off_b;
+	tileset ts_a, ts_b;
+	tsrank rank_a, rank_b;
+	enum { SIX_OF_TWELVE = 924 }; /* 12 choose 6 */
+
+	for (i = 0; i < SIX_OF_TWELVE; i++) {
+		ts_a = pdep(map, tileset_unrank(6, i));
+		ts_b = tileset_difference(map, ts_a);
+
+		rank_a = tileset_rank(ts_a);
+		rank_b = tileset_rank(ts_b);
+
+		off_a = aux6->idxt[rank_a].offset + aux6->idxt[rank_a].eqclasses[zloc];
+		off_b = aux6->idxt[rank_b].offset + aux6->idxt[rank_b].eqclasses[zloc];
+
+		eta += etas_a[off_a] * etas_b[off_b];
+	}
+
+	return (eta);
 }
 
 /*
  * Combine cohort eta vectors etas_a and etas_b into a vector containing
- * partial eta values for all possible combinations of the two.
+ * partial eta values for all possible combinations of the two.  pdbdummy
+ * is a pointer to an arbitrary 12 tile dummy ZPDB.
  */
 static double *
-make_half_etas(const double *restrict etas_a, const double *restrict etas_b)
+make_half_etas(const double *restrict etas_a, const double *restrict etas_b,
+    struct patterndb *pdbdummy)
 {
-	struct patterndb *pdbdummy;
 	struct index_aux aux6;
 	struct index idx;
 	size_t n_eqclass, n_tables, offset;
 	double *etas;
-	tileset map, eqclass;
+	tileset map;
 
 	/* it doesn't really matter which tile set we use as long as it has 6 tiles */
 	make_index_aux(&aux6, tileset_least(6 + 1));
-
-	pdbdummy = pdb_dummy(tileset_least(6 + 6 + 1));
-	if (pdbdummy == NULL)
-		return (NULL);
 
 	n_tables = eqclass_total(&pdbdummy->aux);
 	etas = malloc(n_tables * sizeof *etas);
@@ -124,15 +140,57 @@ make_half_etas(const double *restrict etas_a, const double *restrict etas_b)
 		map = tileset_unrank(12, idx.maprank);
 		n_eqclass = eqclass_count(&pdbdummy->aux, idx.maprank);
 		for (idx.eqidx = 0; idx.eqidx < n_eqclass; idx.eqidx++) {
-			eqclass = eqclass_from_index(&pdbdummy->aux, &idx);
 			offset = pdbdummy->aux.idxt[idx.maprank].offset + idx.eqidx;
-			etas[offset] = single_map_eta(etas_a, etas_b, map, tileset_get_least(eqclass));
+			etas[offset] = single_map_eta(etas_a, etas_b, map,
+			    canonical_zero_location(&pdbdummy->aux, &idx), &aux6);
 		}
 	}
 
-	pdb_free(pdbdummy);
-
 	return (etas);
+}
+
+/*
+ * Combine the contents of eta arrays half_etas[0] and half_etas[1] into
+ * a single eta.  pdbdummy is a pointer to an arbitrary 12 tile ZPDB.
+ */
+static double
+make_eta(const double *restrict etas_a, const double *restrict etas_b,
+    struct patterndb *pdbdummy)
+{
+	struct index_aux *aux = &pdbdummy->aux;
+	struct index idx;
+	double eta = 0.0, sum;
+	size_t off_a, off_b;
+	unsigned zloc;
+	tsrank rank_a, rank_b;
+	tileset map_a, map_b, cmap;
+
+	enum { TWELVE_OF_25 = 5200300 }; /* 25 choose 12 */
+
+	idx.pidx = 0;
+	for (idx.maprank = 0; idx.maprank < aux->n_maprank; idx.maprank++) {
+		sum = 0.0;
+		map_a = tileset_unrank(12, idx.maprank);
+
+		for (cmap = tileset_complement(map_a); !tileset_empty(cmap);
+		    cmap = tileset_remove_least(cmap)) {
+			zloc = tileset_get_least(cmap);
+			map_b = tileset_remove(tileset_complement(map_a), zloc);
+
+			rank_a = idx.maprank;
+			rank_b = tileset_rank(map_b);
+
+			off_a = aux->idxt[rank_a].offset + aux->idxt[rank_a].eqclasses[zloc];
+			off_b = aux->idxt[rank_b].offset + aux->idxt[rank_b].eqclasses[zloc];
+
+			sum += etas_a[off_a] * etas_b[off_b];
+		}
+
+		/* increase precision slightly by keeping track of sum separately */
+		eta += sum;
+	}
+
+	return (eta);
 }
 
 static void
@@ -146,6 +204,7 @@ extern int
 main(int argc, char *argv[])
 {
 	struct heuristic heu;
+	struct patterndb *pdbdummy;
 
 	double *cohort_etas[4], *half_etas[2], eta;
 	size_t i;
@@ -212,19 +271,28 @@ main(int argc, char *argv[])
 
 	assert(tileset_add(accum, ZERO_TILE) == FULL_TILESET);
 
-	half_etas[0] = make_half_etas(cohort_etas[0], cohort_etas[1]);
+	pdbdummy = pdb_dummy(tileset_least(6 + 6 + 1));
+	if (pdbdummy == NULL) {
+		perror("pdb_dummy");
+		return (EXIT_FAILURE);
+	}
+
+	fprintf(stderr, "Joining eta values for %s and %s\n", argv[optind + 0], argv[optind + 1]);
+	half_etas[0] = make_half_etas(cohort_etas[0], cohort_etas[1], pdbdummy);
 	if (half_etas[0] == NULL) {
 		perror("make_half_etas");
 		return (EXIT_FAILURE);
 	}
 
-	half_etas[1] = make_half_etas(cohort_etas[2], cohort_etas[3]);
+	fprintf(stderr, "Joining eta values for %s and %s\n", argv[optind + 2], argv[optind + 3]);
+	half_etas[1] = make_half_etas(cohort_etas[2], cohort_etas[3], pdbdummy);
 	if (half_etas[1] == NULL) {
 		perror("make_half_etas");
 		return (EXIT_FAILURE);
 	}
 
-	eta = make_eta(half_etas[0], half_etas[1]);
+	fprintf(stderr, "Joining halves\n");
+	eta = make_eta(half_etas[0], half_etas[1], pdbdummy);
 
 	printf("%.18e %s %s %s %s\n", eta,
 	    argv[optind], argv[optind + 1], argv[optind + 2], argv[optind + 3]);
