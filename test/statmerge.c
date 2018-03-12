@@ -46,20 +46,20 @@
  * not contain any entries, return -1.
  */
 static int
-parse_stat_file(size_t hits[restrict PDB_HISTOGRAM_LEN], size_t samples[restrict PDB_HISTOGRAM_LEN],
+parse_stat_file(double hits[restrict PDB_HISTOGRAM_LEN], double samples[restrict PDB_HISTOGRAM_LEN],
     FILE *statfile)
 {
-	size_t hits_i, samples_i, total;
+	double hits_i, samples_i, total;
 	int i, max_i = -1, items;
 
 	memset(hits, 0, PDB_HISTOGRAM_LEN * sizeof *hits);
 	memset(samples, 0, PDB_HISTOGRAM_LEN * sizeof *samples);
 
-	items = fscanf(statfile, "%zu\n\n", &total);
+	items = fscanf(statfile, "%lf\n\n", &total);
 	if (items != 1)
 		return (-1);
 
-	while (items = fscanf(statfile, "%d: %zu/%zu = %*le\n", &i, &hits_i, &samples_i),
+	while (items = fscanf(statfile, "%d: %lf/%lf = %*le\n", &i, &hits_i, &samples_i),
 	    items == 3) {
 		if (i < 0)
 			return (-1);
@@ -87,8 +87,8 @@ parse_stat_file(size_t hits[restrict PDB_HISTOGRAM_LEN], size_t samples[restrict
  * Add new_hits and new_samples to hits and samples.
  */
 static void
-merge_stats(size_t hits[restrict PDB_HISTOGRAM_LEN], size_t samples[restrict PDB_HISTOGRAM_LEN],
-    const size_t new_hits[restrict PDB_HISTOGRAM_LEN], const size_t new_samples[restrict PDB_HISTOGRAM_LEN])
+merge_stats(double hits[restrict PDB_HISTOGRAM_LEN], double samples[restrict PDB_HISTOGRAM_LEN],
+    const double new_hits[restrict PDB_HISTOGRAM_LEN], const double new_samples[restrict PDB_HISTOGRAM_LEN])
 {
 	size_t i;
 
@@ -105,10 +105,11 @@ merge_stats(size_t hits[restrict PDB_HISTOGRAM_LEN], size_t samples[restrict PDB
  * a common total.  Ignore errors.
  */
 static void
-write_stats(FILE *statfile, const size_t hits[restrict PDB_HISTOGRAM_LEN],
-    const size_t samples[restrict PDB_HISTOGRAM_LEN])
+write_stats(FILE *statfile, const double hits[restrict PDB_HISTOGRAM_LEN],
+    const double samples[restrict PDB_HISTOGRAM_LEN])
 {
-	size_t i, i_max = 0, total = 0;
+	double total = 0;
+	size_t i, i_max = 0;
 
 	/* find the largest group with nonzero total */
 	for (i = 0; i < PDB_HISTOGRAM_LEN; i++)
@@ -121,10 +122,10 @@ write_stats(FILE *statfile, const size_t hits[restrict PDB_HISTOGRAM_LEN],
 		if (samples[i] != total)
 			total = 0;
 
-	fprintf(statfile, "%zu\n\n", total);
+	fprintf(statfile, "%.0f\n\n", total);
 
 	for (i = 0; i <= i_max ; i++)
-		fprintf(statfile, "%3zu: %20zu/%20zu = %24.18e\n",
+		fprintf(statfile, "%3zu: %18.0f/%24.0f = %24.18e\n",
 		    i, hits[i], samples[i], hits[i] / (double)samples[i]);
 }
 
@@ -133,8 +134,8 @@ main(int argc, char *argv[])
 {
 	FILE *statfile;
 	size_t i;
-	size_t total_hits[PDB_HISTOGRAM_LEN], total_samples[PDB_HISTOGRAM_LEN];
-	size_t hits[PDB_HISTOGRAM_LEN], samples[PDB_HISTOGRAM_LEN];
+	double total_hits[PDB_HISTOGRAM_LEN], total_samples[PDB_HISTOGRAM_LEN];
+	double hits[PDB_HISTOGRAM_LEN], samples[PDB_HISTOGRAM_LEN];
 	int res;
 
 	memset(total_hits, 0, sizeof total_hits);
