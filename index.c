@@ -127,17 +127,6 @@ compute_index(const struct index_aux *aux, struct index *idx, const struct puzzl
 }
 
 /*
- * Return the grid location in which we want to place the zero tile
- * during decoding.  We make the arbitrary choice of putting it into the
- * lowest numbered tile in the equivalence class.
- */
-static unsigned
-canonical_zero_location(const struct index_aux *aux, const struct index *idx)
-{
-	return (tileset_get_least(eqclass_from_index(aux, idx)));
-}
-
-/*
  * Given a tileset ts and a map m, fill in all tiles not in ts into the
  * spots not on m.
  */
