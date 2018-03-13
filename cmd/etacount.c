@@ -39,16 +39,15 @@
 
 /*
  * This function computes the partial eta value for each cohort.  The
- * search space size is set such that each cohort must be added as often
- * as the size of the corresponding zero tile region to get the eta
- * value of the whole pattern database.
+ * resulting partial eta values are unscaled, instead the result of
+ * the computation is scaled at the end.
  */
 double *
 make_cohort_etas(struct patterndb *pdb)
 {
 	size_t i, j, n_tables;
 	size_t histogram[PDB_HISTOGRAM_LEN];
-	double eta, *etas, scale;
+	double eta, *etas;
 	const atomic_uchar *table;
 
 	// TODO: Adapt code to work with APDBs, not just ZPDBs.
@@ -59,9 +58,6 @@ make_cohort_etas(struct patterndb *pdb)
 	if (etas == NULL)
 		return (NULL);
 
-	scale = 1.0 / ((double)pdb->aux.n_perm * pdb->aux.n_maprank *
-	    (TILE_COUNT - pdb->aux.n_tile));
-
 	for (i = 0; i < n_tables; i++) {
 		memset(histogram, 0, sizeof histogram);
 		table = pdb->data + i * pdb->aux.n_perm;
@@ -70,9 +66,9 @@ make_cohort_etas(struct patterndb *pdb)
 
 		eta = 0.0;
 		for (j = 1; j <= PDB_HISTOGRAM_LEN; j++)
-			eta = histogram[PDB_HISTOGRAM_LEN - j] + B * eta;
+			eta = histogram[PDB_HISTOGRAM_LEN - j] + eta * (1.0 / B);
 
-		etas[i] = eta * scale;
+		etas[i] = eta;
 	}
 
 	return (etas);
@@ -165,8 +161,6 @@ make_eta(const double *restrict etas_a, const double *restrict etas_b,
 	tsrank rank_a, rank_b;
 	tileset map_a, map_b, cmap;
 
-	enum { TWELVE_OF_25 = 5200300 }; /* 25 choose 12 */
-
 	idx.pidx = 0;
 	for (idx.maprank = 0; idx.maprank < aux->n_maprank; idx.maprank++) {
 		sum = 0.0;
@@ -190,7 +184,8 @@ make_eta(const double *restrict etas_a, const double *restrict etas_b,
 		eta += sum;
 	}
 
-	return (eta);
+	/* scale by 25! */
+	return (eta * 6.446950284384474737e-26);
 }
 
 static void
@@ -276,6 +271,8 @@ main(int argc, char *argv[])
 		perror("pdb_dummy");
 		return (EXIT_FAILURE);
 	}
+
+	assert(pdbdummy->aux.n_maprank == 5200300);
 
 	fprintf(stderr, "Joining eta values for %s and %s\n", argv[optind + 0], argv[optind + 1]);
 	half_etas[0] = make_half_etas(cohort_etas[0], cohort_etas[1], pdbdummy);
