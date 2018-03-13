@@ -123,6 +123,37 @@ single_map_eta(const double *restrict etas_a, const double *restrict etas_b,
 }
 
 /*
+ * Configuration structure for half_eta_worker.
+ */
+struct half_eta_config {
+	struct parallel_config pcfg;
+	const double *restrict etas_a, *restrict etas_b;
+	double *etas;
+	struct index_aux aux6;
+};
+
+/*
+ * Combine cohort vectors etas_a and etas_b for idx->maprank.  This is
+ * the worker function for make_half_etas().
+ */
+static void
+half_eta_worker(void *cfgarg, struct index *idx)
+{
+	struct half_eta_config *cfg = cfgarg;
+	size_t offset, n_eqclass;
+	tileset map;
+
+	n_eqclass = eqclass_count(&cfg->pcfg.pdb->aux, idx->maprank);
+	map = tileset_unrank(12, idx->maprank);
+
+	for (idx->eqidx = 0; idx->eqidx < n_eqclass; idx->eqidx++) {
+		offset = cfg->pcfg.pdb->aux.idxt[idx->maprank].offset + idx->eqidx;
+		cfg->etas[offset] = single_map_eta(cfg->etas_a, cfg->etas_b, map,
+		    canonical_zero_location(&cfg->pcfg.pdb->aux, idx), &cfg->aux6);
+	}
+}
+
+/*
  * Combine cohort eta vectors etas_a and etas_b into a vector containing
  * partial eta values for all possible combinations of the two.  pdbdummy
  * is a pointer to an arbitrary 12 tile dummy ZPDB.
@@ -131,34 +162,24 @@ static double *
 make_half_etas(const double *restrict etas_a, const double *restrict etas_b,
     struct patterndb *pdbdummy)
 {
-	struct index_aux aux6;
-	struct index idx;
-	size_t n_eqclass, n_tables, offset;
-	double *etas;
-	tileset map;
+	struct half_eta_config cfg;
+	size_t n_tables;
 
 	/* it doesn't really matter which tile set we use as long as it has 6 tiles */
-	make_index_aux(&aux6, tileset_least(6 + 1));
+	make_index_aux(&cfg.aux6, tileset_least(6 + 1));
+	cfg.pcfg.pdb = pdbdummy;
+	cfg.pcfg.worker = half_eta_worker;
+	cfg.etas_a = etas_a;
+	cfg.etas_b = etas_b;
 
 	n_tables = eqclass_total(&pdbdummy->aux);
-	etas = malloc(n_tables * sizeof *etas);
-	if (etas == NULL) {
-		pdb_free(pdbdummy);
+	cfg.etas = malloc(n_tables * sizeof *cfg.etas);
+	if (cfg.etas == NULL)
 		return (NULL);
-	}
 
-	idx.pidx = 0;
-	for (idx.maprank = 0; idx.maprank < pdbdummy->aux.n_maprank; idx.maprank++) {
-		map = tileset_unrank(12, idx.maprank);
-		n_eqclass = eqclass_count(&pdbdummy->aux, idx.maprank);
-		for (idx.eqidx = 0; idx.eqidx < n_eqclass; idx.eqidx++) {
-			offset = pdbdummy->aux.idxt[idx.maprank].offset + idx.eqidx;
-			etas[offset] = single_map_eta(etas_a, etas_b, map,
-			    canonical_zero_location(&pdbdummy->aux, &idx), &aux6);
-		}
-	}
+	pdb_iterate_parallel(&cfg.pcfg);
 
-	return (etas);
+	return (cfg.etas);
 }
 
 /*
