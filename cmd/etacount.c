@@ -37,12 +37,50 @@
 #include "index.h"
 #include "heuristic.h"
 
+// TODO: Make code account for parity correctly.
+
+/*
+ * This function works just like make_cohort_etas but for APDBs instead
+ * of ZPDBs.
+ */
+static double *
+make_cohort_etas_nz(struct patterndb *pdb)
+{
+	struct index_aux aux;
+	size_t histogram[PDB_HISTOGRAM_LEN];
+	size_t i, j;
+	double eta, *etas;
+	const atomic_uchar *table;
+
+	make_index_aux(&aux, tileset_add(pdb->aux.ts, ZERO_TILE));
+
+	etas = malloc(eqclass_total(&aux) * sizeof *etas);
+	if (etas == NULL)
+		return (NULL);
+
+	for (i = 0; i < pdb->aux.n_maprank; i++) {
+		memset(histogram, 0, sizeof histogram);
+		table = pdb->data + i * pdb->aux.n_perm;
+		for (j = 0; j < pdb->aux.n_perm; j++)
+			histogram[table[j]]++;
+
+		eta = 0.0;
+		for (j = 1; j <= PDB_HISTOGRAM_LEN; j++)
+			eta = histogram[PDB_HISTOGRAM_LEN - j] + eta * (1.0 / B);
+
+		for (j = 0; j < aux.idxt[i].n_eqclass; j++)
+			etas[aux.idxt[i].offset + j] = eta;
+	}
+
+	return (etas);
+}
+
 /*
  * This function computes the partial eta value for each cohort.  The
  * resulting partial eta values are unscaled, instead the result of
  * the computation is scaled at the end.
  */
-double *
+static double *
 make_cohort_etas(struct patterndb *pdb)
 {
 	size_t i, j, n_tables;
@@ -51,8 +89,8 @@ make_cohort_etas(struct patterndb *pdb)
 	const atomic_uchar *table;
 
 	// TODO: Adapt code to work with APDBs, not just ZPDBs.
-	// TODO: Make code account for parity correctly.
-	assert(tileset_has(pdb->aux.ts, ZERO_TILE));
+	if (!tileset_has(pdb->aux.ts, ZERO_TILE))
+		return (make_cohort_etas_nz(pdb));
 
 	n_tables = eqclass_total(&pdb->aux);
 	etas = malloc(n_tables * sizeof *etas);
@@ -220,7 +258,7 @@ make_eta(const double *restrict etas_a, const double *restrict etas_b,
 static void
 usage(const char *argv0)
 {
-	fprintf(stderr, "Usage: %s [-d pdbdir] [-j nproc] tileset tileset tileset tileset\n", argv0);
+	fprintf(stderr, "Usage: %s [-i] [-d pdbdir] [-j nproc] tileset tileset tileset tileset\n", argv0);
 	exit(EXIT_FAILURE);
 }
 
@@ -232,14 +270,18 @@ main(int argc, char *argv[])
 
 	double *cohort_etas[4], *half_etas[2], eta;
 	size_t i;
-	int optchar;
+	int optchar, identify = 0;
 	tileset ts, accum = EMPTY_TILESET;
-	const char *pdbdir;
+	const char *pdbdir, *pdbtype;
 
-	while (optchar = getopt(argc, argv, "d:j:"), optchar != -1)
+	while (optchar = getopt(argc, argv, "d:ij:"), optchar != -1)
 		switch (optchar) {
 		case 'd':
 			pdbdir = optarg;
+			break;
+
+		case 'i':
+			identify = 1;
 			break;
 
 		case 'j':
@@ -277,7 +319,14 @@ main(int argc, char *argv[])
 
 		accum = tileset_union(accum, ts);
 
-		if (heu_open(&heu, pdbdir, ts, tileset_has(ts, ZERO_TILE) ? "zpdb" : "pdb",
+		if (!tileset_has(ts, ZERO_TILE))
+			pdbtype = "pdb";
+		else if (identify)
+			pdbtype = "ipdb";
+		else
+			pdbtype = "zpdb";
+
+		if (heu_open(&heu, pdbdir, ts, pdbtype,
 		    HEU_CREATE | HEU_NOMORPH | HEU_VERBOSE) != 0) {
 			perror("heu_open");
 			return (EXIT_FAILURE);
