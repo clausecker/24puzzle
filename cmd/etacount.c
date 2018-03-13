@@ -51,6 +51,7 @@ make_cohort_etas(struct patterndb *pdb)
 	const atomic_uchar *table;
 
 	// TODO: Adapt code to work with APDBs, not just ZPDBs.
+	// TODO: Make code account for parity correctly.
 	assert(tileset_has(pdb->aux.ts, ZERO_TILE));
 
 	n_tables = eqclass_total(&pdb->aux);
@@ -75,32 +76,47 @@ make_cohort_etas(struct patterndb *pdb)
 }
 
 /*
+ * Return the product of the table entries corresponding to maps
+ * map_a and map_b with the zero tile at zloc.
+ */
+static double
+join_etas(tileset map_a, tileset map_b, unsigned zloc,
+    const double *restrict etas_a, const double *restrict etas_b,
+    struct index_aux *aux)
+{
+	tsrank rank_a, rank_b;
+	size_t off_a, off_b;
+
+	rank_a = tileset_rank(map_a);
+	rank_b = tileset_rank(map_b);
+
+	off_a = aux->idxt[rank_a].offset + aux->idxt[rank_a].eqclasses[zloc];
+	off_b = aux->idxt[rank_b].offset + aux->idxt[rank_b].eqclasses[zloc];
+
+	return (etas_a[off_a] * etas_b[off_b]);
+}
+
+/*
  * Compute the partial eta for all possible subdivisions of map (a tileset
  * of 12 tiles), assuming the zero tile is at zloc.  Return the computed
  * partial eta.  aux6 is a pointer to an index_aux structure for a six
  * tiles ZPDB.
  */
-double
+static double
 single_map_eta(const double *restrict etas_a, const double *restrict etas_b,
     tileset map, unsigned zloc, struct index_aux *aux6)
 {
 	double eta = 0.0;
-	size_t i, off_a, off_b;
-	tileset ts_a, ts_b;
-	tsrank rank_a, rank_b;
+	size_t i;
+	tileset map_a, map_b;
 	enum { SIX_OF_TWELVE = 924 }; /* 12 choose 6 */
 
 	for (i = 0; i < SIX_OF_TWELVE; i++) {
-		ts_a = pdep(map, tileset_unrank(6, i));
-		ts_b = tileset_difference(map, ts_a);
+		map_a = pdep(map, tileset_unrank(6, i));
+		map_b = tileset_difference(map, map_a);
 
-		rank_a = tileset_rank(ts_a);
-		rank_b = tileset_rank(ts_b);
-
-		off_a = aux6->idxt[rank_a].offset + aux6->idxt[rank_a].eqclasses[zloc];
-		off_b = aux6->idxt[rank_b].offset + aux6->idxt[rank_b].eqclasses[zloc];
-
-		eta += etas_a[off_a] * etas_b[off_b];
+		/* Kahan summation */
+		eta += join_etas(map_a, map_b, zloc, etas_a, etas_b, aux6);
 	}
 
 	return (eta);
@@ -156,9 +172,7 @@ make_eta(const double *restrict etas_a, const double *restrict etas_b,
 	struct index_aux *aux = &pdbdummy->aux;
 	struct index idx;
 	double eta = 0.0, sum;
-	size_t off_a, off_b;
 	unsigned zloc;
-	tsrank rank_a, rank_b;
 	tileset map_a, map_b, cmap;
 
 	idx.pidx = 0;
@@ -171,13 +185,7 @@ make_eta(const double *restrict etas_a, const double *restrict etas_b,
 			zloc = tileset_get_least(cmap);
 			map_b = tileset_remove(tileset_complement(map_a), zloc);
 
-			rank_a = idx.maprank;
-			rank_b = tileset_rank(map_b);
-
-			off_a = aux->idxt[rank_a].offset + aux->idxt[rank_a].eqclasses[zloc];
-			off_b = aux->idxt[rank_b].offset + aux->idxt[rank_b].eqclasses[zloc];
-
-			sum += etas_a[off_a] * etas_b[off_b];
+			sum += join_etas(map_a, map_b, zloc, etas_a, etas_b, aux);
 		}
 
 		/* increase precision slightly by keeping track of sum separately */
