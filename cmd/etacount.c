@@ -153,7 +153,6 @@ single_map_eta(const double *restrict etas_a, const double *restrict etas_b,
 		map_a = pdep(map, tileset_unrank(6, i));
 		map_b = tileset_difference(map, map_a);
 
-		/* Kahan summation */
 		eta += join_etas(map_a, map_b, zloc, etas_a, etas_b, aux6);
 	}
 
@@ -272,7 +271,7 @@ main(int argc, char *argv[])
 	size_t i;
 	int optchar, identify = 0;
 	tileset ts, accum = EMPTY_TILESET;
-	const char *pdbdir, *pdbtype;
+	const char *pdbdir = NULL, *pdbtype;
 
 	while (optchar = getopt(argc, argv, "d:ij:"), optchar != -1)
 		switch (optchar) {
