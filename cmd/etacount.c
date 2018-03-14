@@ -43,13 +43,14 @@
  * This function works just like make_cohort_etas but for APDBs instead
  * of ZPDBs.
  */
-static double *
+static float *
 make_cohort_etas_nz(struct patterndb *pdb)
 {
 	struct index_aux aux;
 	size_t histogram[PDB_HISTOGRAM_LEN];
 	size_t i, j;
-	double eta, *etas;
+	double eta;
+	float *etas;
 	const atomic_uchar *table;
 
 	make_index_aux(&aux, tileset_add(pdb->aux.ts, ZERO_TILE));
@@ -80,12 +81,13 @@ make_cohort_etas_nz(struct patterndb *pdb)
  * resulting partial eta values are unscaled, instead the result of
  * the computation is scaled at the end.
  */
-static double *
+static float *
 make_cohort_etas(struct patterndb *pdb)
 {
 	size_t i, j, n_tables;
 	size_t histogram[PDB_HISTOGRAM_LEN];
-	double eta, *etas;
+	double eta;
+	float *etas;
 	const atomic_uchar *table;
 
 	// TODO: Adapt code to work with APDBs, not just ZPDBs.
@@ -117,9 +119,9 @@ make_cohort_etas(struct patterndb *pdb)
  * Return the product of the table entries corresponding to maps
  * map_a and map_b with the zero tile at zloc.
  */
-static double
+static float
 join_etas(tileset map_a, tileset map_b, unsigned zloc,
-    const double *restrict etas_a, const double *restrict etas_b,
+    const float *restrict etas_a, const float *restrict etas_b,
     struct index_aux *aux)
 {
 	tsrank rank_a, rank_b;
@@ -141,7 +143,7 @@ join_etas(tileset map_a, tileset map_b, unsigned zloc,
  * tiles ZPDB.
  */
 static double
-single_map_eta(const double *restrict etas_a, const double *restrict etas_b,
+single_map_eta(const float *restrict etas_a, const float *restrict etas_b,
     tileset map, unsigned zloc, struct index_aux *aux6)
 {
 	double eta = 0.0;
@@ -164,8 +166,8 @@ single_map_eta(const double *restrict etas_a, const double *restrict etas_b,
  */
 struct half_eta_config {
 	struct parallel_config pcfg;
-	const double *restrict etas_a, *restrict etas_b;
-	double *etas;
+	const float *restrict etas_a, *restrict etas_b;
+	float *etas;
 	struct index_aux aux6;
 };
 
@@ -195,8 +197,8 @@ half_eta_worker(void *cfgarg, struct index *idx)
  * partial eta values for all possible combinations of the two.  pdbdummy
  * is a pointer to an arbitrary 12 tile dummy ZPDB.
  */
-static double *
-make_half_etas(const double *restrict etas_a, const double *restrict etas_b,
+static float *
+make_half_etas(const float *restrict etas_a, const float *restrict etas_b,
     struct patterndb *pdbdummy)
 {
 	struct half_eta_config cfg;
@@ -223,8 +225,8 @@ make_half_etas(const double *restrict etas_a, const double *restrict etas_b,
  * Combine the contents of eta arrays half_etas[0] and half_etas[1] into
  * a single eta.  pdbdummy is a pointer to an arbitrary 12 tile ZPDB.
  */
-static double
-make_eta(const double *restrict etas_a, const double *restrict etas_b,
+static float
+make_eta(const float *restrict etas_a, const float *restrict etas_b,
     struct patterndb *pdbdummy)
 {
 	struct index_aux *aux = &pdbdummy->aux;
@@ -267,7 +269,7 @@ main(int argc, char *argv[])
 	struct heuristic heu;
 	struct patterndb *pdbdummy;
 
-	double *cohort_etas[4], *half_etas[2], eta;
+	float *cohort_etas[4], *half_etas[2], eta;
 	size_t i;
 	int optchar, identify = 0;
 	tileset ts, accum = EMPTY_TILESET;
