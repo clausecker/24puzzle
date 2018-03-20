@@ -39,6 +39,56 @@
 #include "heuristic.h"
 
 // TODO: Make code account for parity correctly.
+// TODO: Add mode to account for equilibrium distribution
+
+/*
+ * bias values for the equilibrium distribution.  The sum
+ * of this array should equal 25.
+ */
+
+static const double equilibrium_bias[TILE_COUNT] = {
+	0.624881270497094521,
+	0.871700741639200527,
+	0.959307577450483784,
+	0.871700741639200527,
+	0.624881270497094521,
+
+	0.871700741639200527,
+	1.216010494873466685,
+	1.338220820826442115,
+	1.216010494873466685,
+	0.871700741639200527,
+
+	0.959307577450483784,
+	1.338220820826442115,
+	1.472713412296449809,
+	1.338220820826442115,
+	0.959307577450483784,
+
+	0.871700741639200527,
+	1.216010494873466685,
+	1.338220820826442115,
+	1.216010494873466685,
+	0.871700741639200527,
+
+	0.624881270497094521,
+	0.871700741639200527,
+	0.959307577450483784,
+	0.871700741639200527,
+	0.624881270497094521,
+};
+
+
+/*
+ * dummy bias values for no bias
+ */
+static const double no_bias[TILE_COUNT] = {
+	1.0, 1.0, 1.0, 1.0, 1.0,
+	1.0, 1.0, 1.0, 1.0, 1.0,
+	1.0, 1.0, 1.0, 1.0, 1.0,
+	1.0, 1.0, 1.0, 1.0, 1.0,
+	1.0, 1.0, 1.0, 1.0, 1.0,
+};
 
 /*
  * This function works just like make_cohort_etas but for APDBs instead
@@ -225,10 +275,12 @@ make_half_etas(const float *restrict etas_a, const float *restrict etas_b,
 /*
  * Combine the contents of eta arrays half_etas[0] and half_etas[1] into
  * a single eta.  pdbdummy is a pointer to an arbitrary 12 tile ZPDB.
+ * bias is an array of doubles weighting entries according to the zero
+ * tile location.  This can be used to model an equilibrium distribution.
  */
 static float
 make_eta(const float *restrict etas_a, const float *restrict etas_b,
-    struct patterndb *pdbdummy)
+    struct patterndb *pdbdummy, const double bias[TILE_COUNT])
 {
 	struct index_aux *aux = &pdbdummy->aux;
 	struct index idx;
@@ -246,7 +298,7 @@ make_eta(const float *restrict etas_a, const float *restrict etas_b,
 			zloc = tileset_get_least(cmap);
 			map_b = tileset_remove(tileset_complement(map_a), zloc);
 
-			sum += join_etas(map_a, map_b, zloc, etas_a, etas_b, aux);
+			sum += join_etas(map_a, map_b, zloc, etas_a, etas_b, aux) * bias[zloc];
 		}
 
 		/* increase precision slightly by keeping track of sum separately */
@@ -260,7 +312,7 @@ make_eta(const float *restrict etas_a, const float *restrict etas_b,
 static void
 usage(const char *argv0)
 {
-	fprintf(stderr, "Usage: %s [-i] [-d pdbdir] [-j nproc] tileset tileset tileset tileset\n", argv0);
+	fprintf(stderr, "Usage: %s [-bi] [-d pdbdir] [-j nproc] tileset tileset tileset tileset\n", argv0);
 	exit(EXIT_FAILURE);
 }
 
@@ -272,12 +324,16 @@ main(int argc, char *argv[])
 
 	float *cohort_etas[4], *half_etas[2], eta;
 	size_t i;
-	int optchar, identify = 0;
+	int optchar, identify = 0, bias = 0;
 	tileset ts, accum = EMPTY_TILESET;
 	const char *pdbdir = NULL, *pdbtype;
 
-	while (optchar = getopt(argc, argv, "d:ij:"), optchar != -1)
+	while (optchar = getopt(argc, argv, "bd:ij:"), optchar != -1)
 		switch (optchar) {
+		case 'b':
+			bias = 1;
+			break;
+
 		case 'd':
 			pdbdir = optarg;
 			break;
@@ -369,7 +425,7 @@ main(int argc, char *argv[])
 	}
 
 	fprintf(stderr, "Joining halves\n");
-	eta = make_eta(half_etas[0], half_etas[1], pdbdummy);
+	eta = make_eta(half_etas[0], half_etas[1], pdbdummy, bias ? no_bias : equilibrium_bias);
 
 	printf("%.18e %s %s %s %s\n", eta,
 	    argv[optind], argv[optind + 1], argv[optind + 2], argv[optind + 3]);
