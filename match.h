@@ -62,8 +62,21 @@ struct match {
 	unsigned long long quality;
 };
 
-extern unsigned long long *qualities_load(const char *);
-extern int	match_find_best(struct match *, const unsigned char[MATCH_SIZE], const unsigned long long[MATCH_SIZE]);
+/*
+ * A struct quality contains for one PDB the qualities of its entries.
+ * The quality is measured by the entries' average h values and by the
+ * PDB's eta value.  Four h-averages can be summed to form the h-average
+ * for a PDB set.  Four partial etas can be multiplied to form a "fake
+ * eta" for the PDB set, a number that allows for a ranking of PDBs that
+ * closely matches the ranking by true eta.
+ */
+struct quality {
+	unsigned long long havg;
+	double peta;
+};
+
+extern struct quality *qualities_load(const char *);
+extern int	match_find_best(struct match *, const unsigned char[MATCH_SIZE], const struct quality[MATCH_SIZE]);
 //extern size_t	match_find_worst(struct match *, size_t, const unsigned char *);
 
 /*
@@ -125,18 +138,18 @@ match_all_filled_in(const unsigned char v[MATCH_SIZE])
  * Allocate a quality vector of all zeroes, effectively ignoring the
  * maximum quality behaviour.
  */
-static inline unsigned long long *
+static inline struct quality *
 qualities_dummy(void)
 {
 
-	return (calloc(MATCH_SIZE, sizeof (unsigned long long)));
+	return (calloc(MATCH_SIZE, sizeof (struct quality)));
 }
 
 /*
  * Release a quality vector.  This is just a thin wrapper around free().
  */
 static inline void
-qualities_free(unsigned long long qualities[MATCH_SIZE])
+qualities_free(struct quality qualities[MATCH_SIZE])
 {
 
 	free(qualities);

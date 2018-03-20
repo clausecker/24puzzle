@@ -42,7 +42,7 @@ static unsigned char	**lookup_puzzles(const struct puzzle *, size_t, const char 
 static void		  lookup_pattern(unsigned char **, tileset, const struct puzzle *, size_t, const char *);
 static void		  store_match_vector(const char *, unsigned char **, size_t);
 static unsigned char	**load_match_vector(const char *, size_t);
-static void		  find_matches(unsigned long long[MATCH_SIZE], struct match *, const struct puzzle *, unsigned char **, size_t);
+static void		  find_matches(const struct quality[MATCH_SIZE], struct match *, const struct puzzle *, unsigned char **, size_t);
 static void		  print_matches(struct match *, const struct puzzle *, size_t);
 
 static void
@@ -59,7 +59,7 @@ main(int argc, char *argv[])
 	FILE *puzzlefile = NULL;
 	struct puzzle *puzzles;
 	struct match *matches;
-	unsigned long long *qualities;
+	struct quality *qualities;
 	size_t n_puzzle;
 	int optchar, read_matches = 0;
 	char *pdbdir = NULL, *matchfile = NULL, pathbuf[PATH_MAX];
@@ -316,7 +316,7 @@ load_match_vector(const char *matchfile, size_t n_puzzle)
 }
 
 static void
-find_matches(unsigned long long qualities[MATCH_SIZE],
+find_matches(const struct quality qualities[MATCH_SIZE],
     struct match *matches, const struct puzzle *puzzles,
     unsigned char **vs, size_t n_puzzle)
 {

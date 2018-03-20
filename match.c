@@ -57,7 +57,7 @@ enum {
 };
 
 static int	match_half_best(const unsigned char[MATCH_SIZE],
-    const unsigned long long[MATCH_SIZE], tileset, tileset[2],
+    const struct quality[MATCH_SIZE], tileset, tileset[2],
     unsigned long long *, unsigned long long *);
 
 /*
@@ -65,11 +65,13 @@ static int	match_half_best(const unsigned char[MATCH_SIZE],
  * pointer to the quality vector, on failure return NULL and set
  * errno to indicate an error.
  */
-extern unsigned long long *
+extern struct quality *
 qualities_load(const char *qualityfile)
 {
 	FILE *f;
-	unsigned long long quality, *qualities;
+	struct quality *qualities;
+	unsigned long long havg;
+	double peta;
 	size_t i;
 	int error, count, a;
 	tileset ts;
@@ -81,8 +83,10 @@ qualities_load(const char *qualityfile)
 		return (NULL);
 
 	/* dummy value for consitency checks */
-	for (i = 0; i < MATCH_SIZE; i++)
-		qualities[i] = -1ull;
+	for (i = 0; i < MATCH_SIZE; i++) {
+		qualities[i].havg = -1ull;
+		qualities[i].peta = -1.0;
+	}
 
 	f = fopen(qualityfile, "r");
 	if (f == NULL) {
@@ -90,7 +94,7 @@ qualities_load(const char *qualityfile)
 		goto fail2;
 	}
 
-	while (count = fscanf(f, "%llu %*e %99s\n", &quality, tsstr), count == 2) {
+	while (count = fscanf(f, "%llu %le %99s\n", &havg, &peta, tsstr), count == 2) {
 		if (tileset_parse(&ts, tsstr) != 0) {
 			error = EINVAL;
 			goto fail1;
@@ -99,7 +103,8 @@ qualities_load(const char *qualityfile)
 		assert(tileset_count(tileset_remove(ts, ZERO_TILE)) == 6);
 		rank = tileset_ranknz(ts);
 		assert(0 <= rank && rank < MATCH_SIZE);
-		qualities[rank] = quality;
+		qualities[rank].havg = havg;
+		qualities[rank].peta = peta;
 
 		for (a = 1; a < AUTOMORPHISM_COUNT; a++) {
 			if (!is_admissible_morphism(ts, a))
@@ -107,7 +112,8 @@ qualities_load(const char *qualityfile)
 
 			rank = tileset_ranknz(tileset_morph(tileset_remove(ts, ZERO_TILE), a));
 			assert(0 <= rank && rank < MATCH_SIZE);
-			qualities[rank] = quality;
+			qualities[rank].havg = havg;
+			qualities[rank].peta = peta;
 		}
 	}
 
@@ -139,7 +145,7 @@ fail2:	free(qualities);
  */
 extern int
 match_find_best(struct match *match, const unsigned char matchv[MATCH_SIZE],
-    const unsigned long long qualities[MATCH_SIZE])
+    const struct quality qualities[MATCH_SIZE])
 {
 	unsigned long long locount, hicount, loqual, hiqual;
 	size_t i, j;
@@ -194,7 +200,7 @@ match_find_best(struct match *match, const unsigned char matchv[MATCH_SIZE],
  */
 static int
 match_half_best(const unsigned char matchv[MATCH_SIZE],
-    const unsigned long long qualities[MATCH_SIZE], tileset half,
+    const struct quality qualities[MATCH_SIZE], tileset half,
     tileset quarters[2], unsigned long long *count, unsigned long long *maxqual)
 {
 	unsigned long long quality;
@@ -214,7 +220,7 @@ match_half_best(const unsigned char matchv[MATCH_SIZE],
 		hirank = tileset_ranknz(hiquarter);
 
 		hval = matchv[lorank] + matchv[hirank];
-		quality = qualities[lorank] + qualities[hirank];
+		quality = qualities[lorank].havg + qualities[hirank].havg;
 
 		if (hval > max) {
 			max = hval;
