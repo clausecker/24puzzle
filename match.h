@@ -156,6 +156,19 @@ qualities_free(struct quality qualities[MATCH_SIZE])
 }
 
 /*
+ * Given a quality vector, return the quality of the given tile set.
+ * The tileset must contain exactly six tiles.
+ */
+static inline const struct quality *
+get_quality(const struct quality qualities[MATCH_SIZE], tileset ts)
+{
+
+	assert(tileset_count(tileset_remove(ts, ZERO_TILE)) == 6);
+
+	return (qualities + tileset_ranknz(ts));
+}
+
+/*
  * Convert a heuristic quality into an average h value.
  */
 static inline double
