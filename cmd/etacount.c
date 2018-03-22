@@ -37,9 +37,9 @@
 #include "parallel.h"
 #include "index.h"
 #include "heuristic.h"
+#include "match.h"
 
 // TODO: Make code account for parity correctly.
-// TODO: Add mode to account for equilibrium distribution
 
 /*
  * bias values for the equilibrium distribution.  The sum
@@ -278,7 +278,7 @@ make_half_etas(const float *restrict etas_a, const float *restrict etas_b,
  * bias is an array of doubles weighting entries according to the zero
  * tile location.  This can be used to model an equilibrium distribution.
  */
-static float
+static double
 make_eta(const float *restrict etas_a, const float *restrict etas_b,
     struct patterndb *pdbdummy, const double bias[TILE_COUNT])
 {
@@ -312,7 +312,7 @@ make_eta(const float *restrict etas_a, const float *restrict etas_b,
 static void
 usage(const char *argv0)
 {
-	fprintf(stderr, "Usage: %s [-bi] [-d pdbdir] [-j nproc] tileset tileset tileset tileset\n", argv0);
+	fprintf(stderr, "Usage: %s [-biq] [-Q qualities.txt] [-d pdbdir] [-j nproc] tileset tileset tileset tileset\n", argv0);
 	exit(EXIT_FAILURE);
 }
 
@@ -321,15 +321,26 @@ main(int argc, char *argv[])
 {
 	struct heuristic heu;
 	struct patterndb *pdbdummy;
+	struct quality *qualities = NULL, partq[4];
 
-	float *cohort_etas[4], *half_etas[2], eta;
+	double eta, fake_eta, havg;
+	float *cohort_etas[4], *half_etas[2];
 	size_t i;
-	int optchar, identify = 0, bias = 0;
+	int quiet = 0, optchar, identify = 0, bias = 0;
 	tileset ts, accum = EMPTY_TILESET;
 	const char *pdbdir = NULL, *pdbtype;
 
-	while (optchar = getopt(argc, argv, "bd:ij:"), optchar != -1)
+	while (optchar = getopt(argc, argv, "Q:bd:ij:q"), optchar != -1)
 		switch (optchar) {
+		case 'Q':
+			qualities = qualities_load(optarg);
+			if (qualities == NULL) {
+				perror(optarg);
+				return (EXIT_FAILURE);
+			}
+
+			break;
+
 		case 'b':
 			bias = 1;
 			break;
@@ -350,6 +361,10 @@ main(int argc, char *argv[])
 				return (EXIT_FAILURE);
 			}
 
+			break;
+
+		case 'q':
+			quiet = 1;
 			break;
 
 		default:
@@ -384,8 +399,11 @@ main(int argc, char *argv[])
 		else
 			pdbtype = "zpdb";
 
+		if (qualities != NULL)
+			partq[i] = *get_quality(qualities, ts);
+
 		if (heu_open(&heu, pdbdir, ts, pdbtype,
-		    HEU_CREATE | HEU_NOMORPH | HEU_VERBOSE) != 0) {
+		    HEU_CREATE | HEU_NOMORPH | (quiet ? HEU_VERBOSE : 0)) != 0) {
 			perror("heu_open");
 			return (EXIT_FAILURE);
 		}
@@ -402,6 +420,10 @@ main(int argc, char *argv[])
 
 	assert(tileset_add(accum, ZERO_TILE) == FULL_TILESET);
 
+	/* save some RAM; qualities not being NULL is used later on! */
+	if (qualities != NULL)
+		qualities_free(qualities);
+
 	pdbdummy = pdb_dummy(tileset_least(6 + 6 + 1));
 	if (pdbdummy == NULL) {
 		perror("pdb_dummy");
@@ -410,25 +432,39 @@ main(int argc, char *argv[])
 
 	assert(pdbdummy->aux.n_maprank == 5200300);
 
-	fprintf(stderr, "Joining eta values for %s and %s\n", argv[optind + 0], argv[optind + 1]);
+	if (!quiet)
+		fprintf(stderr, "Joining eta values for %s and %s\n", argv[optind + 0], argv[optind + 1]);
+
 	half_etas[0] = make_half_etas(cohort_etas[0], cohort_etas[1], pdbdummy);
 	if (half_etas[0] == NULL) {
 		perror("make_half_etas");
 		return (EXIT_FAILURE);
 	}
 
-	fprintf(stderr, "Joining eta values for %s and %s\n", argv[optind + 2], argv[optind + 3]);
+	if (!quiet)
+		fprintf(stderr, "Joining eta values for %s and %s\n", argv[optind + 2], argv[optind + 3]);
+
 	half_etas[1] = make_half_etas(cohort_etas[2], cohort_etas[3], pdbdummy);
 	if (half_etas[1] == NULL) {
 		perror("make_half_etas");
 		return (EXIT_FAILURE);
 	}
 
-	fprintf(stderr, "Joining halves\n");
+	if (!quiet)
+		fprintf(stderr, "Joining halves\n");
+
 	eta = make_eta(half_etas[0], half_etas[1], pdbdummy, bias ? no_bias : equilibrium_bias);
 
-	printf("%.18e %s %s %s %s\n", eta,
-	    argv[optind], argv[optind + 1], argv[optind + 2], argv[optind + 3]);
+	if (qualities == NULL)
+		printf("%.18e %s %s %s %s\n", eta,
+		    argv[optind], argv[optind + 1], argv[optind + 2], argv[optind + 3]);
+	else {
+		havg = quality_to_hval(partq[0].havg + partq[1].havg + partq[2].havg + partq[3].havg);
+		fake_eta = partq[0].peta * partq[1].peta * partq[2].peta * partq[3].peta;
+
+		printf("%.18e %.18e %f %s %s %s %s\n", eta, fake_eta, havg,
+		    argv[optind], argv[optind + 1], argv[optind + 2], argv[optind + 3]);
+	}
 
 	return (EXIT_SUCCESS);
 }
