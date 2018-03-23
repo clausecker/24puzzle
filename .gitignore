@@ -19,6 +19,7 @@ cmd/pdbstats
 cmd/pdbsearch
 cmd/puzzledist
 cmd/puzzlegen
+cmd/randompdb
 test/bitpdbtest
 test/etatest
 test/hitanalysis
