@@ -403,7 +403,7 @@ main(int argc, char *argv[])
 			partq[i] = *get_quality(qualities, ts);
 
 		if (heu_open(&heu, pdbdir, ts, pdbtype,
-		    HEU_CREATE | HEU_NOMORPH | (quiet ? HEU_VERBOSE : 0)) != 0) {
+		    HEU_CREATE | HEU_NOMORPH | (quiet ? 0 : HEU_VERBOSE)) != 0) {
 			perror("heu_open");
 			return (EXIT_FAILURE);
 		}
