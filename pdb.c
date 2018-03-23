@@ -37,7 +37,7 @@
 #include "puzzle.h"
 #include "pdb.h"
 
-/* the number of PDBs with the given size, i.e. (TILE_COUNT choose i) */
+/* the number of PDBs with the given size, i.e. (TILE_COUNT-1 choose i) */
 const unsigned pdbcount[TILE_COUNT] = {
 	1,
 	24,
