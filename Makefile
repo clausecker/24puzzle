@@ -13,7 +13,8 @@ ZSTDLDLIBS=$(HOME)/lib/libzstd.a
 OBJ=index.o puzzle.o tileset.o validation.o ranktbl.o rank.o random.o pdb.o \
 	moves.o parallel.o pdbgen.o pdbverify.o pdbdiff.o histogram.o \
 	ida.o search.o catalogue.o pdbident.o transposition.o \
-	heuristic.o bitpdb.o bitpdbzstd.o match.o quality.o compact.o
+	heuristic.o bitpdb.o bitpdbzstd.o match.o quality.o compact.o \
+	statistics.o
 
 BINARIES=cmd/pdbstats test/indextest util/rankgen test/ranktest cmd/genpdb \
 	cmd/verifypdb cmd/bitpdb cmd/diffcode test/rankcount cmd/puzzlegen \
@@ -67,7 +68,7 @@ test/morphtest: test/morphtest.o 24puzzle.a
 test/walkdist: test/walkdist.o 24puzzle.a
 test/etatest: test/etatest.o 24puzzle.a
 test/samplegen: test/samplegen.o 24puzzle.a
-test/statmerge: test/statmerge.o
+test/statmerge: test/statmerge.o 24puzzle.a
 
 .c.o:
 	@echo "CC	$<"
