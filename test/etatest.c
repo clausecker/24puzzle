@@ -45,12 +45,15 @@
 #include "puzzle.h"
 #include "compact.h"
 #include "catalogue.h"
+#include "statistics.h"
 
 /*
  * eqdist_sizes[d] is the fraction of 24 puzzle configurations which take
- * exactly d moves to solve
+ * exactly d moves to solve.  This table contains exact values and is
+ * used for the size of the first few strata.  For the remaining strata,
+ * the size reported by the stat file is used instead.
  */
-static double eqdist_sizes[] = {
+static const double eqdist_sizes[] = {
 	1.289390056876894947e-25,
 	2.578780113753789895e-25,
 	5.157560227507579790e-25,
@@ -93,7 +96,8 @@ enum { EQDIST_SIZES_LEN = sizeof eqdist_sizes / sizeof eqdist_sizes[0] };
  * terminate the program.  Return the number of samples read from f.
  */
 static size_t
-do_samples(size_t histogram[PDB_HISTOGRAM_LEN], FILE *samplefile, struct pdb_catalogue *cat)
+do_samples(size_t histogram[PDB_HISTOGRAM_LEN], FILE *samplefile, const char *filename,
+    struct pdb_catalogue *cat)
 {
 	struct puzzle p;
 	struct compact_puzzle cp;
@@ -105,10 +109,9 @@ do_samples(size_t histogram[PDB_HISTOGRAM_LEN], FILE *samplefile, struct pdb_cat
 		histogram[catalogue_hval(cat, &p)]++;
 	}
 
-	if (ferror(samplefile)) {
-		perror("do_samples");
-		exit(EXIT_FAILURE);
-	}
+	/* ignore errors but do report them */
+	if (ferror(samplefile))
+		perror(filename);
 
 	return (n_samples);
 }
@@ -116,10 +119,13 @@ do_samples(size_t histogram[PDB_HISTOGRAM_LEN], FILE *samplefile, struct pdb_cat
 /*
  * From a histogram for distance class d with n_samples samples, compute
  * the corresponding partial eta value and return it.  If f is not NULL,
- * print details about the samples to f.
+ * print details about the samples to f.  Weight the samples by weight.
+ * If use is nonzero, prefix line with an asterisk.  If brief is nonzero,
+ * omit detailed histogram listing.
  */
 static double
-partial_eta(size_t histogram[PDB_HISTOGRAM_LEN], size_t n_samples, int d, FILE *f)
+partial_eta(size_t histogram[PDB_HISTOGRAM_LEN], size_t n_samples, int use,
+    int brief, int d, double weight, FILE *f)
 {
 	double eta = 0, invb = 1.0 / B;
 	size_t i, end;
@@ -127,19 +133,20 @@ partial_eta(size_t histogram[PDB_HISTOGRAM_LEN], size_t n_samples, int d, FILE *
 	for (i = 1; i <= PDB_HISTOGRAM_LEN; i++)
 		eta = eta * invb + (double)histogram[PDB_HISTOGRAM_LEN - i];
 
-	assert(0 <= d && d < EQDIST_SIZES_LEN);
-	eta = (eta / (double)n_samples) * eqdist_sizes[d];
+	eta = (eta / (double)n_samples) * weight;
 
 	if (f != NULL) {
-		fprintf(f, "%3d: %13zu %e", d, n_samples, eta);
+		fprintf(f, "%c%3d: %13zu %e", use ? ' ' : '*', d, n_samples, eta);
 
-		end = 0;
-		for (i = 0; i < PDB_HISTOGRAM_LEN; i++)
-			if (histogram[i] != 0)
-				end = i + 1;
+		if (!brief) {
+			end = 0;
+			for (i = 0; i < PDB_HISTOGRAM_LEN; i++)
+				if (histogram[i] != 0)
+					end = i + 1;
 
-		for (i = 0; i < end; i++)
-			fprintf(f, " %g", (double)histogram[i] / (double)n_samples);
+			for (i = 0; i < end; i++)
+				fprintf(f, " %g", (double)histogram[i] / (double)n_samples);
+		}
 
 		putc('\n', f);
 	}
@@ -148,51 +155,62 @@ partial_eta(size_t histogram[PDB_HISTOGRAM_LEN], size_t n_samples, int d, FILE *
 }
 
 /*
- * Generate a sample file name from prefix and d and open the
- * corresponding sample file.  Return the open file or NULL if the
- * file cannot be opened.  Do not print an error message but leave
- * errno in place.
- */
-static FILE *
-open_sample_file(const char *prefix, int d)
-{
-	char pathbuf[PATH_MAX];
-
-	snprintf(pathbuf, PATH_MAX, "%s.%d", prefix, d);
-
-	return (fopen(pathbuf, "rb"));
-}
-
-/*
  * Accumulate partial eta values from fixed sample files whose name
  * begins with prefix.  Return the value of eta computed this way.
  * Print extra information to f if f is not NULL.  If no sample file
  * whose name begins with prefix could be opened, print an error
- * message and terminate.
+ * message and terminate.  Sample files with less than threshold
+ * samples are evaluated but disregarded for the sum.
  */
 static double
-compute_eta(struct pdb_catalogue *cat, const char *prefix, FILE *f)
+compute_eta(struct pdb_catalogue *cat, const char *prefix, size_t threshold,
+    int brief, FILE *f)
 {
-	FILE *samplefile;
-	double eta = 0.0;
-	size_t histogram[PDB_HISTOGRAM_LEN], n_samples;
-	int d = 0;
+	struct stat_file stats;
+	FILE *statfile, *samplefile;
+	double eta = 0.0, eta_d, weight;
+	size_t histogram[PDB_HISTOGRAM_LEN], n_samples, d;
+	int use;
+	char pathbuf[PATH_MAX];
 
-	for (;;) {
-		samplefile = open_sample_file(prefix, d);
-		if (samplefile == 0)
-			if (d == 0) {
-				perror("open_sample_file");
-				exit(EXIT_FAILURE);
-			} else
-				break;
+	/* load and parse statistics file */
+	snprintf(pathbuf, PATH_MAX, "%s.stat", prefix);
+	statfile = fopen(pathbuf, "r");
+	if (statfile == NULL) {
+		perror(pathbuf);
+		exit(EXIT_FAILURE);
+	}
+
+	if (parse_stat_file(&stats, statfile) == -1) {
+		perror(pathbuf);
+		exit(EXIT_FAILURE);
+	}
+
+	fclose(statfile);
+
+	for (d = 0; d <= stats.max_i; d++) {
+		if (d < EQDIST_SIZES_LEN)
+			weight = eqdist_sizes[d];
+		else if (stats.hits[d] > 0)
+			weight = stats.hits[d] / stats.samples[d];
+		else /* no data */
+			continue;
+
+		snprintf(pathbuf, PATH_MAX, "%s.%zu", prefix, d);
+		samplefile = fopen(pathbuf, "rb");
+		if (samplefile == NULL) {
+			perror(pathbuf);
+			continue;
+		}
 
 		memset(histogram, 0, sizeof histogram);
-		n_samples = do_samples(histogram, samplefile, cat);
-		eta += partial_eta(histogram, n_samples, d, f);
-
+		n_samples = do_samples(histogram, samplefile, pathbuf, cat);
 		fclose(samplefile);
-		d++;
+
+		use = n_samples >= threshold || d < EQDIST_SIZES_LEN;
+		eta_d = partial_eta(histogram, n_samples, use, brief, d, weight, f);
+		if (use)
+			eta += eta_d;
 	}
 
 	return (eta);
@@ -201,7 +219,7 @@ compute_eta(struct pdb_catalogue *cat, const char *prefix, FILE *f)
 static void
 usage(const char *argv0)
 {
-	printf("Usage: %s [-iq] [-d pdbdir] -f prefix [-j nproc] catalogue\n", argv0);
+	printf("Usage: %s [-Biq] [-d pdbdir] -f prefix [-h threshold] [-j nproc] catalogue\n", argv0);
 	exit(EXIT_FAILURE);
 }
 
@@ -211,17 +229,26 @@ main(int argc, char *argv[])
 	struct pdb_catalogue *cat;
 	FILE *details = stdout, *messages = stderr;
 	double eta;
-	int optchar, catflags = 0;
+	size_t threshold = 0;
+	int brief = 0, optchar, catflags = 0;
 	char *pdbdir = NULL, *prefix = NULL;
 
-	while (optchar = getopt(argc, argv, "d:f:ij:q"), optchar != -1)
+	while (optchar = getopt(argc, argv, "Bd:f:h:ij:q"), optchar != -1)
 		switch (optchar) {
+		case 'B':
+			brief = 1;
+			break;
+
 		case 'd':
 			pdbdir = optarg;
 			break;
 
 		case 'f':
 			prefix = optarg;
+			break;
+
+		case 'h':
+			threshold = atol(optarg);
 			break;
 
 		case 'j':
@@ -261,7 +288,7 @@ main(int argc, char *argv[])
 		return (EXIT_FAILURE);
 	}
 
-	eta = compute_eta(cat, prefix, details);
+	eta = compute_eta(cat, prefix, threshold, brief, details);
 	printf("eta = %e\n", eta);
 
 	return (EXIT_SUCCESS);
