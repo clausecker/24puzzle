@@ -25,6 +25,7 @@
 
 /* statistics.c -- functions to deal with stat files */
 
+#include <errno.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -55,13 +56,17 @@ parse_stat_file(struct stat_file *stats, FILE *statfile)
 	stats->max_i = -1;
 
         items = fscanf(statfile, "%lf\n\n", &stats->total);
-        if (items != 1)
+        if (items != 1) {
+		errno = EINVAL;
                 return (-1);
+	}
 
         while (items = fscanf(statfile, "%d: %lf/%lf = %*le\n", &i, &hits_i, &samples_i),
             items == 3) {
-                if (i < 0)
+                if (i < 0) {
+			errno = EINVAL;
                         return (-1);
+		}
 
                 if (i > stats->max_i)
                         stats->max_i = i;
@@ -76,7 +81,13 @@ parse_stat_file(struct stat_file *stats, FILE *statfile)
                 if (stats->samples[i] == 0)
                         stats->samples[i] = stats->total;
 
-        if (items != EOF || ferror(statfile))
+	if (items != EOF) {
+		errno = EINVAL;
+		return (-1);
+	}
+
+	/* errno has already been set by the previous IO operation */
+        if (ferror(statfile))
                 return (-1);
 
         return (stats->max_i);
