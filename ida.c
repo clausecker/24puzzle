@@ -64,7 +64,7 @@ struct search_node {
  */
 static void
 evaluate_expansions(struct search_node *path, struct puzzle *p, struct puzzle *pt,
-    struct pdb_catalogue *cat)
+    struct pdb_catalogue *cat, int flags)
 {
 	size_t i, dest, tile, ttile;
 	const signed char *moves;
@@ -87,18 +87,19 @@ evaluate_expansions(struct search_node *path, struct puzzle *p, struct puzzle *p
 		ttile = pt->grid[transpositions[dest]];
 
 		move(p, dest);
-		move(pt, transpositions[dest]);
-
 		memcpy(path->child_ph + i, path[-1].child_ph + path->childno, sizeof path->child_ph[i]);
-		memcpy(path->child_pht + i, path[-1].child_pht + path->childno, sizeof path->child_pht[i]);
-
 		h = catalogue_diff_hvals(path->child_ph + i, cat, p, tile);
-		ht = catalogue_diff_hvals(path->child_pht + i, cat, pt, ttile);
-
 		move(p, path->zloc);
-		move(pt, transpositions[path->zloc]);
 
-		path->child_h[i] = h > ht ? h : ht;
+		if (flags & IDA_TRANSPOSE) {
+			move(pt, transpositions[dest]);
+			memcpy(path->child_pht + i, path[-1].child_pht + path->childno, sizeof path->child_pht[i]);
+			ht = catalogue_diff_hvals(path->child_pht + i, cat, pt, ttile);
+			move(pt, transpositions[path->zloc]);
+
+			path->child_h[i] = h > ht ? h : ht;
+		} else
+			path->child_h[i] = h;
 	}
 }
 
@@ -110,13 +111,14 @@ evaluate_expansions(struct search_node *path, struct puzzle *p, struct puzzle *p
  */
 static int
 search_to_bound(struct pdb_catalogue *cat, const struct puzzle *parg,
-    struct search_node path[SEARCH_PATH_LEN + 2], size_t *bound, FILE *f, unsigned long long *expanded)
+    struct search_node path[SEARCH_PATH_LEN + 2], size_t *bound, FILE *f,
+    unsigned long long *expanded, int flags)
 {
 	struct puzzle p = *parg;
 	struct puzzle pt = p;
 	size_t newbound = -1, dloc;
 	unsigned h, ht, hmax, dest;
-	int dist;
+	int dist, done = -1;
 
 	transpose(&pt);
 
@@ -137,7 +139,7 @@ search_to_bound(struct pdb_catalogue *cat, const struct puzzle *parg,
 
 	path[0].zloc = zero_location(&p);
 	path[0].childno = 0;
-	evaluate_expansions(path, &p, &pt, cat);
+	evaluate_expansions(path, &p, &pt, cat, flags);
 
 	/* do graph search bounded by bound */
 	do {
@@ -171,7 +173,7 @@ search_to_bound(struct pdb_catalogue *cat, const struct puzzle *parg,
 
 			path[dist].childno = dest;
 			path[dist].zloc = dloc;
-			evaluate_expansions(path + dist, &p, &pt, cat);
+			evaluate_expansions(path + dist, &p, &pt, cat, flags);
 
 			/* have we found the solution? */
 			if (hmax == 0 && memcmp(p.tiles, solved_puzzle.tiles, TILE_COUNT) == 0) {
@@ -179,7 +181,11 @@ search_to_bound(struct pdb_catalogue *cat, const struct puzzle *parg,
 					fprintf(f, "Solution found at depth %d.\n", dist);
 
 				*bound = dist;
-				return (0);
+
+				if (flags & IDA_LAST_FULL)
+					done = 0;
+				else
+					return (0);
 			}
 		}
 	} while (dist >= 0); /* abort if nothing found */
@@ -191,8 +197,7 @@ search_to_bound(struct pdb_catalogue *cat, const struct puzzle *parg,
 	assert(newbound != -1);
 	*bound = newbound;
 
-	/* nothing found */
-	return (-1);
+	return (done);
 }
 
 /*
@@ -225,7 +230,7 @@ timediff(struct timespec begin, struct timespec end)
  */
 extern unsigned long long
 search_ida_bounded(struct pdb_catalogue *cat, const struct puzzle *p,
-    size_t limit, struct path *path, FILE *f)
+    size_t limit, struct path *path, FILE *f, int flags)
 {
 	struct search_node *spath;
 	struct timespec begin, round_begin, round_end, duration;
@@ -261,7 +266,7 @@ search_ida_bounded(struct pdb_catalogue *cat, const struct puzzle *p,
 
 	do {
 		expanded = 0;
-		unfinished = search_to_bound(cat, p, spath, &bound, f, &expanded);
+		unfinished = search_to_bound(cat, p, spath, &bound, f, &expanded, flags);
 		total_expanded += expanded;
 
 		if (f != NULL)
@@ -300,7 +305,7 @@ search_ida_bounded(struct pdb_catalogue *cat, const struct puzzle *p,
 		for (i = 0; i < bound; i++)
 			path->moves[i] = spath[i + 2].zloc;
 	} else
-		path->pathlen = SEARCH_NO_PATH;		
+		path->pathlen = SEARCH_NO_PATH;
 
 	free(spath);
 
@@ -312,7 +317,7 @@ search_ida_bounded(struct pdb_catalogue *cat, const struct puzzle *p,
  */
 extern unsigned long long
 search_ida(struct pdb_catalogue *cat, const struct puzzle *p,
-    struct path *path, FILE *f)
+    struct path *path, FILE *f, int flags)
 {
-	return (search_ida_bounded(cat, p, SEARCH_PATH_LEN, path, f));
+	return (search_ida_bounded(cat, p, SEARCH_PATH_LEN, path, f, flags));
 }

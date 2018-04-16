@@ -116,7 +116,7 @@ do_sample(struct sample_config *cfg)
 	if (heu > cfg->distance_limit)
 		return;
 
-	search_ida_bounded(cfg->cat, &p, cfg->distance_limit, &path, NULL);
+	search_ida_bounded(cfg->cat, &p, cfg->distance_limit, &path, NULL, IDA_TRANSPOSE);
 	if (path.pathlen == SEARCH_NO_PATH || path.pathlen > cfg->distance_limit)
 		return;
 

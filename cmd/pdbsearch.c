@@ -45,7 +45,7 @@ enum { CHUNK_SIZE = 1024 };
 static void
 usage(const char *argv0)
 {
-	fprintf(stderr, "Usage: %s [-i] [-j nproc] [-d pdbdir] catalogue\n", argv0);
+	fprintf(stderr, "Usage: %s [-Fit] [-j nproc] [-d pdbdir] catalogue\n", argv0);
 
 	exit(EXIT_FAILURE);
 }
@@ -56,11 +56,15 @@ main(int argc, char *argv[])
 	struct pdb_catalogue *cat;
 	struct path path;
 	struct puzzle p;
-	int optchar, catflags = 0;
+	int optchar, catflags = 0, idaflags = 0;
 	char linebuf[1024], pathstr[PATH_STR_LEN], *pdbdir = NULL;
 
-	while (optchar = getopt(argc, argv, "d:ij:"), optchar != -1)
+	while (optchar = getopt(argc, argv, "Fd:ij:t"), optchar != -1)
 		switch (optchar) {
+		case 'F':
+			idaflags |= IDA_LAST_FULL;
+			break;
+
 		case 'd':
 			pdbdir = optarg;
 			break;
@@ -77,6 +81,10 @@ main(int argc, char *argv[])
 				return (EXIT_FAILURE);
 			}
 
+			break;
+
+		case 't':
+			idaflags |= IDA_TRANSPOSE;
 			break;
 
 		default:
@@ -110,7 +118,7 @@ main(int argc, char *argv[])
 		}
 
 		fprintf(stderr, "Solving puzzle...\n");
-		search_ida(cat, &p, &path, stderr);
+		search_ida(cat, &p, &path, stderr, idaflags);
 		path_string(pathstr, &path);
 		printf("Solution found: %s\n", pathstr);
 	}

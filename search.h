@@ -44,6 +44,17 @@ enum {
 	PATH_STR_LEN = SEARCH_PATH_LEN * 3,
 };
 
+/*
+ * Flags for search_ida_bounded()
+ */
+enum {
+	/* perform the last round in full */
+	IDA_LAST_FULL = 1 << 0,
+
+	/* look up transposed puzzle, too */
+	IDA_TRANSPOSE = 1 << 1,
+};
+
 struct path {
 	size_t pathlen;
 	unsigned char moves[SEARCH_PATH_LEN];
@@ -53,7 +64,7 @@ struct path {
 extern void	path_string(char[PATH_STR_LEN], const struct path *);
 
 /* various */
-extern unsigned long long	search_ida(struct pdb_catalogue *, const struct puzzle *, struct path *, FILE *);
-extern unsigned long long	search_ida_bounded(struct pdb_catalogue *, const struct puzzle *, size_t, struct path *, FILE *);
+extern unsigned long long	search_ida(struct pdb_catalogue *, const struct puzzle *, struct path *, FILE *, int);
+extern unsigned long long	search_ida_bounded(struct pdb_catalogue *, const struct puzzle *, size_t, struct path *, FILE *, int);
 
 #endif /* SEARCH_H */
