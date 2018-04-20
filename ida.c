@@ -47,28 +47,27 @@
  * - zloc is the location of the zero tile
  * - childno indicates what number child we are of our parent
  * - to_expand is a bitmap containg the nodes we need to expand from here.
- * - child_ph and child_pht stores our children's partial node evaluations
+ * - child_ph stores our children's partial node evaluations
  * - child_h stores our childrens node evaluations.
  *
  * The path begins with two dummy nodes to simplify the code that
  * excludes useless moves.
  */
 struct search_node {
-	struct partial_hvals child_ph[4], child_pht[4];
+	struct partial_hvals child_ph[4];
 	unsigned zloc, childno, to_expand, child_h[4];
 };
 
 /*
- * Fill in child_ph, child_pht, child_h, and to_expand in child.  Omit
+ * Fill in child_ph, child_h, and to_expand in child.  Omit
  * the node that would go back from the expansion.
  */
 static void
-evaluate_expansions(struct search_node *path, struct puzzle *p, struct puzzle *pt,
+evaluate_expansions(struct search_node *path, struct puzzle *p,
     struct pdb_catalogue *cat, int flags)
 {
-	size_t i, dest, tile, ttile;
+	size_t i, dest, tile;
 	const signed char *moves;
-	unsigned h, ht;
 
 	path->to_expand = 0;
 	assert(path->zloc < TILE_COUNT);
@@ -84,22 +83,11 @@ evaluate_expansions(struct search_node *path, struct puzzle *p, struct puzzle *p
 		path->to_expand |= 1 << i;
 
 		tile = p->grid[dest];
-		ttile = pt->grid[transpositions[dest]];
 
 		move(p, dest);
 		memcpy(path->child_ph + i, path[-1].child_ph + path->childno, sizeof path->child_ph[i]);
-		h = catalogue_diff_hvals(path->child_ph + i, cat, p, tile);
+		path->child_h[i] = catalogue_diff_hvals(path->child_ph + i, cat, p, tile);
 		move(p, path->zloc);
-
-		if (flags & IDA_TRANSPOSE) {
-			move(pt, transpositions[dest]);
-			memcpy(path->child_pht + i, path[-1].child_pht + path->childno, sizeof path->child_pht[i]);
-			ht = catalogue_diff_hvals(path->child_pht + i, cat, pt, ttile);
-			move(pt, transpositions[path->zloc]);
-
-			path->child_h[i] = h > ht ? h : ht;
-		} else
-			path->child_h[i] = h;
 	}
 }
 
@@ -115,20 +103,16 @@ search_to_bound(struct pdb_catalogue *cat, const struct puzzle *parg,
     unsigned long long *expanded, int flags)
 {
 	struct puzzle p = *parg;
-	struct puzzle pt = p;
 	size_t newbound = -1, dloc;
-	unsigned h, ht, hmax, dest;
 	int dist, done = -1;
-
-	transpose(&pt);
+	unsigned h, hmax, dest;
 
 	/* initialize the dummy nodes */
 	path[0].zloc = zero_location(&p); /* dummy value */
 	path[0].childno = -1; /* dummy value */
 	path[0].to_expand = 0; /* dummy value */
 	h = catalogue_partial_hvals(&path[0].child_ph[0], cat, &p);
-	ht = catalogue_partial_hvals(&path[0].child_pht[0], cat, &pt);
-	path[0].child_h[0] = h > ht ? h : ht;
+	path[0].child_h[0] = h;
 
 	/*
 	 * for easier programming, we want path[0] to be the root node,
@@ -139,7 +123,7 @@ search_to_bound(struct pdb_catalogue *cat, const struct puzzle *parg,
 
 	path[0].zloc = zero_location(&p);
 	path[0].childno = 0;
-	evaluate_expansions(path, &p, &pt, cat, flags);
+	evaluate_expansions(path, &p, cat, flags);
 
 	/* do graph search bounded by bound */
 	do {
@@ -149,7 +133,6 @@ search_to_bound(struct pdb_catalogue *cat, const struct puzzle *parg,
 		if (path[dist].to_expand == 0) {
 			dist--;
 			move(&p, path[dist].zloc);
-			move(&pt, transpositions[path[dist].zloc]);
 		} else { /* make the next move */
 			++*expanded;
 
@@ -169,11 +152,10 @@ search_to_bound(struct pdb_catalogue *cat, const struct puzzle *parg,
 			}
 
 			move(&p, dloc);
-			move(&pt, transpositions[dloc]);
 
 			path[dist].childno = dest;
 			path[dist].zloc = dloc;
-			evaluate_expansions(path + dist, &p, &pt, cat, flags);
+			evaluate_expansions(path + dist, &p, cat, flags);
 
 			/* have we found the solution? */
 			if (hmax == 0 && memcmp(p.tiles, solved_puzzle.tiles, TILE_COUNT) == 0) {
@@ -188,7 +170,7 @@ search_to_bound(struct pdb_catalogue *cat, const struct puzzle *parg,
 					return (0);
 			}
 		}
-	} while (dist >= 0); /* abort if nothing found */
+	} while (dist >= 0); /* loop ends when we finish expanding the first node */
 
 	if (f != NULL)
 		fprintf(f, "No solution found with bound %zu, increasing bound to %zu.\n",
