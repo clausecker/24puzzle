@@ -104,8 +104,8 @@ search_to_bound(struct pdb_catalogue *cat, const struct puzzle *parg,
 {
 	struct puzzle p = *parg;
 	size_t newbound = -1, dloc;
-	int dist, done = -1;
 	unsigned h, hmax, dest;
+	int dist, unfinished = -1;
 
 	/* initialize the dummy nodes */
 	path[0].zloc = zero_location(&p); /* dummy value */
@@ -159,27 +159,28 @@ search_to_bound(struct pdb_catalogue *cat, const struct puzzle *parg,
 
 			/* have we found the solution? */
 			if (hmax == 0 && memcmp(p.tiles, solved_puzzle.tiles, TILE_COUNT) == 0) {
-				if (f != NULL)
+				if (unfinished && f != NULL)
 					fprintf(f, "Solution found at depth %d.\n", dist);
 
 				*bound = dist;
+				unfinished = 0;
 
-				if (flags & IDA_LAST_FULL)
-					done = 0;
-				else
-					return (0);
+				if (!(flags & IDA_LAST_FULL))
+					break;
 			}
 		}
 	} while (dist >= 0); /* loop ends when we finish expanding the first node */
 
-	if (f != NULL)
-		fprintf(f, "No solution found with bound %zu, increasing bound to %zu.\n",
-		    *bound, newbound);
+	if (unfinished) {
+		if (f != NULL)
+			fprintf(f, "No solution found with bound %zu, increasing bound to %zu.\n",
+			    *bound, newbound);
 
-	assert(newbound != -1);
-	*bound = newbound;
+		assert(newbound != -1);
+		*bound = newbound;
+	}
 
-	return (done);
+	return (unfinished);
 }
 
 /*
