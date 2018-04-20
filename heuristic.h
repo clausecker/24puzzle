@@ -43,7 +43,8 @@
  * pointer which, given two adjacent puzzle configurations and the h
  * value for one of them, yields the h value for the other.  A call to
  * the free function pointer should release the storage associated with
- * the underlying heuristic.
+ * the underlying heuristic.  If derived is set, the heuristic has been
+ * derived from another one and heu_free() is a no-op.
  */
 struct heuristic {
 	void *provider;
@@ -52,6 +53,7 @@ struct heuristic {
 	void (*free)(void *);
 	tileset ts;
 	unsigned morphism; /* the automorphism to apply */
+	int derived;
 };
 
 /* flags for heu_open() */
@@ -122,7 +124,8 @@ heu_diff_hval(struct heuristic *heu, const struct puzzle *p, int old_h)
 static inline void
 heu_free(struct heuristic *heu)
 {
-	heu->free(heu->provider);
+	if (!heu->derived)
+		heu->free(heu->provider);
 }
 
 /*
@@ -139,6 +142,7 @@ heu_morph(struct heuristic *heu, struct heuristic *oldheu, int morphism)
 	heu->free = oldheu->free;
 	heu->ts = tileset_morph(oldheu->ts, morphism);
 	heu->morphism = compose_morphisms(oldheu->morphism, inverse_morphism(morphism));
+	heu->derived = 1;
 }
 
 

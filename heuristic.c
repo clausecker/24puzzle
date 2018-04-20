@@ -113,6 +113,7 @@ heu_open(struct heuristic *heu,
 	int saved_errno = errno, type_match = 0;
 	char morphtsstr[TILESET_LIST_LEN], zmorphtsstr[TILESET_LIST_LEN], *tsstr;
 
+	heu->derived = 0;
 	ts = tileset_remove(ts, ZERO_TILE);
 
 	if (flags & HEU_NOMORPH) {
