@@ -51,11 +51,10 @@ enum { LINEBUF_LEN = 512 };
  */
 static int
 add_pdb(struct pdb_catalogue *cat, const char *tsbuf, const char *pdbdir,
-    int flags, FILE *f)
+    int flags, int heuflags, FILE *f)
 {
 	size_t pdbidx;
 	tileset ts;
-	int heuflags = HEU_CREATE | HEU_NOMORPH;
 	const char *heutype = "pdb";
 
 	if (tileset_parse(&ts, tsbuf) != 0) {
@@ -178,7 +177,7 @@ catalogue_load(const char *catfile, const char *pdbdir, int flags, FILE *f)
 			goto fail;
 		}
 
-		pdbidx = add_pdb(cat, linebuf, pdbdir, flags, f);
+		pdbidx = add_pdb(cat, linebuf, pdbdir, flags, HEU_CREATE | HEU_NOMORPH, f);
 		if (pdbidx == -1) {
 			error = errno;
 			goto fail;
@@ -247,6 +246,10 @@ catalogue_free(struct pdb_catalogue *cat)
 }
 
 /*
+ * Amend a PDB catalogue to also include transposed PDBs.
+ */
+
+/*
  * Fill in a struct partial_hvals with values for puzzle configuration p
  * relative to PDB catalogue cat.  Return the best h value found in all
  * heuristics defined in cat.
@@ -279,4 +282,16 @@ catalogue_diff_hvals(struct partial_hvals *ph, struct pdb_catalogue *cat,
 			ph->hvals[i] = heu_hval(cat->heus + i, p);
 
 	return (catalogue_ph_hval(cat, ph));
+}
+
+/*
+ * Update cat to include for each heuristic the appropriate transposed
+ * heuristic.  Return 0 on success, -1 on failure.  On error, print
+ * diagnostic messages to f if f != NULL.  On failure, the content of
+ * cat is unchanged.
+ */
+extern int
+catalogue_add_transpositions(struct pdb_catalogue *cat, FILE *f)
+{
+	// TODO
 }
