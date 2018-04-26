@@ -33,6 +33,7 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "builtins.h"
 #include "catalogue.h"
 #include "pdb.h"
 #include "puzzle.h"
@@ -293,5 +294,65 @@ catalogue_diff_hvals(struct partial_hvals *ph, struct pdb_catalogue *cat,
 extern int
 catalogue_add_transpositions(struct pdb_catalogue *cat, FILE *f)
 {
-	// TODO
+	struct pdb_catalogue newcat = *cat;
+	unsigned long long set, newset;
+	size_t transpositions[CATALOGUE_HEUS_LEN];
+	size_t i, j, n_heus, n_heuristics;
+	tileset ts;
+
+	/* first, add a transposed heuristic for each heuristic */
+	n_heus = newcat.n_heus;
+	for (i = 0; i < n_heus; i++) {
+		ts = tileset_transpose(newcat.pdbs_ts[i]);
+
+		/* do we already have this one? */
+		for (j = 0; j < newcat.n_heus; j++)
+			if (newcat.pdbs_ts[j] == ts) {
+				transpositions[i] = j;
+				goto continue_outer1;
+			}
+
+		/* no transposition found, must create */
+		if (newcat.n_heus >= CATALOGUE_HEUS_LEN) {
+			errno = ENOMEM;
+			return (-1);
+		}
+
+		heu_morph(newcat.heus + newcat.n_heus, newcat.heus + i, 4);
+		assert(newcat.heus[newcat.n_heus].ts == ts);
+		newcat.pdbs_ts[newcat.n_heus] = newcat.heus[newcat.n_heus].ts;
+		transpositions[i] = newcat.n_heus++;
+
+	continue_outer1:
+		;
+	}
+
+	/* next, construct transposed heuristics */
+	n_heuristics = newcat.n_heuristics;
+	for (i = 0; i < n_heuristics; i++) {
+		/* process bits one by one */
+		newset = 0;
+		for (set = newcat.parts[i]; set != 0; set &= set - 1)
+			newset |= transpositions[ctzll(set)];
+
+		/* do we already have this one? */
+		for (j = 0; j < newcat.n_heuristics; j++)
+			if (newcat.parts[j] == newset)
+				goto continue_outer2;
+
+		/* have we exceeded the available storage? */
+		if (newcat.n_heuristics >= HEURISTICS_LEN) {
+			errno = ENOMEM;
+			return (-1);
+		}
+
+		newcat.parts[newcat.n_heuristics++] = newset;
+
+	continue_outer2:
+		;
+	}
+
+	*cat = newcat;
+
+	return (0);
 }

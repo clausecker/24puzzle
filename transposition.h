@@ -59,4 +59,13 @@ inverse_morphism(unsigned a)
 	return ((a | 2) == 3 ? a ^ 2 : a);
 }
 
+/*
+ * Convenience function.
+ */
+static inline tileset
+tileset_transpose(tileset ts)
+{
+	return (tileset_morph(ts, 4));
+}
+
 #endif /* TRANSPOSITION_H */
