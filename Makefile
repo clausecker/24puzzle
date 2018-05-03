@@ -25,6 +25,9 @@ BINARIES=cmd/pdbstats test/indextest util/rankgen test/ranktest cmd/genpdb \
 
 all: $(BINARIES) 24puzzle.a
 
+size: $(BINARIES) 24puzzle.a
+	@size $(BINARIES) 24puzzle.a
+
 .o:
 	@echo "CCLD	$@"
 	@$(CC) $(ZSTDLDFLAGS) $(LDFLAGS) -o $@ $^ $(LDLIBS)
@@ -78,4 +81,4 @@ clean:
 	@echo "CLEAN"
 	@rm -f *.a *.o test/*.o cmd/*.o util/*.o ranktbl.c $(BINARIES)
 
-.PHONY: all clean
+.PHONY: all clean size
