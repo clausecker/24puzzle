@@ -56,7 +56,7 @@ main(int argc, char *argv[])
 	struct pdb_catalogue *cat;
 	struct path path;
 	struct puzzle p;
-	int optchar, catflags = 0, idaflags = 0;
+	int optchar, catflags = 0, idaflags = 0, transpose = 0;
 	char linebuf[1024], pathstr[PATH_STR_LEN], *pdbdir = NULL;
 
 	while (optchar = getopt(argc, argv, "Fd:ij:t"), optchar != -1)
@@ -84,7 +84,7 @@ main(int argc, char *argv[])
 			break;
 
 		case 't':
-			idaflags |= IDA_TRANSPOSE;
+			transpose = 1;
 			break;
 
 		default:
@@ -98,6 +98,11 @@ main(int argc, char *argv[])
 	if (cat == NULL) {
 		perror("catalogue_load");
 		return (EXIT_FAILURE);
+	}
+
+	if (transpose && catalogue_add_transpositions(cat) != 0) {
+		perror("catalogue_add_transpositions");
+		fprintf(stderr, "Proceeding anyway...\n");
 	}
 
 	for (;;) {

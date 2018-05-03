@@ -44,7 +44,7 @@
 static void
 usage(const char *argv0)
 {
-	fprintf(stderr, "Usage: %s [-i] [-j nproc] [-d pdbdir] [-n n_puzzle] [-s seed] catalogue distance\n", argv0);
+	fprintf(stderr, "Usage: %s [-iht] [-j nproc] [-d pdbdir] [-n n_puzzle] [-s seed] catalogue distance\n", argv0);
 
 	exit(EXIT_FAILURE);
 }
@@ -148,7 +148,7 @@ collect_walks(size_t samples[SEARCH_PATH_LEN], int steps, size_t n_puzzle,
 		if (give_heu)
 			samples[catalogue_hval(cat, &p)]++;
 		else {
-			search_ida(cat, &p, &path, NULL, IDA_TRANSPOSE);
+			search_ida(cat, &p, &path, NULL, 0);
 			assert(path.pathlen != SEARCH_NO_PATH);
 			samples[path.pathlen]++;
 		}
@@ -179,10 +179,10 @@ main(int argc, char *argv[])
 {
 	struct pdb_catalogue *cat;
 	size_t samples[SEARCH_PATH_LEN], n_puzzle = 1000;
-	int optchar, catflags = 0, give_heu = 0, steps;
+	int optchar, catflags = 0, give_heu = 0, steps, transpose = 0;
 	char *pdbdir = NULL;
 
-	while (optchar = getopt(argc, argv, "d:ij:hn:s:"), optchar != -1)
+	while (optchar = getopt(argc, argv, "d:ij:hn:s:t"), optchar != -1)
 		switch (optchar) {
 		case 'd':
 			pdbdir = optarg;
@@ -214,6 +214,10 @@ main(int argc, char *argv[])
 			random_seed = strtoll(optarg, NULL, 0);
 			break;
 
+		case 't':
+			transpose = 1;
+			break;
+
 		default:
 			usage(argv[0]);
 		}
@@ -231,6 +235,11 @@ main(int argc, char *argv[])
 	if (cat == NULL) {
 		perror("catalogue_load");
 		return (EXIT_FAILURE);
+	}
+
+	if (transpose && catalogue_add_transpositions(cat) != 0) {
+		perror("catalogue_add_transpositions");
+		fprintf(stderr, "Proceeding anyway...\n");
 	}
 
 	memset(samples, 0, sizeof samples);

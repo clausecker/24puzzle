@@ -116,7 +116,7 @@ do_sample(struct sample_config *cfg)
 	if (heu > cfg->distance_limit)
 		return;
 
-	search_ida_bounded(cfg->cat, &p, cfg->distance_limit, &path, NULL, IDA_TRANSPOSE);
+	search_ida_bounded(cfg->cat, &p, cfg->distance_limit, &path, NULL, 0);
 	if (path.pathlen == SEARCH_NO_PATH || path.pathlen > cfg->distance_limit)
 		return;
 
@@ -279,7 +279,7 @@ write_statistics(const char *prefix, size_t histogram[PDB_HISTOGRAM_LEN], size_t
 static void
 usage(const char *argv0)
 {
-	fprintf(stderr, "Usage: %s [-iq] [-n n_samples] [-N saved_samples] [-s seed]"
+	fprintf(stderr, "Usage: %s [-iqt] [-n n_samples] [-N saved_samples] [-s seed]"
 	    "[-l distance_limit] [-f prefix] [-j nproc] [-d pdbdir] catalogue\n", argv0);
 	exit(EXIT_FAILURE);
 }
@@ -290,10 +290,11 @@ main(int argc, char *argv[])
 	FILE *sample_files[PDB_HISTOGRAM_LEN];
 	struct pdb_catalogue *cat;
 	size_t n_puzzle = 1000, n_saved = SIZE_MAX, histogram[PDB_HISTOGRAM_LEN];
-	int i, optchar, catflags = 0, distance_limit = PDB_HISTOGRAM_LEN - 1;
+	int i, optchar, catflags = 0, transpose = 0;
+	int distance_limit = PDB_HISTOGRAM_LEN - 1;
 	char *pdbdir = NULL, *prefix = NULL;
 
-	while (optchar = getopt(argc, argv, "N:d:f:ij:l:n:qs:"), optchar != -1)
+	while (optchar = getopt(argc, argv, "N:d:f:ij:l:n:qs:t"), optchar != -1)
 		switch (optchar) {
 		case 'N':
 			n_saved = strtoll(optarg, NULL, 0);
@@ -340,6 +341,10 @@ main(int argc, char *argv[])
 			random_seed = strtoll(optarg, NULL, 0);
 			break;
 
+		case 't':
+			transpose = 1;
+			break;
+
 		default:
 			usage(argv[0]);
 		}
@@ -348,6 +353,12 @@ main(int argc, char *argv[])
 		usage(argv[0]);
 
 	cat = catalogue_load(argv[optind], pdbdir, catflags, quiet ? NULL : stderr);
+	if (cat == NULL) {
+		perror("catalogue_load");
+		return (EXIT_FAILURE);
+	}
+
+	cat = catalogue_load(argv[optind], pdbdir, catflags, stderr);
 	if (cat == NULL) {
 		perror("catalogue_load");
 		return (EXIT_FAILURE);

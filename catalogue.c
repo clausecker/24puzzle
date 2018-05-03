@@ -292,7 +292,7 @@ catalogue_diff_hvals(struct partial_hvals *ph, struct pdb_catalogue *cat,
  * cat is unchanged.
  */
 extern int
-catalogue_add_transpositions(struct pdb_catalogue *cat, FILE *f)
+catalogue_add_transpositions(struct pdb_catalogue *cat)
 {
 	struct pdb_catalogue newcat = *cat;
 	unsigned long long set, newset;

@@ -50,9 +50,6 @@ enum {
 enum {
 	/* perform the last round in full */
 	IDA_LAST_FULL = 1 << 0,
-
-	/* look up transposed puzzle, too */
-	IDA_TRANSPOSE = 1 << 1,
 };
 
 struct path {
