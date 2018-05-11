@@ -36,13 +36,6 @@
 #include "compact.h"
 #include "search.h"
 
-static void
-usage(const char *argv0)
-{
-	fprintf(stderr, "Usage: %s [-l limit] [fsm]\n", argv0);
-	exit(EXIT_FAILURE);
-}
-
 /*
  * Determine a path leading to configuration cp, the last move of which
  * is last_move.  It is assumed that the path has length len.  rounds is
@@ -75,4 +68,54 @@ static void
 strip_extra_paths(const struct cp_slice *rounds)
 {
 	/* TODO */
+}
+
+static void
+usage(const char *argv0)
+{
+	fprintf(stderr, "Usage: %s [-l limit] [fsm]\n", argv0);
+	exit(EXIT_FAILURE);
+}
+
+extern int
+main(int argc, char *argv[])
+{
+	FILE *fsmfile;
+	int optchar, limit = PDB_HISTOGRAM_LEN;
+
+	while (optchar = getopt(argc, argv, "l:"), optchar != -1)
+		switch (optchar) {
+		case 'l':
+			limit = atoi(optarg);
+			if (limit > PDB_HISTOGRAM_LEN)
+				limit = PDB_HISTOGRAM_LEN;
+			else if (limit < 0) {
+				fprintf(stderr, "Limit must not be negative: %s\n", optarg);
+				usage(argv[0]);
+			}
+
+			break;
+
+		default:
+			usage(argv[0]);
+		}
+
+	switch (argc - optind) {
+	case 0:
+		fsmfile = stdout;
+		break;
+
+	case 1:
+		fsmfile = fopen(argv[optind], "w");
+		if (fsmfile == NULL) {
+			perror(argv[optind]);
+			return (EXIT_FAILURE);
+		}
+
+		break;
+
+	default:
+		usage(argv[0]);
+		break;
+	}
 }
