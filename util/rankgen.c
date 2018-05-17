@@ -96,7 +96,7 @@ main()
 	printf("};\n\n");
 
 	/* generate mids */
-	printf("const tsrank\nrank_mids[RANK_SPLIT1 + 1][1 << RANK_SPLIT2 - RANK_SPLIT1] = {\n");
+	printf("const unsigned short\nrank_mids[RANK_SPLIT1 + 1][1 << RANK_SPLIT2 - RANK_SPLIT1] = {\n");
 	for (i = 0; i < RANK_SPLIT1 + 1; i++) {
 		for (j = 0; j < 1 << RANK_SPLIT2 - RANK_SPLIT1; j++)
 			print_entry(rank(j << RANK_SPLIT1 | (1 << i) - 1), j);
