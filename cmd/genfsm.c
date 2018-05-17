@@ -50,30 +50,37 @@ find_path(struct path *path, const struct compact_puzzle *cp, int last_move,
 }
 
 /*
- * Search through the latest expansion round and print out all half
- * loops to fsmfile.
- *
- * TODO: Find a way to not print superfluous half-loops.
+ * Search through expansion round len - 1 and print out all new half
+ * loops to fsmfile.  We only print those loops spanning the entirety of
+ * the search tree, i.e. where the two paths only join in the root node.
+ * For each half loop, one branch is choosen as the canonical path.  The
+ * other branches are pruned from the search tree.  For this reason,
+ * the next round must be expanded before calling this function.  This
+ * function assumes that the penultimate entry in rounds has already
+ * been deduplicated.
  */
 static void
-print_half_loops(FILE *fsmfile, const struct cp_slice *rounds, size_t len)
+do_loops(FILE *fsmfile, struct cp_slice *rounds, size_t len)
 {
-	/* TODO */
+	struct compact_puzzle *cps = rounds[len - 1].data;
+	size_t i, n_cps = rounds[len - 1].len;
+	int movemask;
+
+	for (i = 0; i < n_cps; i++) {
+		movemask = cps[i].lo & MOVE_MASK;
+		if (popcount(movemask) <= 1)
+			continue;
+
+		
+	}
 }
 
-/*
- * Remove all but the canonical path to entries in cps.
- */
-static void
-strip_extra_paths(const struct cp_slice *rounds)
-{
-	/* TODO */
-}
+
 
 static void
 usage(const char *argv0)
 {
-	fprintf(stderr, "Usage: %s [-l limit] [fsm]\n", argv0);
+	fprintf(stderr, "Usage: %s [-l limit] [-s start_tile] [fsm]\n", argv0);
 	exit(EXIT_FAILURE);
 }
 
@@ -81,9 +88,9 @@ extern int
 main(int argc, char *argv[])
 {
 	FILE *fsmfile;
-	int optchar, limit = PDB_HISTOGRAM_LEN;
+	int optchar, limit = PDB_HISTOGRAM_LEN, start_tile = 0;
 
-	while (optchar = getopt(argc, argv, "l:"), optchar != -1)
+	while (optchar = getopt(argc, argv, "l:s:"), optchar != -1)
 		switch (optchar) {
 		case 'l':
 			limit = atoi(optarg);
@@ -91,6 +98,15 @@ main(int argc, char *argv[])
 				limit = PDB_HISTOGRAM_LEN;
 			else if (limit < 0) {
 				fprintf(stderr, "Limit must not be negative: %s\n", optarg);
+				usage(argv[0]);
+			}
+
+			break;
+
+		case 's':
+			start_tile = atoi(optarg);
+			if (start_tile < 0 || start_tile >= TILE_COUNT) {
+				fprintf(stderr, "Start tile out of range, must be between 0 and 24: %s\n", optarg);
 				usage(argv[0]);
 			}
 
