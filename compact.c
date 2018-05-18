@@ -180,6 +180,25 @@ compare_cp(const void *a_arg, const void *b_arg)
 }
 
 /*
+ * Like compare_cp, but ignore the move mask.
+ */
+extern int
+compare_cp_nomask(const void *a_arg, const void *b_arg)
+{
+	const struct compact_puzzle *a = a_arg, *b = b_arg;
+	unsigned long long alo, blo;
+
+	if (a->hi != b->hi)
+		return ((a->hi > b->hi) - (a->hi < b->hi));
+	else {
+		alo = a->lo & ~MOVE_MASK;
+		blo = b->lo & ~MOVE_MASK;
+
+		return ((alo > blo) - (alo < blo));
+	}
+}
+
+/*
  * Append cp to slice cps and resize if required.
  */
 extern void

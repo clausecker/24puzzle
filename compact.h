@@ -58,6 +58,7 @@ extern void	pack_puzzle(struct compact_puzzle *restrict, const struct puzzle *re
 extern void	pack_puzzle_masked(struct compact_puzzle *restrict, const struct puzzle *restrict, int);
 extern void	unpack_puzzle(struct puzzle *restrict, const struct compact_puzzle *restrict);
 extern int	compare_cp(const void *, const void *);
+extern int	compare_cp_nomask(const void *, const void *);
 
 extern void	cps_append(struct cp_slice *, const struct compact_puzzle *);
 extern void	cps_round(struct cp_slice *restrict, const struct cp_slice *restrict);
