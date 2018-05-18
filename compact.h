@@ -83,5 +83,16 @@ cps_free(struct cp_slice *cps)
 	free(cps->data);
 }
 
+/*
+ * compute the move mask, which is a bit mask of four bits, indicating
+ * with 1 every move that leads to a configuration in the previous
+ * round.  This is used to avoid going back to the configuration we came
+ * from in breadth first search.
+ */
+static inline int
+move_mask(const struct compact_puzzle *cp)
+{
+	return (cp->lo & MOVE_MASK);
+}
 
 #endif /* COMPACT_H */

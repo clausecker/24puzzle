@@ -213,7 +213,7 @@ cps_expand(struct cp_slice *cps, const struct compact_puzzle *cp)
 	struct puzzle p;
 	struct compact_puzzle ncp;
 	size_t i, n_move;
-	int movemask = cp->lo & MOVE_MASK, zloc;
+	int movemask = move_mask(cp), zloc;
 	const signed char *moves;
 
 	unpack_puzzle(&p, cp);
