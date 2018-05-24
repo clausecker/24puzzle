@@ -9,6 +9,7 @@ core
 cmd/bitpdb
 cmd/diffcode
 cmd/etacount
+cmd/genfsm
 cmd/genpdb
 cmd/verifypdb
 cmd/parsearch

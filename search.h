@@ -39,7 +39,7 @@
  * NO_PATH if no path could be found.
  */
 enum {
-	SEARCH_PATH_LEN = 512 - sizeof(size_t),
+	SEARCH_PATH_LEN = PDB_HISTOGRAM_LEN,
 	SEARCH_NO_PATH = -1,
 	PATH_STR_LEN = SEARCH_PATH_LEN * 3,
 };

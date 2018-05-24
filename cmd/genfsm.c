@@ -63,7 +63,7 @@ find_path(struct path *path, const struct puzzle *p, int last_move,
 		    sizeof *rounds->data, compare_cp_nomask);
 		assert(hit != NULL);
 		unpack_puzzle(&p_hit, hit);
-		mask = movemask(hit);
+		mask = move_mask(hit);
 		assert(mask != 0);
 
 		last_move = get_moves(zero_location(&pp))[ctz(mask)];
@@ -88,16 +88,19 @@ do_loop(struct compact_puzzle *cp, FILE *fsmfile,
 {
 	struct path paths[4];
 	struct puzzle p;
-	size_t i, n;
-	int mask = move_mask(cps + i);
+	size_t i, j, n;
+	int mask = move_mask(cp), short_cycles = 0, last_steps[4];
 	const signed char *moves;
+	char path0str[PATH_STR_LEN], pathstr[PATH_STR_LEN];
 
 	/* is there more than one way to this configuration? */
-	if (popcount(move_mask(cps + i)) <= 1)
+	if (popcount(mask) <= 1)
 		return;
 
 	unpack_puzzle(&p, cp);
 	moves = get_moves(zero_location(&p));
+
+	assert(len >= 2); /* make sure every path has a last step */
 
 	/* determine all possible paths */
 	for (i = n = 0; i < 4; i++) {
@@ -105,15 +108,65 @@ do_loop(struct compact_puzzle *cp, FILE *fsmfile,
 			continue;
 
 		find_path(paths + n, &p, moves[i], rounds, len);
+
+		/* TODO: find correct offset */
+		last_steps[n] = paths[n].moves[len - 1];
 		n++;
 	}
 
 	/*
 	 * determine if any path has a short loop.  To do so, we merely
-	 * need to check if the first steps are all distinct.
+	 * need to check if the last moves are all distinct.  This is
+	 * because two paths are distinct if and only if their last step
+	 * (the one that moves to the solved configuration) is distinct.
 	 */
-	assert(len >= 2); /* make sure the first step exists */
-	// TODO
+
+	for (i = 0; i < n; i++)
+		for (j = 0; j < i; j++)
+			if (last_steps[i] == last_steps[j]) {
+				short_cycles |= 1 << i;
+				break;
+			}
+
+	/* print duplicate patterns and erase the paths from cp */
+	path_string(path0str, paths + 0);
+
+	for (i = j = 0; i < 4; i++) {
+		if (~mask & 1 << i)
+			continue;
+
+		/* the first path is not a duplicate of itself */
+		if (j == 0) {
+			j++;
+			continue;
+		}
+
+		if (~short_cycles & 1 << j) {
+			/*
+			 * entry of the form
+			 *
+			 * A,B,C = D,E,F
+			 */
+			path_string(pathstr, paths + j);
+			fprintf(fsmfile, "%s = %s\n", pathstr, path0str);
+
+			/*
+			 * entry of the form
+			 *
+			 * D,E,F,C = A,B
+			 */
+			/* TODO */
+		}
+
+		/* erase path */
+		mask &= ~(1 << i);
+
+		j++;
+	}
+
+	/* write path back */
+	cp->lo &= ~MOVE_MASK;
+	cp->lo |= mask;
 }
 
 /*
@@ -125,10 +178,8 @@ do_loops(FILE *fsmfile, struct cp_slice *rounds, size_t len)
 	struct compact_puzzle *cps = rounds[len - 1].data;
 	size_t i, n_cps = rounds[len - 1].len;
 
-	for (i = 0; i < n_cps; i++) {
-		if (popcount(move_mask(cps + i)) > 1)
-			do_loop(cps + i, fsmfile, rounds, len);
-	}
+	for (i = 0; i < n_cps; i++)
+		do_loop(cps + i, fsmfile, rounds, len);
 }
 
 
@@ -144,7 +195,10 @@ extern int
 main(int argc, char *argv[])
 {
 	FILE *fsmfile;
-	int optchar, limit = PDB_HISTOGRAM_LEN, start_tile = 0;
+	struct puzzle p;
+	struct compact_puzzle cp;
+	struct cp_slice cps[PDB_HISTOGRAM_LEN];
+	int i, optchar, limit = PDB_HISTOGRAM_LEN, start_tile = 0;
 
 	while (optchar = getopt(argc, argv, "l:s:"), optchar != -1)
 		switch (optchar) {
@@ -190,4 +244,22 @@ main(int argc, char *argv[])
 		usage(argv[0]);
 		break;
 	}
+
+	p = solved_puzzle;
+	move(&p, start_tile);
+	pack_puzzle(&cp, &p);
+	cps_init(cps + 0);
+	cps_append(cps + 0, &cp);
+
+	for (i = 1; i <= limit; i++) {
+		fflush(stdout);
+
+		cps_init(cps + i);
+		cps_round(cps + i, cps + i - 1);
+		do_loops(fsmfile, cps, i);
+	}
+
+	do_loops(fsmfile, cps, i);
+
+	return (EXIT_SUCCESS);
 }
