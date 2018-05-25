@@ -53,21 +53,20 @@ find_path(struct path *path, const struct puzzle *p, int last_move,
 	int mask;
 
 	path->pathlen = len;
-	path->moves[0] = zero_location(&pp);
-	path->moves[1] = last_move;
+	path->moves[len - 1] = zero_location(&pp);
+	path->moves[len - 2] = last_move;
 	move(&pp, last_move);
 
 	for (i = 2; i < len; i++) {
 		pack_puzzle(&cp, &pp);
-		hit = bsearch(&cp, rounds[len - i - 1].data, rounds[len - i - 1].len,
+		hit = bsearch(&cp, rounds[len - i].data, rounds[len - i].len,
 		    sizeof *rounds->data, compare_cp_nomask);
 		assert(hit != NULL);
 		unpack_puzzle(&p_hit, hit);
 		mask = move_mask(hit);
 		assert(mask != 0);
-
 		last_move = get_moves(zero_location(&pp))[ctz(mask)];
-		path->moves[i] = last_move;
+		path->moves[len - i -1] = last_move;
 		move(&pp, last_move);
 	}
 }
@@ -110,7 +109,7 @@ do_loop(struct compact_puzzle *cp, FILE *fsmfile,
 		find_path(paths + n, &p, moves[i], rounds, len);
 
 		/* TODO: find correct offset */
-		last_steps[n] = paths[n].moves[len - 1];
+		last_steps[n] = paths[n].moves[1];
 		n++;
 	}
 
