@@ -58,7 +58,8 @@ struct path {
 };
 
 /* search.c */
-extern void	path_string(char[PATH_STR_LEN], const struct path *);
+extern void	 path_string(char[PATH_STR_LEN], const struct path *);
+extern char	*path_parse(struct path *, const char *);
 
 /* various */
 extern unsigned long long	search_ida(struct pdb_catalogue *, const struct puzzle *, struct path *, FILE *, int);

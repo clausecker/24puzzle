@@ -25,8 +25,10 @@
 
 /* search.c -- utility functions for search.h */
 
+#include <stdlib.h>
 #include <stdio.h>
 
+#include "puzzle.h"
 #include "search.h"
 
 /*
@@ -45,4 +47,32 @@ path_string(char str[PATH_STR_LEN], const struct path *path)
 	}
 
 	str[offset - 1] = '\0';
+}
+
+/*
+ * Parse a path from the prefix of str.  Return a pointer to the first
+ * character that does not belong to the path or NULL if no path could
+ * be parsed.  In this case, the content of *path is undefined.
+ */
+extern char *
+path_parse(struct path *path, const char *strarg)
+{
+	unsigned long move;
+	size_t len = 1;
+	char *str = (char *)strarg; /* avoid silly warnings */
+
+	move = strtol(str, &str, 10);
+	path->moves[0] = move;
+	if (move >= TILE_COUNT || str == NULL)
+		return (NULL);
+
+	while (str[0] == ',') {
+		move = strtol(++str, &str, 10);
+		path->moves[len++] = move;
+		if (move >= TILE_COUNT || str == NULL)
+			return (NULL);
+	}
+
+	path->pathlen = len;
+	return (str);
 }
