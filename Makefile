@@ -21,7 +21,8 @@ BINARIES=cmd/pdbstats test/indextest util/rankgen test/ranktest cmd/genpdb \
 	test/qualitytest test/hitanalysis cmd/parsearch cmd/pdbsearch \
 	cmd/pdbcount test/bitpdbtest test/morphtest cmd/pdbmatch \
 	cmd/pdbquality test/walkdist cmd/puzzledist test/etatest \
-	test/samplegen test/statmerge cmd/etacount cmd/randompdb cmd/genloops
+	test/samplegen test/statmerge cmd/etacount cmd/randompdb cmd/genloops \
+	cmd/compilefsm
 
 all: $(BINARIES) 24puzzle.a
 
@@ -55,6 +56,7 @@ cmd/verifypdb: cmd/verifypdb.o 24puzzle.a
 cmd/diffcode: cmd/diffcode.o 24puzzle.a
 test/rankcount: test/rankcount.o 24puzzle.a
 cmd/bitpdb: cmd/bitpdb.o 24puzzle.a
+cmd/compilefsm: cmd/compilefsm.o 24puzzle.a
 cmd/etacount: cmd/etacount.o 24puzzle.a
 cmd/genloops: cmd/genloops.o 24puzzle.a
 cmd/pdbstats: cmd/pdbstats.o 24puzzle.a
