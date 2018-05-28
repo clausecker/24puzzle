@@ -23,7 +23,7 @@
  * SUCH DAMAGE.
  */
 
-/* genfsm.c -- generate a finite state machine */
+/* genloops.c -- generate state space loops */
 
 #define _POSIX_C_SOURCE 200809L
 #include <assert.h>

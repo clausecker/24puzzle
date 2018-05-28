@@ -21,7 +21,7 @@ BINARIES=cmd/pdbstats test/indextest util/rankgen test/ranktest cmd/genpdb \
 	test/qualitytest test/hitanalysis cmd/parsearch cmd/pdbsearch \
 	cmd/pdbcount test/bitpdbtest test/morphtest cmd/pdbmatch \
 	cmd/pdbquality test/walkdist cmd/puzzledist test/etatest \
-	test/samplegen test/statmerge cmd/etacount cmd/randompdb cmd/genfsm
+	test/samplegen test/statmerge cmd/etacount cmd/randompdb cmd/genloops
 
 all: $(BINARIES) 24puzzle.a
 
@@ -56,7 +56,7 @@ cmd/diffcode: cmd/diffcode.o 24puzzle.a
 test/rankcount: test/rankcount.o 24puzzle.a
 cmd/bitpdb: cmd/bitpdb.o 24puzzle.a
 cmd/etacount: cmd/etacount.o 24puzzle.a
-cmd/genfsm: cmd/genfsm.o 24puzzle.a
+cmd/genloops: cmd/genloops.o 24puzzle.a
 cmd/pdbstats: cmd/pdbstats.o 24puzzle.a
 	@echo "CCLD	$@"
 	@$(CC) $(ZSTDLDFLAGS) $(LDFLAGS) -o $@ $^ $(LDLIBS) -lm
