@@ -34,6 +34,7 @@
 #include <unistd.h>
 
 #include "puzzle.h"
+#include "search.h"
 
 /*
  * The header of a finite state machine file.  A finite state machine
@@ -72,6 +73,102 @@ struct fsm {
 #define FSM_UNASSIGNED 0xffffffffu
 
 /*
+ * Add a new entry to the state table for square sq to fsm.  Resize the
+ * underlying array if needed and exit if the state table is full.
+ * Return the index of the newly allocated state.
+ */
+static unsigned
+addstate(struct fsm *fsm, int sq)
+{
+	unsigned long long newsize;
+	unsigned state;
+
+	assert(0 <= sq && sq < TILE_COUNT);
+	state = fsm->header.lengths[sq]++;
+	if (state >= FSM_MAX_LEN) {
+		fprintf(stderr, "%s: table for square %d full (%u states)\n",
+		    __func__, sq, state);
+		exit(EXIT_FAILURE);
+	}
+
+	/* reallocation needed? */
+	if (state >= fsm->sizes[sq]) {
+		/* avoid overflow */
+		newsize = 13 * (unsigned long long)fsm->sizes[sq] / 8;
+		if (newsize > FSM_MAX_LEN)
+			newsize = FSM_MAX_LEN;
+
+		fsm->tables[sq] = realloc(fsm->tables[sq],
+		    newsize * sizeof *fsm->tables[sq]);
+		if (fsm->tables[sq] == NULL) {
+			perror("realloc");
+			exit(EXIT_FAILURE);
+		}
+
+		fsm->sizes[sq] = newsize;
+	}
+
+	fsm->tables[sq][state][0] = FSM_UNASSIGNED;
+	fsm->tables[sq][state][1] = FSM_UNASSIGNED;
+	fsm->tables[sq][state][2] = FSM_UNASSIGNED;
+	fsm->tables[sq][state][3] = FSM_UNASSIGNED;
+
+	return (state);
+}
+
+/*
+ * Compute an index such that get_moves(a)[moveindex(a, b)] == b.
+ */
+static int
+moveindex(int a, int b)
+{
+	size_t i;
+	const signed char *moves = get_moves(a);
+
+	/* TODO: optimize! */
+	for (i = 0; moves[i] < 4; i++)
+		if (moves[i] == b)
+			return (i);
+
+	/* no match: programming error */
+	assert(0);
+}
+
+/*
+ * Add a half-loop described by path p to the trie in fsm.  Print an
+ * error message and exit if a prefix of p is already in fsm.
+ */
+static void
+addloop(struct fsm *fsm, struct path *p)
+{
+	size_t state = FSM_BEGIN, i;
+	int oldsq = p->moves[0], newsq, move;
+	char pathstr[PATH_STR_LEN];
+
+	for (i = 1; i < p->pathlen - 1; i++) {
+		newsq = p->moves[i];
+		move = moveindex(oldsq, newsq);
+		if (fsm->tables[oldsq][state][move] == FSM_UNASSIGNED)
+			fsm->tables[oldsq][state][move] = addstate(fsm, newsq);
+
+		if (fsm->tables[oldsq][state][move] == FSM_MATCH) {
+			path_string(pathstr, p);
+			fprintf(stderr, "%s: prefix already present: ", pathstr);
+			p->pathlen = i + 1; /* kludge */
+			path_string(pathstr, p);
+			fprintf(stderr, "%s\n", pathstr);
+			exit(EXIT_FAILURE);
+		}
+
+		oldsq = newsq;
+	}
+
+	newsq = p->moves[i];
+	move = moveindex(oldsq, newsq);
+	fsm->tables[oldsq][state][move] = FSM_MATCH;
+}
+
+/*
  * Read half loops from loopfile and add them to the pristine FSM
  * structure *fsm.  loopfile contains loops as printed by cmd/genloops.
  * After this function ran, the entries in fsm form a trie containing
@@ -81,7 +178,41 @@ struct fsm {
 static void
 readloops(struct fsm *fsm, FILE *loopfile)
 {
-	/* TODO */
+	struct path p;
+	size_t n_linebuf = 0;
+	char *linebuf = NULL;
+	size_t i;
+	int lineno = 1;
+
+	while (getline(&linebuf, &n_linebuf, loopfile) > 0) {
+		if (path_parse(&p, linebuf) == NULL) {
+			fprintf(stderr, "%s: invalid path on line %d: %s\n",
+			    __func__, lineno, linebuf);
+			exit(EXIT_FAILURE);
+		}
+
+		addloop(fsm, &p);
+		lineno++;
+	}
+
+	if (ferror(loopfile)) {
+		perror("getline");
+		exit(EXIT_FAILURE);
+	}
+
+	/* release extra storage */
+	for (i = 0; i < TILE_COUNT; i++) {
+		assert(fsm->header.lengths[i] <= fsm->sizes[i]);
+
+		/* should never fail as we release storage */
+		fsm->tables[i] = realloc(fsm->tables[i],
+		    fsm->header.lengths[i] * sizeof *fsm->tables[i]);
+		assert(fsm->tables[i] != NULL);
+
+		fsm->sizes[i] = fsm->header.lengths[i];
+	}
+
+	free(linebuf);
 }
 
 /*
