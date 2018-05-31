@@ -29,6 +29,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdnoreturn.h>
 #include <string.h>
 #include <unistd.h>
 
@@ -192,9 +193,23 @@ do_loops(FILE *fsmfile, struct cp_slice *rounds, size_t len)
 		do_loop(cps + i, fsmfile, rounds, len);
 }
 
-
-
+/*
+ * Print the trivial loops of the form a,b,a = a for square sq.
+ */
 static void
+trivial_loops(FILE *fsmfile, int sq)
+{
+	size_t i, n_moves;
+	const signed char *moves;
+
+	moves = get_moves(sq);
+	n_moves = move_count(sq);
+
+	for (i = 0; i < n_moves; i++)
+		fprintf(fsmfile, "%d,%d,%d = %d\n", sq, moves[i], sq, sq);
+}
+
+static noreturn void
 usage(const char *argv0)
 {
 	fprintf(stderr, "Usage: %s [-l limit] [-s start_tile] [fsm]\n", argv0);
@@ -254,6 +269,8 @@ main(int argc, char *argv[])
 		usage(argv[0]);
 		break;
 	}
+
+	trivial_loops(fsmfile, start_tile);
 
 	p = solved_puzzle;
 	move(&p, start_tile);
