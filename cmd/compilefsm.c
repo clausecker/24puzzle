@@ -94,7 +94,8 @@ addstate(struct fsm *fsm, int sq)
 	/* reallocation needed? */
 	if (state >= fsm->sizes[sq]) {
 		/* avoid overflow */
-		newsize = 13 * (unsigned long long)fsm->sizes[sq] / 8;
+		newsize = 1 + 13 * (unsigned long long)fsm->sizes[sq] / 8;
+		assert(newsize > fsm->sizes[sq]);
 		if (newsize > FSM_MAX_LEN)
 			newsize = FSM_MAX_LEN;
 
@@ -117,6 +118,20 @@ addstate(struct fsm *fsm, int sq)
 }
 
 /*
+ * Initialize fsm and allocate initial states for each square.
+ */
+static void
+initfsm(struct fsm *fsm)
+{
+	size_t i;
+
+	memset(fsm, 0, sizeof *fsm);
+
+	for (i = 0; i < TILE_COUNT; i++)
+		addstate(fsm, i);
+}
+
+/*
  * Compute an index such that get_moves(a)[moveindex(a, b)] == b.
  */
 static int
@@ -126,7 +141,7 @@ moveindex(int a, int b)
 	const signed char *moves = get_moves(a);
 
 	/* TODO: optimize! */
-	for (i = 0; moves[i] < 4; i++)
+	for (i = 0; i < 4; i++)
 		if (moves[i] == b)
 			return (i);
 
@@ -160,6 +175,7 @@ addloop(struct fsm *fsm, struct path *p)
 			exit(EXIT_FAILURE);
 		}
 
+		state = fsm->tables[oldsq][state][move];
 		oldsq = newsq;
 	}
 
@@ -298,7 +314,7 @@ main(int argc, char *argv[])
 		usage(argv[0]);
 	}
 
-	memset(&fsm, 0, sizeof fsm);
+	initfsm(&fsm);
 	readloops(&fsm, stdin);
 	addbackedges(&fsm);
 	writefsm(fsmfile, &fsm);
