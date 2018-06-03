@@ -243,13 +243,17 @@ addbackedges(struct fsm *fsm)
 /*
  * Compute table offsets and write fsm to fsmfile.  Print an error
  * message and exit on failure.  As a side effect, close fsmfile.  This
- * is done to report errors that appear upon fclose.
+ * is done to report errors that appear upon fclose.  If verbose is set,
+ * print some interesting information to stderr.
  */
 static void
-writefsm(FILE *fsmfile, struct fsm *fsm)
+writefsm(FILE *fsmfile, struct fsm *fsm, int verbose)
 {
 	off_t offset, start;
 	size_t i, count;
+
+	if (verbose)
+		fprintf(stderr, "writing finite state machine...\n");
 
 	start = ftello(fsmfile);
 
@@ -266,6 +270,11 @@ writefsm(FILE *fsmfile, struct fsm *fsm)
 	}
 
 	for (i = 0; i < TILE_COUNT; i++) {
+		if (verbose)
+			fprintf(stderr, "square %2zu: %10u states (%11zu bytes)\n",
+			    i, fsm->header.lengths[i], fsm->header.lengths[i] *
+			    sizeof *fsm->tables[i]);
+
 		count = fwrite(fsm->tables[i], sizeof *fsm->tables[i],
 		    fsm->header.lengths[i], fsmfile);
 		if (count != fsm->header.lengths[i]) {
@@ -281,12 +290,15 @@ writefsm(FILE *fsmfile, struct fsm *fsm)
 		perror("fclose");
 		exit(EXIT_FAILURE);
 	}
+
+	if (verbose)
+		fprintf(stderr, "finite state machine successfully written\n");
 }
 
 static void noreturn
 usage(const char *argv0)
 {
-	fprintf(stderr, "Usage: %s [fsmfile]\n", argv0);
+	fprintf(stderr, "Usage: %s [-v] [fsmfile]\n", argv0);
 	exit(EXIT_FAILURE);
 }
 
@@ -295,16 +307,27 @@ main(int argc, char *argv[])
 {
 	FILE *fsmfile;
 	struct fsm fsm;
+	int optchar, verbose = 0;
 
-	switch (argc) {
-	case 1:
+	while (optchar = getopt(argc, argv, "v"), optchar != EOF)
+		switch (optchar) {
+		case 'v':
+			verbose = 1;
+			break;
+
+		default:
+			usage(argv[0]);
+		}
+
+	switch (argc - optind) {
+	case 0:
 		fsmfile = stdout;
 		break;
 
-	case 2:
-		fsmfile = fopen(argv[1], "wb");
+	case 1:
+		fsmfile = fopen(argv[optind], "wb");
 		if (fsmfile == NULL) {
-			perror(argv[1]);
+			perror(argv[optind]);
 			return (EXIT_FAILURE);
 		}
 
@@ -317,7 +340,7 @@ main(int argc, char *argv[])
 	initfsm(&fsm);
 	readloops(&fsm, stdin);
 	addbackedges(&fsm);
-	writefsm(fsmfile, &fsm);
+	writefsm(fsmfile, &fsm, verbose);
 
 	return (EXIT_SUCCESS);
 }
