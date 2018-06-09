@@ -43,7 +43,9 @@
  * of these tables, lengths stores the number of 32 bit integers in each
  * table.  struct fsm is the in-memory representation of a struct
  * fsmfile and contains pointers to the tables as well as the actually
- * allocated table sizes.
+ * allocated table sizes.  The backmaps table contains pointers to
+ * bitmaps which store for each transition a 1 if the transition is a
+ * back edge.  This is only needed during back edge generation.
  */
 struct fsmfile {
 	/* table offsets in bytes from the beginning of the file */
@@ -57,6 +59,7 @@ struct fsm {
 	struct fsmfile header;
 	unsigned sizes[TILE_COUNT];
 	unsigned (*tables[TILE_COUNT])[4];
+	unsigned char *backmaps[TILE_COUNT];
 };
 
 /*
@@ -237,7 +240,27 @@ readloops(struct fsm *fsm, FILE *loopfile)
 static void
 addbackedges(struct fsm *fsm)
 {
-	/* TODO */
+	unsigned *table;
+	size_t i, j;
+
+	/* populate backmaps */
+	for (i = 0; i < TILE_COUNT; i++) {
+		fsm->backmaps[i] = calloc((fsm->header.lengths[i] + 1) / 2, 1);
+		if (fsm->backmaps[i] == NULL) {
+			perror("calloc");
+			exit(EXIT_FAILURE);
+		}
+
+		table = (unsigned *)fsm->tables[i];
+		for (j = 0; j < 4 * fsm->header.lengths[i]; j++)
+			if (table[j] == FSM_UNASSIGNED)
+				fsm->backmaps[i][j / 8] |= 1 << j % 8;
+	}
+
+	/* ... */
+
+	for (i = 0; i < TILE_COUNT; i++)
+		free(fsm->backmaps[i]);
 }
 
 /*
