@@ -281,7 +281,7 @@ isbackedge(struct fsm *fsm, size_t zloc, unsigned state, size_t i)
 {
 	ptrdiff_t offset = &fsm->tables[zloc][state][i] - &fsm->tables[zloc][0][0];
 
-	assert(offset > 0);
+	assert(offset >= 0);
 
 	return (fsm->backmaps[zloc][offset >> 3] & 1 << (offset & 7));
 }
@@ -304,6 +304,10 @@ traversetrie(struct fsm *fsm, unsigned state,
 	/* make sure we don't go out of bounds */
 	assert(pathlen > 0);
 	assert(pathlen < SEARCH_PATH_LEN - 1);
+
+	/* ignore special states */
+	if (state >= FSM_MAX_LEN)
+		return;
 
 	zloc = path[pathlen - 1];
 	n_moves = move_count(zloc);
