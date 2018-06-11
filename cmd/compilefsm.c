@@ -235,15 +235,102 @@ readloops(struct fsm *fsm, FILE *loopfile)
 }
 
 /*
+ * Find the longest prefix of path[0..pathlen-1] that has an entry in
+ * fsm and return the corresponding state.
+ */
+static unsigned
+longestprefix(struct fsm *fsm, const char *path, size_t pathlen)
+{
+	size_t i, j, idx, zloc;
+	unsigned state;
+
+	for (i = 0; i < pathlen; i++) {
+		state = 0;
+		zloc = path[i];
+		for (j = i + 1; j < pathlen; j++) {
+			/*
+			 * there should be no paths of the form abc in
+			 * the FSM where b too is in the FSM.  Todo:
+			 * better error message.
+			 */
+			assert(state < FSM_MAX_LEN);
+
+			idx = moveindex(zloc, path[j]);
+			state = fsm->tables[zloc][state][idx];
+			zloc = path[j];
+			if (state == FSM_UNASSIGNED)
+				goto reject;
+		}
+
+		return (state);
+
+	reject:
+		continue;
+	}
+
+	/* UNREACHABLE */
+	assert(0);
+}
+
+/*
+ * Query fsm->backedges[zloc] to find if fsm->tables[zloc][state][i]
+ * is a backedge.  Return nonzero if it is, zero otherwise.
+ */
+static int
+isbackedge(struct fsm *fsm, size_t zloc, unsigned state, size_t i)
+{
+	ptrdiff_t offset = &fsm->tables[zloc][state][i] - &fsm->tables[zloc][0][0];
+
+	assert(offset > 0);
+
+	return (fsm->backmaps[zloc][offset >> 3] & 1 << (offset & 7));
+}
+
+/*
+ * Traverse the trie represented by fsm recursively.  traversetrie is
+ * called once for for every node in the traversal.  state is the state
+ * number we are currently in, path is a record of the path we took from
+ * the root to get here and pathlen is the number of vertices in path.
+ * fsm->backmaps is used to avoid traversing back edges.  For each edge
+ * marked FSM_UNASSIGNED, assignbackedge() is called to assign the edge.
+ */
+static void
+traversetrie(struct fsm *fsm, unsigned state,
+    char path[SEARCH_PATH_LEN], size_t pathlen)
+{
+	size_t i, zloc, n_moves;
+	const signed char *moves;
+
+	/* make sure we don't go out of bounds */
+	assert(pathlen > 0);
+	assert(pathlen < SEARCH_PATH_LEN - 1);
+
+	zloc = path[pathlen - 1];
+	n_moves = move_count(zloc);
+	moves = get_moves(zloc);
+	for (i = 0; i < n_moves; i++) {
+		path[pathlen] = moves[i];
+		if (!isbackedge(fsm, zloc, state, i))
+			traversetrie(fsm, fsm->tables[zloc][state][i], path, pathlen + 1);
+		else if (fsm->tables[zloc][state][i] == FSM_UNASSIGNED)
+			fsm->tables[zloc][state][i] = longestprefix(fsm, path, pathlen + 1);
+	}
+}
+
+/*
  * Augment fsm with edges for missed matches (i.e. back edges).
  */
 static void
-addbackedges(struct fsm *fsm)
+addbackedges(struct fsm *fsm, int verbose)
 {
 	unsigned *table;
 	size_t i, j;
+	char path[SEARCH_PATH_LEN];
 
 	/* populate backmaps */
+	if (verbose)
+		fprintf(stderr, "populating backmaps...\n");
+
 	for (i = 0; i < TILE_COUNT; i++) {
 		fsm->backmaps[i] = calloc((fsm->header.lengths[i] + 1) / 2, 1);
 		if (fsm->backmaps[i] == NULL) {
@@ -257,7 +344,13 @@ addbackedges(struct fsm *fsm)
 				fsm->backmaps[i][j / 8] |= 1 << j % 8;
 	}
 
-	/* ... */
+	for (i = 0; i < TILE_COUNT; i++) {
+		if (verbose)
+			fprintf(stderr, "generating back edges for square %2zu\n", i);
+
+		path[0] = i;
+		traversetrie(fsm, 0, path, 1);
+	}
 
 	for (i = 0; i < TILE_COUNT; i++)
 		free(fsm->backmaps[i]);
@@ -362,7 +455,7 @@ main(int argc, char *argv[])
 
 	initfsm(&fsm);
 	readloops(&fsm, stdin);
-	addbackedges(&fsm);
+	addbackedges(&fsm, verbose);
 	writefsm(fsmfile, &fsm, verbose);
 
 	return (EXIT_SUCCESS);
