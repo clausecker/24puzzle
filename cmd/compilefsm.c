@@ -403,9 +403,6 @@ writefsm(FILE *fsmfile, struct fsm *fsm, int verbose)
 		}
 	}
 
-	/* consistency check */
-	assert(ftello(fsmfile) == start + offset);
-
 	if (fclose(fsmfile) == EOF) {
 		perror("fclose");
 		exit(EXIT_FAILURE);
