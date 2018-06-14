@@ -26,6 +26,7 @@
 #ifndef PUZZLE_H
 #define PUZZLE_H
 
+#include <assert.h>
 #include <stdalign.h>
 #include <stdatomic.h>
 #include <stddef.h>
@@ -130,6 +131,24 @@ static inline const signed char *
 get_moves(size_t z)
 {
 	return (movetab[z]);
+}
+
+/*
+ * Compute an index such that get_moves(a)[move_index(a, b)] == b.
+ */
+static inline int
+move_index(int a, int b)
+{
+	size_t i;
+	const signed char *moves = get_moves(a);
+
+	/* TODO: optimize! */
+	for (i = 0; i < 4; i++)
+		if (moves[i] == b)
+			return (i);
+
+	/* no match: programming error */
+	assert(0);
 }
 
 /* validation.c */

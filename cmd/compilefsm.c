@@ -33,44 +33,9 @@
 #include <string.h>
 #include <unistd.h>
 
+#include "fsm.h"
 #include "puzzle.h"
 #include "search.h"
-
-/*
- * The header of a finite state machine file.  A finite state machine
- * file first contains this header and is followed by TILE_COUNT state
- * tables, one for each state.  The offsets member stores the beginnings
- * of these tables, lengths stores the number of 32 bit integers in each
- * table.  struct fsm is the in-memory representation of a struct
- * fsmfile and contains pointers to the tables as well as the actually
- * allocated table sizes.
- */
-struct fsmfile {
-	/* table offsets in bytes from the beginning of the file */
-	off_t offsets[TILE_COUNT];
-
-	/* table lengths in 32 bit words */
-	unsigned lengths[TILE_COUNT];
-};
-
-struct fsm {
-	struct fsmfile header;
-	unsigned sizes[TILE_COUNT];
-	unsigned (*tables[TILE_COUNT])[4];
-};
-
-/*
- * Some special FSM states.  State FSM_BEGIN is the state we start out
- * in, it exists once for every starting square.  FSM_MAX is the highest
- * allowed length for a single state table.  FSM_MATCH is the entry for
- * a match transition, FSM_UNASSIGNED is the entry for an unassigned
- * transition (to be patched later).  These are not enumeration
- * constants as they don't fit in an int.
- */
-#define FSM_BEGIN      0x00000000u
-#define FSM_MAX_LEN    0xfffffff0u
-#define FSM_MATCH      0xfffffffeu
-#define FSM_UNASSIGNED 0xffffffffu
 
 /*
  * Add a new entry to the state table for square sq to fsm.  Resize the
@@ -132,24 +97,6 @@ initfsm(struct fsm *fsm)
 }
 
 /*
- * Compute an index such that get_moves(a)[moveindex(a, b)] == b.
- */
-static int
-moveindex(int a, int b)
-{
-	size_t i;
-	const signed char *moves = get_moves(a);
-
-	/* TODO: optimize! */
-	for (i = 0; i < 4; i++)
-		if (moves[i] == b)
-			return (i);
-
-	/* no match: programming error */
-	assert(0);
-}
-
-/*
  * Add a half-loop described by path p to the trie in fsm.  Print an
  * error message and exit if a prefix of p is already in fsm.
  */
@@ -162,7 +109,7 @@ addloop(struct fsm *fsm, struct path *p)
 
 	for (i = 1; i < p->pathlen - 1; i++) {
 		newsq = p->moves[i];
-		move = moveindex(oldsq, newsq);
+		move = move_index(oldsq, newsq);
 		if (fsm->tables[oldsq][state][move] == FSM_UNASSIGNED)
 			fsm->tables[oldsq][state][move] = addstate(fsm, newsq);
 
@@ -180,7 +127,7 @@ addloop(struct fsm *fsm, struct path *p)
 	}
 
 	newsq = p->moves[i];
-	move = moveindex(oldsq, newsq);
+	move = move_index(oldsq, newsq);
 	fsm->tables[oldsq][state][move] = FSM_MATCH;
 }
 
@@ -252,7 +199,7 @@ longestprefix(struct fsm *fsm, const char *path, size_t pathlen)
 			 */
 			assert(state < FSM_MAX_LEN);
 
-			idx = moveindex(zloc, path[j]);
+			idx = move_index(zloc, path[j]);
 			state = fsm->tables[zloc][state][idx];
 			zloc = path[j];
 			if (state == FSM_UNASSIGNED)
