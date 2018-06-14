@@ -70,6 +70,8 @@ struct puzzle {
 /* puzzle.c */
 extern const struct puzzle solved_puzzle;
 extern const signed char movetab[TILE_COUNT][4];
+extern const unsigned char moveidx_diffs[2 * TILE_COUNT - 1];
+extern const signed char moveidx_idxs[TILE_COUNT][5];
 
 enum { PUZZLE_STR_LEN = 3 * TILE_COUNT + 1 };
 
@@ -139,16 +141,11 @@ get_moves(size_t z)
 static inline int
 move_index(int a, int b)
 {
-	size_t i;
-	const signed char *moves = get_moves(a);
+	int idx = moveidx_idxs[a][moveidx_diffs[b - a + TILE_COUNT - 1]];
 
-	/* TODO: optimize! */
-	for (i = 0; i < 4; i++)
-		if (moves[i] == b)
-			return (i);
+	assert(idx != -1);
 
-	/* no match: programming error */
-	assert(0);
+	return (idx);
 }
 
 /* validation.c */

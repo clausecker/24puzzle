@@ -68,6 +68,56 @@ const signed char movetab[TILE_COUNT][4] = {
 };
 
 /*
+ * Tables for move_index.  These are a bit larger than they
+ * need to be so we can gracefully deal with invalid inputs.
+ */
+const unsigned char moveidx_diffs[2 * TILE_COUNT - 1] = {
+	4, 4, 4, 4, 4,
+	4, 4, 4, 4, 4,
+	4, 4, 4, 4, 4,
+	4, 4, 4, 4, 0,
+	4, 4, 4, 1, 4,
+
+	2, 4, 4, 4, 3,
+	4, 4, 4, 4, 4,
+	4, 4, 4, 4, 4,
+	4, 4, 4, 4, 4,
+	4, 4, 4, 4,
+};
+
+const signed char moveidx_idxs[TILE_COUNT][5] = {
+	-1, -1,  0,  1, -1,
+	-1,  0,  1,  2, -1,
+	-1,  0,  1,  2, -1,
+	-1,  0,  1,  2, -1,
+	-1,  0, -1,  1, -1,
+
+	 0, -1,  1,  2, -1,
+	 0,  1,  2,  3, -1,
+	 0,  1,  2,  3, -1,
+	 0,  1,  2,  3, -1,
+	 0,  1, -1,  2, -1,
+
+	 0, -1,  1,  2, -1,
+	 0,  1,  2,  3, -1,
+	 0,  1,  2,  3, -1,
+	 0,  1,  2,  3, -1,
+	 0,  1, -1,  2, -1,
+
+	 0, -1,  1,  2, -1,
+	 0,  1,  2,  3, -1,
+	 0,  1,  2,  3, -1,
+	 0,  1,  2,  3, -1,
+	 0,  1, -1,  2, -1,
+
+	 0, -1,  1, -1, -1,
+	 0,  1,  2, -1, -1,
+	 0,  1,  2, -1, -1,
+	 0,  1,  2, -1, -1,
+	 0,  1, -1, -1, -1,
+};
+
+/*
  * Generate all moves that lead from any partial puzzle configuration
  * with equivalence class eq to a different equivalence class.  Return
  * the number of moves generated and store the moves in moves.
