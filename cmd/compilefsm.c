@@ -43,9 +43,7 @@
  * of these tables, lengths stores the number of 32 bit integers in each
  * table.  struct fsm is the in-memory representation of a struct
  * fsmfile and contains pointers to the tables as well as the actually
- * allocated table sizes.  The backmaps table contains pointers to
- * bitmaps which store for each transition a 1 if the transition is a
- * back edge.  This is only needed during back edge generation.
+ * allocated table sizes.
  */
 struct fsmfile {
 	/* table offsets in bytes from the beginning of the file */
@@ -59,7 +57,6 @@ struct fsm {
 	struct fsmfile header;
 	unsigned sizes[TILE_COUNT];
 	unsigned (*tables[TILE_COUNT])[4];
-	unsigned char *backmaps[TILE_COUNT];
 };
 
 /*
@@ -273,17 +270,18 @@ longestprefix(struct fsm *fsm, const char *path, size_t pathlen)
 }
 
 /*
- * Query fsm->backedges[zloc] to find if fsm->tables[zloc][state][i]
+ * Query backmaps[zloc] to find if fsm->tables[zloc][state][i]
  * is a backedge.  Return nonzero if it is, zero otherwise.
  */
 static int
-isbackedge(struct fsm *fsm, size_t zloc, unsigned state, size_t i)
+isbackedge(struct fsm *fsm, unsigned char *backmaps[TILE_COUNT],
+    size_t zloc, unsigned state, size_t i)
 {
 	ptrdiff_t offset = &fsm->tables[zloc][state][i] - &fsm->tables[zloc][0][0];
 
 	assert(offset >= 0);
 
-	return (fsm->backmaps[zloc][offset >> 3] & 1 << (offset & 7));
+	return (backmaps[zloc][offset >> 3] & 1 << (offset & 7));
 }
 
 /*
@@ -295,7 +293,7 @@ isbackedge(struct fsm *fsm, size_t zloc, unsigned state, size_t i)
  * marked FSM_UNASSIGNED, assignbackedge() is called to assign the edge.
  */
 static void
-traversetrie(struct fsm *fsm, unsigned state,
+traversetrie(struct fsm *fsm, unsigned char *backmaps[TILE_COUNT], unsigned state,
     char path[SEARCH_PATH_LEN], size_t pathlen)
 {
 	size_t i, zloc, n_moves;
@@ -314,8 +312,8 @@ traversetrie(struct fsm *fsm, unsigned state,
 	moves = get_moves(zloc);
 	for (i = 0; i < n_moves; i++) {
 		path[pathlen] = moves[i];
-		if (!isbackedge(fsm, zloc, state, i))
-			traversetrie(fsm, fsm->tables[zloc][state][i], path, pathlen + 1);
+		if (!isbackedge(fsm, backmaps, zloc, state, i))
+			traversetrie(fsm, backmaps, fsm->tables[zloc][state][i], path, pathlen + 1);
 		else if (fsm->tables[zloc][state][i] == FSM_UNASSIGNED)
 			fsm->tables[zloc][state][i] = longestprefix(fsm, path, pathlen + 1);
 	}
@@ -323,12 +321,16 @@ traversetrie(struct fsm *fsm, unsigned state,
 
 /*
  * Augment fsm with edges for missed matches (i.e. back edges).
+ *
+ * The backmaps table contains pointers to bitmaps which store for each
+ * transition a 1 if the transition is a back edge.
  */
 static void
 addbackedges(struct fsm *fsm, int verbose)
 {
 	unsigned *table;
 	size_t i, j;
+	unsigned char *backmaps[TILE_COUNT];
 	char path[SEARCH_PATH_LEN];
 
 	/* populate backmaps */
@@ -336,8 +338,8 @@ addbackedges(struct fsm *fsm, int verbose)
 		fprintf(stderr, "populating backmaps...\n");
 
 	for (i = 0; i < TILE_COUNT; i++) {
-		fsm->backmaps[i] = calloc((fsm->header.lengths[i] + 1) / 2, 1);
-		if (fsm->backmaps[i] == NULL) {
+		backmaps[i] = calloc((fsm->header.lengths[i] + 1) / 2, 1);
+		if (backmaps[i] == NULL) {
 			perror("calloc");
 			exit(EXIT_FAILURE);
 		}
@@ -345,7 +347,7 @@ addbackedges(struct fsm *fsm, int verbose)
 		table = (unsigned *)fsm->tables[i];
 		for (j = 0; j < 4 * fsm->header.lengths[i]; j++)
 			if (table[j] == FSM_UNASSIGNED)
-				fsm->backmaps[i][j / 8] |= 1 << j % 8;
+				backmaps[i][j / 8] |= 1 << j % 8;
 	}
 
 	for (i = 0; i < TILE_COUNT; i++) {
@@ -353,11 +355,11 @@ addbackedges(struct fsm *fsm, int verbose)
 			fprintf(stderr, "generating back edges for square %2zu\n", i);
 
 		path[0] = i;
-		traversetrie(fsm, 0, path, 1);
+		traversetrie(fsm, backmaps, 0, path, 1);
 	}
 
 	for (i = 0; i < TILE_COUNT; i++)
-		free(fsm->backmaps[i]);
+		free(backmaps[i]);
 }
 
 /*
