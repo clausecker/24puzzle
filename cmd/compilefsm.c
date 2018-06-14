@@ -103,17 +103,17 @@ initfsm(struct fsm *fsm)
 static void
 addloop(struct fsm *fsm, struct path *p)
 {
-	size_t state = FSM_BEGIN, i;
-	int oldsq = p->moves[0], newsq, move;
+	struct fsm_state st;
+	size_t i;
+	unsigned *dst;
 	char pathstr[PATH_STR_LEN];
 
+	st = fsm_start_state(p->moves[0]);
 	for (i = 1; i < p->pathlen - 1; i++) {
-		newsq = p->moves[i];
-		move = move_index(oldsq, newsq);
-		if (fsm->tables[oldsq][state][move] == FSM_UNASSIGNED)
-			fsm->tables[oldsq][state][move] = addstate(fsm, newsq);
-
-		if (fsm->tables[oldsq][state][move] == FSM_MATCH) {
+		dst = fsm_entry_pointer(fsm, st, p->moves[i]);
+		if (*dst == FSM_UNASSIGNED)
+			*dst = addstate(fsm, p->moves[i]);
+		else if (*dst == FSM_MATCH) {
 			path_string(pathstr, p);
 			fprintf(stderr, "%s: prefix already present: ", pathstr);
 			p->pathlen = i + 1; /* kludge */
@@ -122,13 +122,18 @@ addloop(struct fsm *fsm, struct path *p)
 			exit(EXIT_FAILURE);
 		}
 
-		state = fsm->tables[oldsq][state][move];
-		oldsq = newsq;
+		st.zloc = p->moves[i];
+		st.state = *dst;
 	}
 
-	newsq = p->moves[i];
-	move = move_index(oldsq, newsq);
-	fsm->tables[oldsq][state][move] = FSM_MATCH;
+	dst = fsm_entry_pointer(fsm, st, p->moves[i]);
+	if (*dst != FSM_UNASSIGNED) {
+		path_string(pathstr, p);
+		fprintf(stderr, "%s: is prefix of some other entry\n", pathstr);
+		exit(EXIT_FAILURE);
+	}
+
+	*dst = FSM_MATCH;
 }
 
 /*
@@ -185,28 +190,24 @@ readloops(struct fsm *fsm, FILE *loopfile)
 static unsigned
 longestprefix(struct fsm *fsm, const char *path, size_t pathlen)
 {
-	size_t i, j, idx, zloc;
-	unsigned state;
+	struct fsm_state st;
+	size_t i, j;
 
 	for (i = 0; i < pathlen; i++) {
-		state = 0;
-		zloc = path[i];
+		st = fsm_start_state(path[i]);
 		for (j = i + 1; j < pathlen; j++) {
 			/*
 			 * there should be no paths of the form abc in
 			 * the FSM where b too is in the FSM.  Todo:
 			 * better error message.
 			 */
-			assert(state < FSM_MAX_LEN);
-
-			idx = move_index(zloc, path[j]);
-			state = fsm->tables[zloc][state][idx];
-			zloc = path[j];
-			if (state == FSM_UNASSIGNED)
+			assert(st.state < FSM_MAX_LEN);
+			st = fsm_advance(fsm, st, path[j]);
+			if (st.state == FSM_UNASSIGNED)
 				goto reject;
 		}
 
-		return (state);
+		return (st.state);
 
 	reject:
 		continue;
@@ -222,9 +223,9 @@ longestprefix(struct fsm *fsm, const char *path, size_t pathlen)
  */
 static int
 isbackedge(struct fsm *fsm, unsigned char *backmaps[TILE_COUNT],
-    size_t zloc, unsigned state, size_t i)
+    size_t zloc, unsigned *dst)
 {
-	ptrdiff_t offset = &fsm->tables[zloc][state][i] - &fsm->tables[zloc][0][0];
+	ptrdiff_t offset = dst - &fsm->tables[zloc][0][0];
 
 	assert(offset >= 0);
 
@@ -240,10 +241,12 @@ isbackedge(struct fsm *fsm, unsigned char *backmaps[TILE_COUNT],
  * marked FSM_UNASSIGNED, assignbackedge() is called to assign the edge.
  */
 static void
-traversetrie(struct fsm *fsm, unsigned char *backmaps[TILE_COUNT], unsigned state,
+traversetrie(struct fsm *fsm, unsigned char *backmaps[TILE_COUNT], struct fsm_state st,
     char path[SEARCH_PATH_LEN], size_t pathlen)
 {
-	size_t i, zloc, n_moves;
+	struct fsm_state newst;
+	size_t i, n_moves;
+	unsigned *dst;
 	const signed char *moves;
 
 	/* make sure we don't go out of bounds */
@@ -251,18 +254,20 @@ traversetrie(struct fsm *fsm, unsigned char *backmaps[TILE_COUNT], unsigned stat
 	assert(pathlen < SEARCH_PATH_LEN - 1);
 
 	/* ignore special states */
-	if (state >= FSM_MAX_LEN)
+	if (st.state >= FSM_MAX_LEN)
 		return;
 
-	zloc = path[pathlen - 1];
-	n_moves = move_count(zloc);
-	moves = get_moves(zloc);
+	n_moves = move_count(st.zloc);
+	moves = get_moves(st.zloc);
 	for (i = 0; i < n_moves; i++) {
 		path[pathlen] = moves[i];
-		if (!isbackedge(fsm, backmaps, zloc, state, i))
-			traversetrie(fsm, backmaps, fsm->tables[zloc][state][i], path, pathlen + 1);
-		else if (fsm->tables[zloc][state][i] == FSM_UNASSIGNED)
-			fsm->tables[zloc][state][i] = longestprefix(fsm, path, pathlen + 1);
+		dst = fsm_entry_pointer(fsm, st, moves[i]);
+		if (!isbackedge(fsm, backmaps, st.zloc, dst)) {
+			newst.zloc = moves[i];
+			newst.state = *dst;
+			traversetrie(fsm, backmaps, newst, path, pathlen + 1);
+		} else if (*dst == FSM_UNASSIGNED)
+			*dst = longestprefix(fsm, path, pathlen + 1);
 	}
 }
 
@@ -275,6 +280,7 @@ traversetrie(struct fsm *fsm, unsigned char *backmaps[TILE_COUNT], unsigned stat
 static void
 addbackedges(struct fsm *fsm, int verbose)
 {
+	struct fsm_state st;
 	unsigned *table;
 	size_t i, j;
 	unsigned char *backmaps[TILE_COUNT];
@@ -297,14 +303,17 @@ addbackedges(struct fsm *fsm, int verbose)
 				backmaps[i][j / 8] |= 1 << j % 8;
 	}
 
+	/* add back edges */
 	for (i = 0; i < TILE_COUNT; i++) {
 		if (verbose)
 			fprintf(stderr, "generating back edges for square %2zu\n", i);
 
 		path[0] = i;
-		traversetrie(fsm, backmaps, 0, path, 1);
+		st = fsm_start_state(i);
+		traversetrie(fsm, backmaps, st, path, 1);
 	}
 
+	/* release backmaps */
 	for (i = 0; i < TILE_COUNT; i++)
 		free(backmaps[i]);
 }
