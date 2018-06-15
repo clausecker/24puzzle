@@ -148,7 +148,7 @@ collect_walks(size_t samples[SEARCH_PATH_LEN], int steps, size_t n_puzzle,
 		if (give_heu)
 			samples[catalogue_hval(cat, &p)]++;
 		else {
-			search_ida(cat, &p, &path, NULL, 0);
+			search_ida(cat, &fsm_simple, &p, &path, 0);
 			assert(path.pathlen != SEARCH_NO_PATH);
 			samples[path.pathlen]++;
 		}

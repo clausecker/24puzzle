@@ -31,7 +31,7 @@
 #include <stdio.h>
 
 #include "catalogue.h"
-#include "pdb.h"
+#include "fsm.h"
 
 /*
  * All search functions receive an array to store the path they found
@@ -50,6 +50,8 @@ enum {
 enum {
 	/* perform the last round in full */
 	IDA_LAST_FULL = 1 << 0,
+	/* print status information to stderr */
+	IDA_VERBOSE = 1 << 1,
 };
 
 struct path {
@@ -62,7 +64,7 @@ extern void	 path_string(char[PATH_STR_LEN], const struct path *);
 extern char	*path_parse(struct path *, const char *);
 
 /* various */
-extern unsigned long long	search_ida(struct pdb_catalogue *, const struct puzzle *, struct path *, FILE *, int);
-extern unsigned long long	search_ida_bounded(struct pdb_catalogue *, const struct puzzle *, size_t, struct path *, FILE *, int);
+extern unsigned long long	search_ida(struct pdb_catalogue *, const struct fsm *, const struct puzzle *, struct path *, int);
+extern unsigned long long	search_ida_bounded(struct pdb_catalogue *, const struct fsm *, const struct puzzle *, size_t, struct path *, int);
 
 #endif /* SEARCH_H */

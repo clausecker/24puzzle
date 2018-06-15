@@ -37,6 +37,7 @@
 
 #include "search.h"
 #include "catalogue.h"
+#include "fsm.h"
 #include "pdb.h"
 #include "index.h"
 #include "puzzle.h"
@@ -85,7 +86,7 @@ lookup_worker(void *cfgarg)
 			continue;
 		}
 
-		expansions = search_ida(cfg->cat, &p, &path, NULL, cfg->idaflags);
+		expansions = search_ida(cfg->cat, &fsm_simple, &p, &path, cfg->idaflags);
 		linebuf[strcspn(linebuf, "\n")] = '\0';
 		flockfile(stdout);
 		printf("%s %3zu %12llu ", linebuf, path.pathlen, expansions);

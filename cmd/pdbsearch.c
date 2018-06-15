@@ -35,6 +35,7 @@
 
 #include "search.h"
 #include "catalogue.h"
+#include "fsm.h"
 #include "pdb.h"
 #include "index.h"
 #include "puzzle.h"
@@ -56,7 +57,7 @@ main(int argc, char *argv[])
 	struct pdb_catalogue *cat;
 	struct path path;
 	struct puzzle p;
-	int optchar, catflags = 0, idaflags = 0, transpose = 0;
+	int optchar, catflags = 0, idaflags = IDA_VERBOSE, transpose = 0;
 	char linebuf[1024], pathstr[PATH_STR_LEN], *pdbdir = NULL;
 
 	while (optchar = getopt(argc, argv, "Fd:ij:t"), optchar != -1)
@@ -123,7 +124,7 @@ main(int argc, char *argv[])
 		}
 
 		fprintf(stderr, "Solving puzzle...\n");
-		search_ida(cat, &p, &path, stderr, idaflags);
+		search_ida(cat, &fsm_simple, &p, &path, idaflags);
 		path_string(pathstr, &path);
 		printf("Solution found: %s\n", pathstr);
 	}
