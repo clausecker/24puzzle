@@ -37,8 +37,8 @@
  * file first contains this header and is followed by TILE_COUNT state
  * tables, one for each state.  The offsets member stores the beginnings
  * of these tables, lengths stores the number of 32 bit integers in each
- * table.  struct fsm is the in-memory representation of a struct
- * fsmfile and contains pointers to the tables as well as the actually
+ * table.  struct fsm is the in-memory representation of a finite state
+ * machine and contains pointers to the tables as well as the actually
  * allocated table sizes.
  */
 struct fsmfile {
@@ -50,7 +50,6 @@ struct fsmfile {
 };
 
 struct fsm {
-	struct fsmfile header;
 	unsigned sizes[TILE_COUNT];
 	unsigned (*tables[TILE_COUNT])[4];
 };

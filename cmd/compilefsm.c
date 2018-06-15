@@ -43,13 +43,13 @@
  * Return the index of the newly allocated state.
  */
 static unsigned
-addstate(struct fsm *fsm, int sq)
+addstate(struct fsm *fsm, struct fsmfile *header, int sq)
 {
 	unsigned long long newsize;
 	unsigned state;
 
 	assert(0 <= sq && sq < TILE_COUNT);
-	state = fsm->header.lengths[sq]++;
+	state = header->lengths[sq]++;
 	if (state >= FSM_MAX_LEN) {
 		fprintf(stderr, "%s: table for square %d full (%u states)\n",
 		    __func__, sq, state);
@@ -86,14 +86,15 @@ addstate(struct fsm *fsm, int sq)
  * Initialize fsm and allocate initial states for each square.
  */
 static void
-initfsm(struct fsm *fsm)
+initfsm(struct fsm *fsm, struct fsmfile *header)
 {
 	size_t i;
 
 	memset(fsm, 0, sizeof *fsm);
+	memset(header, 0, sizeof *header);
 
 	for (i = 0; i < TILE_COUNT; i++)
-		addstate(fsm, i);
+		addstate(fsm, header, i);
 }
 
 /*
@@ -101,7 +102,7 @@ initfsm(struct fsm *fsm)
  * error message and exit if a prefix of p is already in fsm.
  */
 static void
-addloop(struct fsm *fsm, struct path *p)
+addloop(struct fsm *fsm, struct fsmfile *header, struct path *p)
 {
 	struct fsm_state st;
 	size_t i;
@@ -112,7 +113,7 @@ addloop(struct fsm *fsm, struct path *p)
 	for (i = 1; i < p->pathlen - 1; i++) {
 		dst = fsm_entry_pointer(fsm, st, p->moves[i]);
 		if (*dst == FSM_UNASSIGNED)
-			*dst = addstate(fsm, p->moves[i]);
+			*dst = addstate(fsm, header, p->moves[i]);
 		else if (*dst == FSM_MATCH) {
 			path_string(pathstr, p);
 			fprintf(stderr, "%s: prefix already present: ", pathstr);
@@ -144,7 +145,7 @@ addloop(struct fsm *fsm, struct path *p)
  * loop may be the prefix of another one.
  */
 static void
-readloops(struct fsm *fsm, FILE *loopfile)
+readloops(struct fsm *fsm, struct fsmfile *header, FILE *loopfile)
 {
 	struct path p;
 	size_t n_linebuf = 0;
@@ -159,7 +160,7 @@ readloops(struct fsm *fsm, FILE *loopfile)
 			exit(EXIT_FAILURE);
 		}
 
-		addloop(fsm, &p);
+		addloop(fsm, header, &p);
 		lineno++;
 	}
 
@@ -170,14 +171,14 @@ readloops(struct fsm *fsm, FILE *loopfile)
 
 	/* release extra storage */
 	for (i = 0; i < TILE_COUNT; i++) {
-		assert(fsm->header.lengths[i] <= fsm->sizes[i]);
+		assert(header->lengths[i] <= fsm->sizes[i]);
 
 		/* should never fail as we release storage */
 		fsm->tables[i] = realloc(fsm->tables[i],
-		    fsm->header.lengths[i] * sizeof *fsm->tables[i]);
+		    header->lengths[i] * sizeof *fsm->tables[i]);
 		assert(fsm->tables[i] != NULL);
 
-		fsm->sizes[i] = fsm->header.lengths[i];
+		fsm->sizes[i] = header->lengths[i];
 	}
 
 	free(linebuf);
@@ -291,14 +292,14 @@ addbackedges(struct fsm *fsm, int verbose)
 		fprintf(stderr, "populating backmaps...\n");
 
 	for (i = 0; i < TILE_COUNT; i++) {
-		backmaps[i] = calloc((fsm->header.lengths[i] + 1) / 2, 1);
+		backmaps[i] = calloc((fsm->sizes[i] + 1) / 2, 1);
 		if (backmaps[i] == NULL) {
 			perror("calloc");
 			exit(EXIT_FAILURE);
 		}
 
 		table = (unsigned *)fsm->tables[i];
-		for (j = 0; j < 4 * fsm->header.lengths[i]; j++)
+		for (j = 0; j < 4 * fsm->sizes[i]; j++)
 			if (table[j] == FSM_UNASSIGNED)
 				backmaps[i][j / 8] |= 1 << j % 8;
 	}
@@ -325,7 +326,7 @@ addbackedges(struct fsm *fsm, int verbose)
  * print some interesting information to stderr.
  */
 static void
-writefsm(FILE *fsmfile, struct fsm *fsm, int verbose)
+writefsm(FILE *fsmfile, struct fsm *fsm, struct fsmfile *header, int verbose)
 {
 	off_t offset, start;
 	size_t i, count;
@@ -335,13 +336,13 @@ writefsm(FILE *fsmfile, struct fsm *fsm, int verbose)
 
 	start = ftello(fsmfile);
 
-	offset = sizeof fsm->header;
+	offset = sizeof *header;
 	for (i = 0; i < TILE_COUNT; i++) {
-		fsm->header.offsets[i] = offset;
-		offset += sizeof *fsm->tables[i] * fsm->header.lengths[i];
+		header->offsets[i] = offset;
+		offset += sizeof *fsm->tables[i] * fsm->sizes[i];
 	}
 
-	count = fwrite(&fsm->header, sizeof fsm->header, 1, fsmfile);
+	count = fwrite(header, sizeof *header, 1, fsmfile);
 	if (count != 1) {
 		perror("fwrite");
 		exit(EXIT_FAILURE);
@@ -350,12 +351,11 @@ writefsm(FILE *fsmfile, struct fsm *fsm, int verbose)
 	for (i = 0; i < TILE_COUNT; i++) {
 		if (verbose)
 			fprintf(stderr, "square %2zu: %10u states (%11zu bytes)\n",
-			    i, fsm->header.lengths[i], fsm->header.lengths[i] *
-			    sizeof *fsm->tables[i]);
+			    i, fsm->sizes[i], fsm->sizes[i] * sizeof *fsm->tables[i]);
 
 		count = fwrite(fsm->tables[i], sizeof *fsm->tables[i],
-		    fsm->header.lengths[i], fsmfile);
-		if (count != fsm->header.lengths[i]) {
+		    fsm->sizes[i], fsmfile);
+		if (count != fsm->sizes[i]) {
 			perror("fwrite");
 			exit(EXIT_FAILURE);
 		}
@@ -382,6 +382,7 @@ main(int argc, char *argv[])
 {
 	FILE *fsmfile;
 	struct fsm fsm;
+	struct fsmfile header;
 	int optchar, verbose = 0;
 
 	while (optchar = getopt(argc, argv, "v"), optchar != EOF)
@@ -412,10 +413,10 @@ main(int argc, char *argv[])
 		usage(argv[0]);
 	}
 
-	initfsm(&fsm);
-	readloops(&fsm, stdin);
+	initfsm(&fsm, &header);
+	readloops(&fsm, &header, stdin);
 	addbackedges(&fsm, verbose);
-	writefsm(fsmfile, &fsm, verbose);
+	writefsm(fsmfile, &fsm, &header, verbose);
 
 	return (EXIT_SUCCESS);
 }

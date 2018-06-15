@@ -41,6 +41,7 @@
 extern struct fsm *
 fsm_load(FILE *fsmfile)
 {
+	struct fsmfile header;
 	struct fsm *fsm = malloc(sizeof *fsm);
 	size_t i, count;
 	int error;
@@ -49,7 +50,7 @@ fsm_load(FILE *fsmfile)
 		return (NULL);
 
 	rewind(fsmfile);
-	count = fread(&fsm->header, sizeof fsm->header, 1, fsmfile);
+	count = fread(&header, sizeof header, 1, fsmfile);
 	if (count != 1) {
 		error = errno;
 
@@ -66,13 +67,12 @@ fsm_load(FILE *fsmfile)
 		fsm->tables[i] = NULL;
 
 	for (i = 0; i < TILE_COUNT; i++) {
-		/* for the sake of completeness */
-		fsm->sizes[i] = fsm->header.lengths[i];
+		fsm->sizes[i] = header.lengths[i];
 		fsm->tables[i] = malloc(fsm->sizes[i] * sizeof *fsm->tables[i]);
 		if (fsm->tables[i] == NULL)
 			goto fail;
 
-		if (fseeko(fsmfile, fsm->header.offsets[i], SEEK_SET) != 0)
+		if (fseeko(fsmfile, header.offsets[i], SEEK_SET) != 0)
 			goto fail;
 
 		count = fread(fsm->tables[i], sizeof *fsm->tables[i], fsm->sizes[i], fsmfile);
