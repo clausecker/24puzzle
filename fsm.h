@@ -29,6 +29,7 @@
 #define FSM_H
 
 #include <stdlib.h>
+#include <sys/types.h>
 
 #include "puzzle.h"
 
@@ -122,7 +123,7 @@ fsm_is_match(struct fsm_state st)
  * return a pointer to the corresponding table entry.
  */
 static inline unsigned *
-fsm_entry_pointer(struct fsm *fsm, struct fsm_state st, size_t newzloc)
+fsm_entry_pointer(const struct fsm *fsm, struct fsm_state st, size_t newzloc)
 {
 	return (&fsm->tables[st.zloc][st.state][move_index(st.zloc, newzloc)]);
 }
@@ -131,7 +132,7 @@ fsm_entry_pointer(struct fsm *fsm, struct fsm_state st, size_t newzloc)
  * Advance st by moving to newzloc.
  */
 static inline struct fsm_state
-fsm_advance(struct fsm *fsm, struct fsm_state st, size_t newzloc)
+fsm_advance(const struct fsm *fsm, struct fsm_state st, size_t newzloc)
 {
 	st.state = *fsm_entry_pointer(fsm, st, newzloc);
 	st.zloc = newzloc;
