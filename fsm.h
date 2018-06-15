@@ -78,6 +78,8 @@ struct fsm_state {
 
 extern struct fsm	*fsm_load(FILE *fsmfile);
 
+extern const struct fsm fsm_dummy, fsm_simple
+;
 /*
  * Release storage associated with finite state machine fsm.
  */

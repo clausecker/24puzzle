@@ -34,6 +34,125 @@
 #include "puzzle.h"
 
 /*
+ * fsm_dummy is a finite state machine which does not recognize any
+ * patterns at all.
+ */
+static const unsigned dummy_states[1][4] = {
+	FSM_BEGIN, FSM_BEGIN, FSM_BEGIN, FSM_BEGIN,
+};
+
+const struct fsm fsm_dummy = {
+	.sizes = {
+		1, 1, 1, 1, 1,
+		1, 1, 1, 1, 1,
+		1, 1, 1, 1, 1,
+		1, 1, 1, 1, 1,
+		1, 1, 1, 1, 1,
+	},
+#define DUMMY (unsigned (*)[4])dummy_states
+	.tables = {
+		DUMMY, DUMMY, DUMMY, DUMMY, DUMMY,
+		DUMMY, DUMMY, DUMMY, DUMMY, DUMMY,
+		DUMMY, DUMMY, DUMMY, DUMMY, DUMMY,
+		DUMMY, DUMMY, DUMMY, DUMMY, DUMMY,
+		DUMMY, DUMMY, DUMMY, DUMMY, DUMMY,
+	},
+#undef DUMMY
+};
+
+/*
+ * fsm_simple is a finite state machine that just recognizes loops of
+ * length 2, i.e. moves that directly undo the previous move.  To save
+ * space, state arrays are reused where possible.
+ */
+static const unsigned simple_states_LU[5][4] = {
+	             2,              1, FSM_UNASSIGNED, FSM_UNASSIGNED, /* begin */
+	FSM_UNASSIGNED, FSM_UNASSIGNED, FSM_UNASSIGNED, FSM_UNASSIGNED, /* from above (dummy) */
+	FSM_UNASSIGNED, FSM_UNASSIGNED, FSM_UNASSIGNED, FSM_UNASSIGNED, /* from left (dummy) */
+	     FSM_MATCH,              1, FSM_UNASSIGNED, FSM_UNASSIGNED, /* from right */
+	             2,      FSM_MATCH, FSM_UNASSIGNED, FSM_UNASSIGNED, /* from below */
+};
+
+static const unsigned simple_states_U[5][4] = {
+	             3,              2,              1, FSM_UNASSIGNED, /* begin */
+	FSM_UNASSIGNED, FSM_UNASSIGNED, FSM_UNASSIGNED, FSM_UNASSIGNED, /* from above (dummy) */
+	     FSM_MATCH,              2,              1, FSM_UNASSIGNED, /* from left */
+	             3,      FSM_MATCH,              1, FSM_UNASSIGNED, /* from right */
+	             3,              2,      FSM_MATCH, FSM_UNASSIGNED, /* from below */
+};
+
+static const unsigned simple_states_RU[5][4] = {
+	             3,              1, FSM_UNASSIGNED, FSM_UNASSIGNED, /* begin */
+	FSM_UNASSIGNED, FSM_UNASSIGNED, FSM_UNASSIGNED, FSM_UNASSIGNED, /* from above (dummy) */
+	     FSM_MATCH,              1, FSM_UNASSIGNED, FSM_UNASSIGNED, /* from left */
+	FSM_UNASSIGNED, FSM_UNASSIGNED, FSM_UNASSIGNED, FSM_UNASSIGNED, /* from right (dummy) */
+	             3,      FSM_MATCH, FSM_UNASSIGNED, FSM_UNASSIGNED, /* from below */
+};
+
+static const unsigned simple_states_L[5][4] = {
+	             4,              2,              1, FSM_UNASSIGNED, /* begin */
+	     FSM_MATCH,              2,              1, FSM_UNASSIGNED, /* from above */
+	FSM_UNASSIGNED, FSM_UNASSIGNED, FSM_UNASSIGNED, FSM_UNASSIGNED, /* from left (dummy) */
+	             4,      FSM_MATCH,              1, FSM_UNASSIGNED, /* from right */
+	             4,              2,      FSM_MATCH, FSM_UNASSIGNED, /* from below */
+};
+
+static const unsigned simple_states_C[5][4] = {
+	             4,              3,              2,              1, /* begin */
+	     FSM_MATCH,              3,              2,              1, /* from above */
+	             4,      FSM_MATCH,              2,              1, /* from left */
+	             4,              3,      FSM_MATCH,              1, /* from right */
+	             4,              3,              2,      FSM_MATCH, /* from below */
+};
+
+static const unsigned simple_states_R[5][4] = {
+	             4,              3,              1, FSM_UNASSIGNED, /* begin */
+	     FSM_MATCH,              3,              1, FSM_UNASSIGNED, /* from above */
+	             4,      FSM_MATCH,              1, FSM_UNASSIGNED, /* from left */
+	FSM_UNASSIGNED, FSM_UNASSIGNED, FSM_UNASSIGNED, FSM_UNASSIGNED, /* from right (dummy) */
+	             4,              3,      FSM_MATCH, FSM_UNASSIGNED, /* from below */
+};
+
+static const unsigned simple_states_LD[4][4] = {
+		     4,              2, FSM_UNASSIGNED, FSM_UNASSIGNED, /* begin */
+	     FSM_MATCH,              2, FSM_UNASSIGNED, FSM_UNASSIGNED, /* from above */
+	FSM_UNASSIGNED, FSM_UNASSIGNED, FSM_UNASSIGNED, FSM_UNASSIGNED, /* from left (dummy) */
+	             4,      FSM_MATCH, FSM_UNASSIGNED, FSM_UNASSIGNED, /* from right */
+};
+
+static const unsigned simple_states_D[4][4] = {
+		     4,              3,              2, FSM_UNASSIGNED, /* begin */
+	     FSM_MATCH,              3,              2, FSM_UNASSIGNED, /* from above */
+	             4,      FSM_MATCH,              2, FSM_UNASSIGNED, /* from left */
+	             4,              3,      FSM_MATCH, FSM_UNASSIGNED, /* from right */
+};
+
+static const unsigned simple_states_RD[3][4] = {
+		     4,             3, FSM_UNASSIGNED, FSM_UNASSIGNED, /* begin */
+	     FSM_MATCH,             3, FSM_UNASSIGNED, FSM_UNASSIGNED, /* from above */
+	             4,     FSM_MATCH, FSM_UNASSIGNED, FSM_UNASSIGNED, /* from left */
+};
+
+const struct fsm fsm_simple = {
+	.sizes = {
+		5, 5, 5, 5, 5,
+		5, 5, 5, 5, 5,
+		5, 5, 5, 5, 5,
+		5, 5, 5, 5, 5,
+		4, 4, 4, 4, 3,
+	},
+#define STATES(xy) (unsigned (*)[4])simple_states_##xy
+	.tables = {
+		STATES(LU), STATES(U), STATES(U), STATES(U), STATES(RU),
+		STATES(L), STATES(C), STATES(C), STATES(C), STATES(R),
+		STATES(L), STATES(C), STATES(C), STATES(C), STATES(R),
+		STATES(L), STATES(C), STATES(C), STATES(C), STATES(R),
+		STATES(LD), STATES(D), STATES(D), STATES(D), STATES(RD),
+	},
+#undef STATES
+};
+
+/*
  * Load a finite state machine from file fsmfile.  On success, return a
  * pointer to the FSM loader.  On error, return NULL and set errno to
  * indicate the problem.
