@@ -157,7 +157,7 @@ lookup_multiple(struct pdb_catalogue *cat, const struct fsm *fsm,
 static void
 usage(const char *argv0)
 {
-	fprintf(stderr, "Usage: %s [-Fimt] [-j nproc] [-m fsmfile] [-d pdbdir] catalogue puzzles\n", argv0);
+	fprintf(stderr, "Usage: %s [-Fit] [-j nproc] [-m fsmfile] [-d pdbdir] catalogue puzzles\n", argv0);
 
 	exit(EXIT_FAILURE);
 }
