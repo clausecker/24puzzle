@@ -49,6 +49,7 @@ struct psearch_config {
 	pthread_mutex_t lock;
 	FILE *puzzles;
 	struct pdb_catalogue *cat;
+	const struct fsm *fsm;
 	int idaflags;
 };
 
@@ -86,7 +87,7 @@ lookup_worker(void *cfgarg)
 			continue;
 		}
 
-		expansions = search_ida(cfg->cat, &fsm_simple, &p, &path, cfg->idaflags);
+		expansions = search_ida(cfg->cat, cfg->fsm, &p, &path, cfg->idaflags);
 		linebuf[strcspn(linebuf, "\n")] = '\0';
 		flockfile(stdout);
 		printf("%s %3zu %12llu ", linebuf, path.pathlen, expansions);
@@ -97,12 +98,13 @@ lookup_worker(void *cfgarg)
 }
 
 /*
- * Read puzzles from puzzles and look them up in cat.  Use up to
- * pdb_threads job to do that.  Print solutions and node counts to
- * stdout.
+ * Read puzzles from puzzles and look them up in cat, using fsm for
+ * pruning.  Use up to pdb_threads job to do that.  Print solutions and
+ * node counts to stdout.
  */
 static void
-lookup_multiple(struct pdb_catalogue *cat, FILE *puzzles, int idaflags)
+lookup_multiple(struct pdb_catalogue *cat, const struct fsm *fsm,
+    FILE *puzzles, int idaflags)
 {
 	struct psearch_config cfg;
 	pthread_t pool[PDB_MAX_JOBS];
@@ -110,6 +112,7 @@ lookup_multiple(struct pdb_catalogue *cat, FILE *puzzles, int idaflags)
 
 	cfg.puzzles = puzzles;
 	cfg.cat = cat;
+	cfg.fsm = fsm;
 	cfg.idaflags = idaflags;
 	error = pthread_mutex_init(&cfg.lock, NULL);
 	if (error != 0) {
@@ -154,7 +157,7 @@ lookup_multiple(struct pdb_catalogue *cat, FILE *puzzles, int idaflags)
 static void
 usage(const char *argv0)
 {
-	fprintf(stderr, "Usage: %s [-Fit] [-j nproc] [-d pdbdir] catalogue puzzles\n", argv0);
+	fprintf(stderr, "Usage: %s [-Fimt] [-j nproc] [-m fsmfile] [-d pdbdir] catalogue puzzles\n", argv0);
 
 	exit(EXIT_FAILURE);
 }
@@ -163,11 +166,12 @@ extern int
 main(int argc, char *argv[])
 {
 	struct pdb_catalogue *cat;
-	FILE *puzzles;
+	const struct fsm *fsm = &fsm_simple, *newfsm;
+	FILE *puzzles, *fsmfile;
 	int optchar, catflags = 0, idaflags = 0, transpose = 0;
 	char *pdbdir = NULL;
 
-	while (optchar = getopt(argc, argv, "Fd:ij:t"), optchar != -1)
+	while (optchar = getopt(argc, argv, "Fd:ij:m:t"), optchar != -1)
 		switch (optchar) {
 		case 'F':
 			idaflags |= IDA_LAST_FULL;
@@ -190,6 +194,25 @@ main(int argc, char *argv[])
 			}
 
 			break;
+
+		case 'm':
+			fsmfile = fopen(optarg, "rb");
+			if (fsmfile == NULL) {
+				perror(optarg);
+				fprintf(stderr, "Proceeding anyway...\n");
+				break;
+			}
+
+			newfsm = fsm_load(fsmfile);
+			if (fsm == NULL) {
+				perror("fsm_load");
+				fprintf(stderr, "Proceeding anyway...\n");
+			} else
+				fsm = newfsm;
+
+			fclose(fsmfile);
+			break;
+
 
 		case 't':
 			transpose = 0;
@@ -226,7 +249,7 @@ main(int argc, char *argv[])
 	 */
 	setvbuf(stdout, NULL, _IOLBF, 0);
 
-	lookup_multiple(cat, puzzles, idaflags);
+	lookup_multiple(cat, fsm, puzzles, idaflags);
 
 	return (EXIT_SUCCESS);
 }

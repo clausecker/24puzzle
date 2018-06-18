@@ -46,7 +46,7 @@ enum { CHUNK_SIZE = 1024 };
 static void
 usage(const char *argv0)
 {
-	fprintf(stderr, "Usage: %s [-Fit] [-j nproc] [-d pdbdir] catalogue\n", argv0);
+	fprintf(stderr, "Usage: %s [-Fit] [-j nproc] [-m fsmfile] [-d pdbdir] catalogue\n", argv0);
 
 	exit(EXIT_FAILURE);
 }
@@ -54,13 +54,15 @@ usage(const char *argv0)
 extern int
 main(int argc, char *argv[])
 {
+	const struct fsm *fsm = &fsm_simple;
 	struct pdb_catalogue *cat;
 	struct path path;
 	struct puzzle p;
+	FILE *fsmfile;
 	int optchar, catflags = 0, idaflags = IDA_VERBOSE, transpose = 0;
 	char linebuf[1024], pathstr[PATH_STR_LEN], *pdbdir = NULL;
 
-	while (optchar = getopt(argc, argv, "Fd:ij:t"), optchar != -1)
+	while (optchar = getopt(argc, argv, "Fd:ij:m:t"), optchar != -1)
 		switch (optchar) {
 		case 'F':
 			idaflags |= IDA_LAST_FULL;
@@ -82,6 +84,23 @@ main(int argc, char *argv[])
 				return (EXIT_FAILURE);
 			}
 
+			break;
+
+		case 'm':
+			fprintf(stderr, "Loading finite state machine file %s\n", optarg);
+			fsmfile = fopen(optarg, "rb");
+			if (fsmfile == NULL) {
+				perror(optarg);
+				return (EXIT_FAILURE);
+			}
+
+			fsm = fsm_load(fsmfile);
+			if (fsm == NULL) {
+				perror("fsm_load");
+				return (EXIT_FAILURE);
+			}
+
+			fclose(fsmfile);
 			break;
 
 		case 't':
@@ -124,7 +143,7 @@ main(int argc, char *argv[])
 		}
 
 		fprintf(stderr, "Solving puzzle...\n");
-		search_ida(cat, &fsm_simple, &p, &path, idaflags);
+		search_ida(cat, fsm, &p, &path, idaflags);
 		path_string(pathstr, &path);
 		printf("Solution found: %s\n", pathstr);
 	}
