@@ -98,7 +98,7 @@ expand_node(struct search_state *sst, size_t f, struct puzzle *p,
 		tile = p->grid[dest];
 		move(p, dest);
 		pph = *ph;
-		catalogue_diff_hvals(&pph, sst->cat, p, dest);
+		catalogue_diff_hvals(&pph, sst->cat, p, tile);
 		expand_node(sst, f + 1, p, ast, &pph);
 		move(p, zloc);
 	}
