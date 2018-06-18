@@ -277,9 +277,6 @@ bitpdb_diff_lookup(struct bitpdb *bpdb, const struct puzzle *p, int old_h)
 {
 	struct index idx;
 
-	/* assure p has different parity than old_h as a sanity check */
-	assert((partial_parity(&bpdb->aux, p) ^ old_h & 1) == 1);
-
 	compute_index(&bpdb->aux, &idx, p);
 
 	return (bitpdb_diff_lookup_idx(bpdb, p, old_h, &idx));
