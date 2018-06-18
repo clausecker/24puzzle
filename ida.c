@@ -81,6 +81,7 @@ expand_node(struct search_state *sst, size_t g, struct puzzle *p,
 	if (g + h > sst->bound)
 		return;
 
+	fsm_prefetch(sst->fsm, st);
 	sst->expanded++;
 	zloc = zero_location(p);
 	moves = get_moves(zero_location(p));

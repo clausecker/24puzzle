@@ -31,6 +31,7 @@
 #include <stdlib.h>
 #include <sys/types.h>
 
+#include "builtins.h"
 #include "puzzle.h"
 
 /*
@@ -126,6 +127,16 @@ static inline unsigned *
 fsm_entry_pointer(const struct fsm *fsm, struct fsm_state st, size_t newzloc)
 {
 	return (&fsm->tables[st.zloc][st.state][move_index(st.zloc, newzloc)]);
+}
+
+/*
+ * Given an FSM and a state, prefetch the outgoing transitions for that
+ * state.
+ */
+static inline void
+fsm_prefetch(const struct fsm *fsm, struct fsm_state st)
+{
+	prefetch(fsm->tables[st.zloc][st.state]);
 }
 
 /*
