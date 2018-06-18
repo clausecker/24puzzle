@@ -98,13 +98,15 @@ qualitytest_worker(void *qtcfg_arg)
 		for (i = 0; i < n; i++) {
 			random_puzzle(&p);
 
-			dist = catalogue_partial_hvals(&ph, qtcfg->cat, &p);
+			catalogue_partial_hvals(&ph, qtcfg->cat, &p);
+			dist = catalogue_ph_hval(qtcfg->cat, &ph);
 			heumap = catalogue_max_heuristics(qtcfg->cat, &ph);
 
 			if (qtcfg->transpose) {
 				transpose(&p);
 
-				tdist = catalogue_partial_hvals(&ph, qtcfg->cat, &p);
+				catalogue_partial_hvals(&ph, qtcfg->cat, &p);
+				tdist = catalogue_ph_hval(qtcfg->cat, &ph);
 
 				if (tdist > dist) {
 					dist = tdist;

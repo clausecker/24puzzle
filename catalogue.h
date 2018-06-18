@@ -78,21 +78,8 @@ struct partial_hvals {
 extern struct pdb_catalogue	*catalogue_load(const char *, const char *, int, FILE *);
 extern void	catalogue_free(struct pdb_catalogue *);
 extern int	catalogue_add_transpositions(struct pdb_catalogue *cat);
-extern unsigned	catalogue_partial_hvals(struct partial_hvals *, struct pdb_catalogue *, const struct puzzle *);
-extern unsigned	catalogue_diff_hvals(struct partial_hvals *, struct pdb_catalogue *, const struct puzzle *, unsigned);
-
-/*
- * This convenience function call catalogue_partial_hvals() on a
- * throw-aray struct partial_hvals and just returns the result the
- * h value predicted for p by cat.
- */
-static inline unsigned
-catalogue_hval(struct pdb_catalogue *cat, const struct puzzle *p)
-{
-	struct partial_hvals ph;
-
-	return (catalogue_partial_hvals(&ph, cat, p));
-}
+extern void	catalogue_partial_hvals(struct partial_hvals *, struct pdb_catalogue *, const struct puzzle *);
+extern void	catalogue_diff_hvals(struct partial_hvals *, struct pdb_catalogue *, const struct puzzle *, unsigned);
 
 /*
  * Given a struct partial_hvals, return the h value indicated
@@ -116,6 +103,21 @@ catalogue_ph_hval(struct pdb_catalogue *cat, const struct partial_hvals *ph)
 	}
 
 	return (max);
+}
+
+/*
+ * This convenience function call catalogue_partial_hvals() on a
+ * throw-aray struct partial_hvals and just returns the result the
+ * h value predicted for p by cat.
+ */
+static inline unsigned
+catalogue_hval(struct pdb_catalogue *cat, const struct puzzle *p)
+{
+	struct partial_hvals ph;
+
+	catalogue_partial_hvals(&ph, cat, p);
+
+	return (catalogue_ph_hval(cat, &ph));
 }
 
 /*

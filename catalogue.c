@@ -252,10 +252,9 @@ catalogue_free(struct pdb_catalogue *cat)
 
 /*
  * Fill in a struct partial_hvals with values for puzzle configuration p
- * relative to PDB catalogue cat.  Return the best h value found in all
- * heuristics defined in cat.
+ * relative to PDB catalogue cat.
  */
-extern unsigned
+extern void
 catalogue_partial_hvals(struct partial_hvals *ph,
     struct pdb_catalogue *cat, const struct puzzle *p)
 {
@@ -263,8 +262,6 @@ catalogue_partial_hvals(struct partial_hvals *ph,
 
 	for (i = 0; i < cat->n_heus; i++)
 		ph->hvals[i] = heu_hval(cat->heus + i, p);
-
-	return (catalogue_ph_hval(cat, ph));
 }
 
 /*
@@ -272,7 +269,7 @@ catalogue_partial_hvals(struct partial_hvals *ph,
  * by moving tile t, to contain partial h values for p.  To save time,
  * we only look up those PDB entries that changed when moving tile.
  */
-extern unsigned
+extern void
 catalogue_diff_hvals(struct partial_hvals *ph, struct pdb_catalogue *cat,
     const struct puzzle *p, unsigned tile)
 {
@@ -281,8 +278,6 @@ catalogue_diff_hvals(struct partial_hvals *ph, struct pdb_catalogue *cat,
 	for (i = 0; i < cat->n_heus; i++)
 		if (tileset_has(cat->pdbs_ts[i], tile))
 			ph->hvals[i] = heu_hval(cat->heus + i, p);
-
-	return (catalogue_ph_hval(cat, ph));
 }
 
 /*
