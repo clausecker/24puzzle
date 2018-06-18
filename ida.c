@@ -48,17 +48,17 @@ struct search_state {
 	const struct fsm *fsm;
 	struct path *path;
 	size_t bound;
-	unsigned long long expanded;
+	unsigned long long expanded, pruned;
 	int n_solutions, flags;
 };
 
 /*
  * Expand the search tree for configuration p recursively.  Assume the
- * search path up to here has had length f already.  Use the search
+ * search path up to here has had length g already.  Use the search
  * state in sst.
  */
 static void
-expand_node(struct search_state *sst, size_t f, struct puzzle *p,
+expand_node(struct search_state *sst, size_t g, struct puzzle *p,
     struct fsm_state st, struct partial_hvals *ph)
 {
 	struct partial_hvals pph;
@@ -69,16 +69,16 @@ expand_node(struct search_state *sst, size_t f, struct puzzle *p,
 	h = catalogue_ph_hval(sst->cat, ph);
 	if (h == 0 && memcmp(p->tiles, solved_puzzle.tiles, TILE_COUNT) == 0) {
 		if (sst->n_solutions++ == 0)
-			sst->path->pathlen = f;
+			sst->path->pathlen = g;
 
 		if (sst->flags & IDA_VERBOSE)
-			fprintf(stderr, "Solution found at depth %zu\n", f);
+			fprintf(stderr, "Solution found at depth %zu\n", g);
 
 		if (~sst->flags & IDA_LAST_FULL)
 			longjmp(sst->finish, 1);
 	}
 
-	if (f + h > sst->bound)
+	if (g + h > sst->bound)
 		return;
 
 	sst->expanded++;
@@ -89,17 +89,19 @@ expand_node(struct search_state *sst, size_t f, struct puzzle *p,
 	for (i = 0; i < n_moves; i++) {
 		dest = moves[i];
 		ast = fsm_advance(sst->fsm, st, dest);
-		if (fsm_is_match(ast))
+		if (fsm_is_match(ast)) {
+			sst->pruned++;
 			continue;
+		}
 
 		if (sst->n_solutions == 0)
-			sst->path->moves[f] = dest;
+			sst->path->moves[g] = dest;
 
 		tile = p->grid[dest];
 		move(p, dest);
 		pph = *ph;
 		catalogue_diff_hvals(&pph, sst->cat, p, tile);
-		expand_node(sst, f + 1, p, ast, &pph);
+		expand_node(sst, g + 1, p, ast, &pph);
 		move(p, zloc);
 	}
 }
@@ -126,6 +128,7 @@ search_to_bound(struct path *path, struct pdb_catalogue *cat,
 
 	sst.n_solutions = 0;
 	sst.expanded = 0;
+	sst.pruned = 0;
 	sst.bound = bound;
 	if (setjmp(sst.finish))
 		goto finish;
@@ -138,6 +141,9 @@ search_to_bound(struct path *path, struct pdb_catalogue *cat,
 
 finish:
 	*expanded = sst.expanded;
+
+	if (flags & IDA_VERBOSE)
+		fprintf(stderr, "Finite state machine pruned %llu nodes in previous round.\n", sst.pruned);
 
 	if (sst.n_solutions == 0)
 		path->pathlen = SEARCH_NO_PATH;
