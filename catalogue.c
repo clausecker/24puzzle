@@ -178,7 +178,7 @@ catalogue_load(const char *catfile, const char *pdbdir, int flags, FILE *f)
 			goto fail;
 		}
 
-		pdbidx = add_pdb(cat, linebuf, pdbdir, flags, HEU_CREATE | HEU_NOMORPH, f);
+		pdbidx = add_pdb(cat, linebuf, pdbdir, flags, HEU_CREATE | HEU_SIMILAR, f);
 		if (pdbidx == -1) {
 			error = errno;
 			goto fail;
@@ -277,7 +277,7 @@ catalogue_diff_hvals(struct partial_hvals *ph, struct pdb_catalogue *cat,
 
 	for (i = 0; i < cat->n_heus; i++)
 		if (tileset_has(cat->pdbs_ts[i], tile))
-			ph->hvals[i] = heu_hval(cat->heus + i, p);
+			ph->hvals[i] = heu_diff_hval(cat->heus + i, p, ph->hvals[i]);
 }
 
 /*
