@@ -89,6 +89,8 @@ static const unsigned simple_states_RU[5][4] = {
 	             3,      FSM_MATCH, FSM_UNASSIGNED, FSM_UNASSIGNED, /* from below */
 };
 
+/* same entries where not FSM_UNASSIGNED */
+#define simple_states_LD simple_states_L
 static const unsigned simple_states_L[5][4] = {
 	             4,              2,              1, FSM_UNASSIGNED, /* begin */
 	     FSM_MATCH,              2,              1, FSM_UNASSIGNED, /* from above */
@@ -97,6 +99,9 @@ static const unsigned simple_states_L[5][4] = {
 	             4,              2,      FSM_MATCH, FSM_UNASSIGNED, /* from below */
 };
 
+/* same entries where not FSM_UNASSIGNED */
+#define simple_states_D simple_states_C
+#define simple_states_RD simple_states_C
 static const unsigned simple_states_C[5][4] = {
 	             4,              3,              2,              1, /* begin */
 	     FSM_MATCH,              3,              2,              1, /* from above */
@@ -113,33 +118,13 @@ static const unsigned simple_states_R[5][4] = {
 	             4,              3,      FSM_MATCH, FSM_UNASSIGNED, /* from below */
 };
 
-static const unsigned simple_states_LD[4][4] = {
-		     4,              2, FSM_UNASSIGNED, FSM_UNASSIGNED, /* begin */
-	     FSM_MATCH,              2, FSM_UNASSIGNED, FSM_UNASSIGNED, /* from above */
-	FSM_UNASSIGNED, FSM_UNASSIGNED, FSM_UNASSIGNED, FSM_UNASSIGNED, /* from left (dummy) */
-	             4,      FSM_MATCH, FSM_UNASSIGNED, FSM_UNASSIGNED, /* from right */
-};
-
-static const unsigned simple_states_D[4][4] = {
-		     4,              3,              2, FSM_UNASSIGNED, /* begin */
-	     FSM_MATCH,              3,              2, FSM_UNASSIGNED, /* from above */
-	             4,      FSM_MATCH,              2, FSM_UNASSIGNED, /* from left */
-	             4,              3,      FSM_MATCH, FSM_UNASSIGNED, /* from right */
-};
-
-static const unsigned simple_states_RD[3][4] = {
-		     4,             3, FSM_UNASSIGNED, FSM_UNASSIGNED, /* begin */
-	     FSM_MATCH,             3, FSM_UNASSIGNED, FSM_UNASSIGNED, /* from above */
-	             4,     FSM_MATCH, FSM_UNASSIGNED, FSM_UNASSIGNED, /* from left */
-};
-
 const struct fsm fsm_simple = {
 	.sizes = {
 		5, 5, 5, 5, 5,
 		5, 5, 5, 5, 5,
 		5, 5, 5, 5, 5,
 		5, 5, 5, 5, 5,
-		4, 4, 4, 4, 3,
+		5, 5, 5, 5, 5,
 	},
 #define STATES(xy) (unsigned (*)[4])simple_states_##xy
 	.tables = {
@@ -150,6 +135,9 @@ const struct fsm fsm_simple = {
 		STATES(LD), STATES(D), STATES(D), STATES(D), STATES(RD),
 	},
 #undef STATES
+#undef simple_states_D
+#undef simple_states_RD
+#undef simple_states_LD
 };
 
 /*
