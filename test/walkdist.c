@@ -44,114 +44,93 @@
 static void
 usage(const char *argv0)
 {
-	fprintf(stderr, "Usage: %s [-iht] [-j nproc] [-d pdbdir] [-n n_puzzle] [-s seed] catalogue distance\n", argv0);
+	fprintf(stderr, "Usage: %s [-iht] [-j nproc] [-d pdbdir] [-m fsmfile] [-n n_puzzle] [-s seed] catalogue distance\n", argv0);
 
 	exit(EXIT_FAILURE);
 }
 
 /*
- * Perform an n step random walk from p, ignoring moves that immediately
- * undo the previous move.
+ * Perform an n step random walk from p, using fsm to prune moves.
+ * Return 1 if the random walk was successful, 0 otherwise.  A random
+ * walk is unsuccessful if the fsm at some point doesn't provide us
+ * with a move to progress.
  */
-static void
-random_walk(struct puzzle *p, int steps)
+static int
+random_walk(struct puzzle *p, int steps, const struct fsm *fsm)
 {
+	struct fsm_state st, new_st;
 	unsigned long long lseed, entropy;
 	size_t n_move, dloc;
-	int i, zloc, prevtile, reservoir;
+	int i, j, zloc, reservoir = 0;
 	const signed char *moves;
 
-	if (steps == 0)
-		return;
+	entropy = lseed = xorshift();
+	reservoir = 32;
 
-	/*
-	 * In each iteration, we take log2(6) = 2.585 bits of
-	 * entropy from entropy, carefully ensuring that our choice is
-	 * unbiased.  A 64 bit integer has space for 24 such selections
-	 * but we only take out 22 of them to keep the amount of
-	 * rejected samples as low as possible.  reservoir keeps track
-	 * of the amount of bits left in entropy until we need to sample
-	 * again from lseed.
-	 */
-	do lseed = xorshift();
-	while (lseed >= 18427038537917399040ull); /* 140 * 6 ** 22 */
-
-	entropy = lseed;
-	reservoir = 22;
-
-	/*
-	 * we assume that we start our walk from the solved
-	 * configuration, so two possible moves exist initially.
-	 */
 	zloc = zero_location(p);
-	assert(zloc == 0);
-	n_move = 2;
-	dloc = entropy % 2;
-	entropy /= 6;
-	reservoir--;
+	st = fsm_start_state(zloc);
 
-	prevtile = zloc;
-	move(p, get_moves(zloc)[dloc]);
-
-	for (i = 1; i < steps; i++) {
+	while (steps > 0) {
 		if (reservoir == 0) {
-			do lseed = xorshift_step(lseed);
-			while (lseed >= 18427038537917399040ull);
-
-			entropy = lseed;
-			reservoir = 22;
+			entropy = lseed = xorshift_step(lseed);
+			reservoir = 32;
 		}
 
-		zloc = zero_location(p);
+		i = entropy & 3;
+		entropy >>= 2;
+		reservoir--;
+
+		n_move = move_count(zloc);
+		if (i >= n_move)
+			continue;
+
 		moves = get_moves(zloc);
+		dloc = moves[i];
+		new_st = fsm_advance(fsm, st, dloc);
+		if (fsm_is_match(new_st)) {
+			/* check if there is a valid move at all */
+			for (j = 0; j < n_move; j++)
+				if (!fsm_is_match(fsm_advance(fsm, st, moves[j])))
+					goto try_again;
 
-		switch (move_count(zloc)) {
-		case 2:
-			dloc = moves[0] == prevtile ? moves[1] : moves[0];
-			break;
+			/* cannot proceed */
+			return (0);
 
-		case 3:
-			dloc = entropy % 2;
-			dloc = moves[dloc] == prevtile ? moves[dloc + 1] : moves[dloc];
-			entropy /= 6;
-			reservoir--;
-			break;
-
-		case 4:
-			dloc = entropy % 3;
-			dloc = moves[dloc] == prevtile ? moves[dloc + 1] : moves[dloc];
-			entropy /= 6;
-			reservoir--;
-			break;
-
-		default:
-			/* UNREACHABLE */
-			assert(0);
+		try_again:
+			continue;
 		}
 
-		prevtile = zloc;
 		move(p, dloc);
+		zloc = dloc;
+		st = new_st;
+		steps--;
 	}
+
+	return (1);
 }
 
 static void
 collect_walks(size_t samples[SEARCH_PATH_LEN], int steps, size_t n_puzzle,
-    struct pdb_catalogue *cat, int give_heu)
+    struct pdb_catalogue *cat, const struct fsm *fsm, int give_heu)
 {
 	struct puzzle p;
 	struct path path;
-	size_t i;
+	size_t i = 0;
 
-	for (i = 0; i < n_puzzle; i++) {
+	while (i < n_puzzle) {
 		p = solved_puzzle;
-		random_walk(&p, steps);
+		if (random_walk(&p, steps, fsm) == 0)
+			continue;
+
 		if (give_heu)
 			samples[catalogue_hval(cat, &p)]++;
 		else {
-			search_ida(cat, &fsm_simple, &p, &path, 0);
+			search_ida(cat, fsm, &p, &path, 0);
 			assert(path.pathlen != SEARCH_NO_PATH);
 			samples[path.pathlen]++;
 		}
+
+		i++;
 	}
 }
 
@@ -177,12 +156,14 @@ print_statistics(size_t samples[SEARCH_PATH_LEN], int steps, size_t n_puzzle)
 extern int
 main(int argc, char *argv[])
 {
+	const struct fsm *fsm = &fsm_simple;
 	struct pdb_catalogue *cat;
+	FILE *fsmfile;
 	size_t samples[SEARCH_PATH_LEN], n_puzzle = 1000;
 	int optchar, catflags = 0, give_heu = 0, steps, transpose = 0;
 	char *pdbdir = NULL;
 
-	while (optchar = getopt(argc, argv, "d:ij:hn:s:t"), optchar != -1)
+	while (optchar = getopt(argc, argv, "d:ij:hm:n:s:t"), optchar != -1)
 		switch (optchar) {
 		case 'd':
 			pdbdir = optarg;
@@ -204,6 +185,23 @@ main(int argc, char *argv[])
 
 		case 'h':
 			give_heu = 1;
+			break;
+
+		case 'm':
+			fprintf(stderr, "Loading finite state machine file %s\n", optarg);
+			fsmfile = fopen(optarg, "rb");
+			if (fsmfile == NULL) {
+				perror(optarg);
+				return (EXIT_FAILURE);
+			}
+
+			fsm = fsm_load(fsmfile);
+			if (fsm == NULL) {
+				perror("fsm_load");
+				return (EXIT_FAILURE);
+			}
+
+			fclose(fsmfile);
 			break;
 
 		case 'n':
@@ -244,7 +242,7 @@ main(int argc, char *argv[])
 
 	memset(samples, 0, sizeof samples);
 
-	collect_walks(samples, steps, n_puzzle, cat, give_heu);
+	collect_walks(samples, steps, n_puzzle, cat, fsm, give_heu);
 	print_statistics(samples, steps, n_puzzle);
 
 	return (EXIT_SUCCESS);
