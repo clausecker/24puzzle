@@ -76,6 +76,8 @@ expand_node(struct search_state *sst, size_t g, struct puzzle *p,
 
 		if (~sst->flags & IDA_LAST_FULL)
 			longjmp(sst->finish, 1);
+
+		return;
 	}
 
 	if (g + h > sst->bound)
