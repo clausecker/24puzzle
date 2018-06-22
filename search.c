@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2017 Robert Clausecker. All rights reserved.
+ * Copyright (c) 2017--2018 Robert Clausecker. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -75,4 +75,16 @@ path_parse(struct path *path, const char *strarg)
 
 	path->pathlen = len;
 	return (str);
+}
+
+/*
+ * Perform the moves in path on p.
+ */
+extern void
+path_walk(struct puzzle *p, const struct path *path)
+{
+	size_t i;
+
+	for (i = 0; i < path->pathlen; i++)
+		move(p, path->moves[i]);
 }

@@ -175,6 +175,20 @@ timediff(struct timespec begin, struct timespec end)
 }
 
 /*
+ * Verify that path indeed solves p.  Return 1 if it does, 0 otherwise.
+ */
+static int
+verify(const struct puzzle *p, const struct path *path)
+{
+	struct puzzle pp;
+
+	pp = *p;
+	path_walk(&pp, path);
+
+	return (memcmp(solved_puzzle.tiles, pp.tiles, TILE_COUNT) == 0);
+}
+
+/*
  * Try to find a solution for parg wit the IDA* algorithm using the
  * disjoint pattern databases pdbs as heuristic functions and fsm as
  * a finite state machine to eliminate duplicate nodes.  If the
@@ -242,6 +256,13 @@ search_ida_bounded(struct pdb_catalogue *cat, const struct fsm *fsm,
 		dur = duration.tv_sec + duration.tv_nsec / 1000000000.0;
 		fprintf(stderr, "Spent %.3f seconds in total, %.2f nodes/s\n",
 		    dur, total_expanded / dur);
+	}
+
+	if (flags & IDA_VERIFY && !verify(p, path)) {
+		if (flags & IDA_VERBOSE)
+			fprintf(stderr, "Path incorrect!\n");
+
+		abort();
 	}
 
 	return (total_expanded);

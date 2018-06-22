@@ -30,6 +30,7 @@
 
 #include <stdio.h>
 
+#include "puzzle.h"
 #include "catalogue.h"
 #include "fsm.h"
 
@@ -52,6 +53,8 @@ enum {
 	IDA_LAST_FULL = 1 << 0,
 	/* print status information to stderr */
 	IDA_VERBOSE = 1 << 1,
+	/* verify that a correct path was found */
+	IDA_VERIFY = 1 << 2,
 };
 
 struct path {
@@ -62,6 +65,7 @@ struct path {
 /* search.c */
 extern void	 path_string(char[PATH_STR_LEN], const struct path *);
 extern char	*path_parse(struct path *, const char *);
+extern void	 path_walk(struct puzzle *, const struct path *);
 
 /* various */
 extern unsigned long long	search_ida(struct pdb_catalogue *, const struct fsm *, const struct puzzle *, struct path *, int);
