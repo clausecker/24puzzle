@@ -151,4 +151,17 @@ fsm_advance(const struct fsm *fsm, struct fsm_state st, size_t newzloc)
 	return (st);
 }
 
+/*
+ * Advance st by moving to move index i as given by get_moves().
+ * This performs better than fsm_advance if i is known.
+ */
+static inline struct fsm_state
+fsm_advance_idx(const struct fsm *fsm, struct fsm_state st, size_t i)
+{
+	st.state = fsm->tables[st.zloc][st.state][i];
+	st.zloc = get_moves(st.zloc)[i];
+
+	return (st);
+}
+
 #endif /* FSM_H */

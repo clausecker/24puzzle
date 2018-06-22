@@ -86,7 +86,7 @@ random_walk(struct puzzle *p, int steps, const struct fsm *fsm)
 
 		moves = get_moves(zloc);
 		dloc = moves[i];
-		new_st = fsm_advance(fsm, st, dloc);
+		new_st = fsm_advance_idx(fsm, st, i);
 		if (fsm_is_match(new_st)) {
 			/* check if there is a valid move at all */
 			for (j = 0; j < n_move; j++)

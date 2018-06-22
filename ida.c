@@ -91,7 +91,7 @@ expand_node(struct search_state *sst, size_t g, struct puzzle *p,
 
 	for (i = 0; i < n_moves; i++) {
 		dest = moves[i];
-		ast = fsm_advance(sst->fsm, st, dest);
+		ast = fsm_advance_idx(sst->fsm, st, i);
 		if (fsm_is_match(ast)) {
 			sst->pruned++;
 			continue;
