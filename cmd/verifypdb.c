@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2017 Robert Clausecker. All rights reserved.
+ * Copyright (c) 2017--2018 Robert Clausecker. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -93,10 +93,8 @@ main(int argc, char *argv[])
 			return (EXIT_FAILURE);
 		}
 
-	} else {
-		fprintf(stderr, "Missing mandatory option -f");
-		return (EXIT_FAILURE);
-	}
+	} else
+		usage(argv[0]);
 
 	pdb = pdb_load(ts, f);
 	if (pdb == NULL) {
