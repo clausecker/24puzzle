@@ -88,8 +88,8 @@ do_loop(struct compact_puzzle *cp, FILE *fsmfile,
 {
 	struct path paths[4];
 	struct puzzle p;
-	size_t i, j, n;
-	int mask = move_mask(cp), short_cycles = 0, last_steps[4];
+	size_t i, j;
+	int mask = move_mask(cp), short_cycles = 0, last_steps[4], i0;
 	const signed char *moves;
 	char path0str[PATH_STR_LEN], pathstr[PATH_STR_LEN];
 
@@ -103,13 +103,12 @@ do_loop(struct compact_puzzle *cp, FILE *fsmfile,
 	assert(len >= 2); /* make sure every path has a last step */
 
 	/* determine all possible paths */
-	for (i = n = 0; i < 4; i++) {
+	for (i = 0; i < 4; i++) {
 		if (~mask & 1 << i)
 			continue;
 
-		find_path(paths + n, &p, moves[i], rounds, len);
-		last_steps[n] = paths[n].moves[1];
-		n++;
+		find_path(paths + i, &p, moves[i], rounds, len);
+		last_steps[i] = paths[i].moves[1];
 	}
 
 	/*
@@ -119,9 +118,9 @@ do_loop(struct compact_puzzle *cp, FILE *fsmfile,
 	 * (the one that moves to the solved configuration) is distinct.
 	 */
 
-	for (i = 0; i < n; i++)
+	for (i = 0; i < 4; i++)
 		for (j = 0; j < i; j++)
-			if (last_steps[i] == last_steps[j]) {
+			if (mask & 1 << i && mask & 1 << j && last_steps[i] == last_steps[j]) {
 				short_cycles |= 1 << i;
 				break;
 			}
@@ -129,23 +128,25 @@ do_loop(struct compact_puzzle *cp, FILE *fsmfile,
 	/* print duplicate patterns and erase the paths from cp */
 	path_string(path0str, paths + 0);
 
-	for (i = j = 0; i < 4; i++) {
+	i0 = -1; /* index of the first path */
+	for (i = 0; i < 4; i++) {
 		if (~mask & 1 << i)
 			continue;
 
 		/* the first path is not a duplicate of itself */
-		if (j == 0) {
-			j++;
+		if (i0 == -1) {
+			i0 = i;
+			path_string(path0str, paths + i);
 			continue;
 		}
 
-		if (~short_cycles & 1 << j) {
+		if (~short_cycles & 1 << i) {
 			/*
 			 * entry of the form
 			 *
 			 * A,B,C,D = A,E,F,D
 			 */
-			path_string(pathstr, paths + j);
+			path_string(pathstr, paths + i);
 			fprintf(fsmfile, "%s = %s\n", pathstr, path0str);
 
 			/*
@@ -154,23 +155,21 @@ do_loop(struct compact_puzzle *cp, FILE *fsmfile,
 			 *
 			 * A,E,F,D,C = A,B,C
 			 */
-			paths[0].pathlen = len + 1;
-			paths[0].moves[len] = paths[j].moves[len - 2];
-			paths[j].pathlen = len - 1;
+			paths[i0].pathlen = len + 1;
+			paths[i0].moves[len] = paths[i].moves[len - 2];
+			paths[i].pathlen = len - 1;
 
-			path_string(pathstr, paths + 0);
+			path_string(pathstr, paths + i0);
 			fprintf(fsmfile, "%s = ", pathstr);
-			path_string(pathstr, paths + j);
+			path_string(pathstr, paths + i);
 			fprintf(fsmfile, "%s\n", pathstr);
 
-			paths[0].pathlen = len;
-			paths[j].pathlen = len;
+			paths[i0].pathlen = len;
+			paths[i].pathlen = len;
 		}
 
 		/* erase path */
 		mask &= ~(1 << i);
-
-		j++;
 	}
 
 	/* write path back */
