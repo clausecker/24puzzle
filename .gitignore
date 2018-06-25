@@ -24,6 +24,7 @@ cmd/puzzlegen
 cmd/randompdb
 test/bitpdbtest
 test/etatest
+test/explore
 test/hitanalysis
 test/indextest
 test/morphtest
