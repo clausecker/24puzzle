@@ -89,14 +89,15 @@ putpuzzle(FILE *cpfile, const struct compact_puzzle *cp)
 }
 
 /*
- * Perform all unmasked moves from cp and write them to cpfile.
+ * Perform all unmasked moves from cp and write them to outfiles
+ * grouped by tile 24.
  */
 static void
-expand(FILE *cpfile, const struct compact_puzzle *cp)
+expandpuzzle(FILE *outfiles[TILE_COUNT], const struct compact_puzzle *cp)
 {
 	struct puzzle p;
-	struct compact_puzzle ncp[4];
-	size_t i, j, n_move, count;
+	struct compact_puzzle ncp;
+	size_t i, n_move, count;
 	int movemask = move_mask(cp), zloc;
 	const signed char *moves;
 
@@ -105,12 +106,13 @@ expand(FILE *cpfile, const struct compact_puzzle *cp)
 	n_move = move_count(zloc);
 	moves = get_moves(zloc);
 
-	for (i = j = 0; i < n_move; i++) {
+	for (i = 0; i < n_move; i++) {
 		if (movemask & 1 << i)
 			continue;
 
 		move(&p, moves[i]);
-		pack_puzzle_masked(ncp + j++, &p, zloc);
+		pack_puzzle_masked(&ncp, &p, zloc);
+		putpuzzle(outfiles + p.tiles[TILE_COUNT - 1], &ncp);
 		move(&p, zloc);
 	}
 
@@ -144,6 +146,92 @@ coalesce(FILE *outfile, FILE *infile)
 	}
 
 	putpuzzle(outfile, &a);
+}
+
+/*
+ * Distribute puzzles from infile into outfiles, grouped by the location
+ * of tile t.  This represents one step of a radix sort procedure.
+ */
+static void
+distribute(FILE *outfiles[TILE_COUNT], FILE *infile, int t)
+{
+	struct compact_puzzle cp;
+	struct puzzle p;
+
+	while (getpuzzle(&cp, infile) != EOF) {
+		unpack_puzzle(&p, &cp);
+		putpuzzle(outfiles + p.tiles[t], &cp);
+	}
+}
+
+/*
+ * Prepare a set of files for radix sort.  Use
+ * $dir/$round-$loc.rdx as the file name.  Store pointers to the
+ * files to files.
+ */
+static void
+makerdxfiles(FILE *files[TILE_COUNT], const char *dir, int round)
+{
+	int i;
+	char pathbuf[PATH_MAX];
+
+	for (i = 0; i < TILE_COUNT; i++) {
+		snprintf(pathbuf, PATH_MAX, "%s-%02d-%02zu.rdx", dir, round, i);
+		files[i] = fopen(pathbuf, "w+b");
+		if (files[i] == NULL) {
+			perror(pathbuf);
+			exit(EXIT_FAILURE);
+		}
+	}
+}
+
+/*
+ * Delete the radix file with the given round and grid location
+ * in directory dir.
+ */
+static void
+removerdxfile(const char *dir, int round, int loc)
+{
+	char pathbuf[PATH_MAX];
+
+	snprintf(pathbuf, PATH_MAX, "%s-%02d-%02zu.rdx", dir, round, loc);
+	remove(pathbuf);
+}
+
+/*
+ * Perform one expansion round.  During this round, expand the
+ * configurations in infile, sort them, coalesce them, and write the
+ * result to outfile.  Store temporary files in dir.  Note that only
+ * 24 rounds are needed (0..23) as the location of the last tile
+ * follows from the locations of all other tiles.
+ */
+static void
+expround(FILE *outfile, FILE *infile, const char *dir)
+{
+	struct compact_puzzle cp;
+	int round = TILE_COUNT - 2, loc;
+	FILE *rdxfiles[TILE_COUNT], *oldrdxfiles[TILE_COUNT];
+
+	makerdxfiles(rdxfiles, dir, round);
+	while (getpuzzle(&cp, infile) != EOF)
+		expandpuzzle(rdxfiles, &cp);
+
+	for (; round >= 1; round--) {
+		oldrdxfiles = rdxfiles;
+		makerdxfiles(rdxfiles, dir, round - 1);
+
+		for (loc = 0; loc < TILE_COUNT; loc++) {
+			distribute(rdxfiles, oldrdxfiles[loc], round - 1);
+			fclose(oldrdxfiles[loc]);
+			removerdxfile(dir, round, loc);
+		}
+	}
+
+	for (loc = 0; loc < TILE_COUNT; loc++) {
+		coalesce(outfile, rdxfiles[loc]);
+		fclose(rdxfiles[loc]);
+		removerdxfile(dir, round, loc);
+	}
 }
 
 static void
