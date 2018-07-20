@@ -123,6 +123,7 @@ addloop(struct fsm *fsm, struct fsmfile *header, struct path *p)
 			exit(EXIT_FAILURE);
 		}
 
+		/* avoid re-load */
 		st.zloc = p->moves[i];
 		st.state = *dst;
 	}
@@ -138,29 +139,104 @@ addloop(struct fsm *fsm, struct fsmfile *header, struct path *p)
 }
 
 /*
+ * Make the state for p an alias for newp.  Add entries for newp to the
+ * FSM as needed.
+ */
+static void
+addalias(struct fsm *fsm, struct fsmfile *header, struct path *p, struct path *newp)
+{
+	struct fsm_state st, newst;
+	size_t i;
+	unsigned *dst;
+	char pathstr[PATH_STR_LEN];
+
+	/* find entry for curtailed p as in addloop */
+	st = fsm_start_state(p->moves[0]);
+	for (i = 1; i < p->pathlen - 1; i++) {
+		dst = fsm_entry_pointer(fsm, st, p->moves[i]);
+		if (*dst == FSM_UNASSIGNED)
+			*dst = addstate(fsm, header, p->moves[i]);
+		else if (*dst == FSM_MATCH) {
+			path_string(pathstr, p);
+			fprintf(stderr, "%s: prefix already present: ", pathstr);
+			p->pathlen = i + 1; /* kludge */
+			path_string(pathstr, p);
+			fprintf(stderr, "%s\n", pathstr);
+			exit(EXIT_FAILURE);
+		}
+
+		st.zloc = p->moves[i];
+		st.state = *dst;
+	}
+
+	/* find entry for newp */
+	newst = fsm_start_state(newp->moves[0]);
+	for (i = 1; i < newp->pathlen; i++) {
+		dst = fsm_entry_pointer(fsm, newst, newp->moves[i]);
+		if (*dst == FSM_UNASSIGNED)
+			*dst = addstate(fsm, header, newp->moves[i]);
+		else if (*dst == FSM_MATCH) {
+			path_string(pathstr, newp);
+			fprintf(stderr, "%s: prefix alreay present: ", pathstr);
+			newp->pathlen = i + 1; /* kludge */
+			path_string(pathstr, newp);
+			fprintf(stderr, "%s\n", pathstr);
+			exit(EXIT_FAILURE);
+		}
+
+		newst.zloc = newp->moves[i];
+		newst.state = *dst;
+	}
+
+	dst = fsm_entry_pointer(fsm, st, p->moves[p->pathlen - 1]);
+	if (*dst != FSM_UNASSIGNED) {
+		path_string(pathstr, p);
+		fprintf(stderr, "%s: is prefix of some other entry\n", pathstr);
+		exit(EXIT_FAILURE);
+	}
+
+	*dst = newst.state;
+}
+
+/*
  * Read half loops from loopfile and add them to the pristine FSM
  * structure *fsm.  loopfile contains loops as printed by cmd/genloops.
  * After this function ran, the entries in fsm form a trie containing
  * all the half loops from loopfile.  As an extra invariant, no half
- * loop may be the prefix of another one.
+ * loop may be the prefix of another one.  If makealiases is nonzero,
+ * loops of the form "A = B" are not eliminated but rather aliased.
  */
 static void
-readloops(struct fsm *fsm, struct fsmfile *header, FILE *loopfile)
+readloops(struct fsm *fsm, struct fsmfile *header, FILE *loopfile,
+    int makealiases)
 {
-	struct path p;
+	struct path p, newp;
 	size_t n_linebuf = 0;
-	char *linebuf = NULL;
+	char *linebuf = NULL, *matchstr, *typestr, *replacestr, *saveptr;
 	size_t i;
 	int lineno = 1;
 
 	while (getline(&linebuf, &n_linebuf, loopfile) > 0) {
-		if (path_parse(&p, linebuf) == NULL) {
+		matchstr = strtok_r(linebuf, " \t\n", &saveptr);
+		typestr = strtok_r(NULL, " \t\n", &saveptr);
+
+		if (path_parse(&p, matchstr) == NULL) {
 			fprintf(stderr, "%s: invalid path on line %d: %s\n",
-			    __func__, lineno, linebuf);
+			    __func__, lineno, matchstr);
 			exit(EXIT_FAILURE);
 		}
 
-		addloop(fsm, header, &p);
+		if (makealiases && *typestr == '=') {
+			replacestr = strtok_r(NULL, " \t\n", &saveptr);
+			if (path_parse(&newp, replacestr) == NULL) {
+				fprintf(stderr, "%s: invalid path on line %d: %s\n",
+				    __func__, lineno, replacestr);
+				exit(EXIT_FAILURE);
+			}
+
+			addalias(fsm, header, &p, &newp);
+		} else
+			addloop(fsm, header, &p);
 		lineno++;
 	}
 
@@ -234,6 +310,20 @@ isbackedge(struct fsm *fsm, unsigned char *backmaps[TILE_COUNT],
 }
 
 /*
+ * Set the backmap entry corresponding to FSM entry dst.
+ */
+static void
+addbackedge(struct fsm *fsm, unsigned char *backmaps[TILE_COUNT],
+    size_t zloc, unsigned *dst)
+{
+	ptrdiff_t offset = dst - &fsm->tables[zloc][0][0];
+
+	assert(offset >= 0);
+
+	backmaps[zloc][offset >> 3] |= 1 << (offset & 7);
+}
+
+/*
  * Traverse the trie represented by fsm recursively.  traversetrie is
  * called once for for every node in the traversal.  state is the state
  * number we are currently in, path is a record of the path we took from
@@ -264,6 +354,7 @@ traversetrie(struct fsm *fsm, unsigned char *backmaps[TILE_COUNT], struct fsm_st
 		path[pathlen] = moves[i];
 		dst = fsm_entry_pointer(fsm, st, moves[i]);
 		if (!isbackedge(fsm, backmaps, st.zloc, dst)) {
+			addbackedge(fsm, backmaps, st.zloc, dst);
 			newst.zloc = moves[i];
 			newst.state = *dst;
 			traversetrie(fsm, backmaps, newst, path, pathlen + 1);
@@ -373,7 +464,7 @@ writefsm(FILE *fsmfile, struct fsm *fsm, struct fsmfile *header, int verbose)
 static void noreturn
 usage(const char *argv0)
 {
-	fprintf(stderr, "Usage: %s [-v] [fsmfile]\n", argv0);
+	fprintf(stderr, "Usage: %s [-av] [fsmfile]\n", argv0);
 	exit(EXIT_FAILURE);
 }
 
@@ -383,10 +474,14 @@ main(int argc, char *argv[])
 	FILE *fsmfile;
 	struct fsm fsm;
 	struct fsmfile header;
-	int optchar, verbose = 0;
+	int optchar, verbose = 0, makealiases = 0;
 
-	while (optchar = getopt(argc, argv, "v"), optchar != EOF)
+	while (optchar = getopt(argc, argv, "av"), optchar != EOF)
 		switch (optchar) {
+		case 'a':
+			makealiases = 1;
+			break;
+
 		case 'v':
 			verbose = 1;
 			break;
@@ -414,7 +509,7 @@ main(int argc, char *argv[])
 	}
 
 	initfsm(&fsm, &header);
-	readloops(&fsm, &header, stdin);
+	readloops(&fsm, &header, stdin, makealiases);
 	addbackedges(&fsm, verbose);
 	writefsm(fsmfile, &fsm, &header, verbose);
 
