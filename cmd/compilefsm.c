@@ -98,11 +98,12 @@ initfsm(struct fsm *fsm, struct fsmfile *header)
 }
 
 /*
- * Add a half-loop described by path p to the trie in fsm.  Print an
- * error message and exit if a prefix of p is already in fsm.
+ * Trace the first n steps of p in fsm, adding states as needed.  If
+ * any of the states is a match, print an error message and exit.
+ * Return the resulting state.
  */
-static void
-addloop(struct fsm *fsm, struct fsmfile *header, struct path *p)
+struct fsm_state
+tracepath(struct fsm *fsm, struct fsmfile *header, struct path *p, size_t n)
 {
 	struct fsm_state st;
 	size_t i;
@@ -110,7 +111,7 @@ addloop(struct fsm *fsm, struct fsmfile *header, struct path *p)
 	char pathstr[PATH_STR_LEN];
 
 	st = fsm_start_state(p->moves[0]);
-	for (i = 1; i < p->pathlen - 1; i++) {
+	for (i = 1; i < n; i++) {
 		dst = fsm_entry_pointer(fsm, st, p->moves[i]);
 		if (*dst == FSM_UNASSIGNED)
 			*dst = addstate(fsm, header, p->moves[i]);
@@ -128,7 +129,22 @@ addloop(struct fsm *fsm, struct fsmfile *header, struct path *p)
 		st.state = *dst;
 	}
 
-	dst = fsm_entry_pointer(fsm, st, p->moves[i]);
+	return (st);
+}
+
+/*
+ * Add a half-loop described by path p to the trie in fsm.  Print an
+ * error message and exit if a prefix of p is already in fsm.
+ */
+static void
+addloop(struct fsm *fsm, struct fsmfile *header, struct path *p)
+{
+	struct fsm_state st;
+	unsigned *dst;
+	char pathstr[PATH_STR_LEN];
+
+	st = tracepath(fsm, header, p, p->pathlen - 1);
+	dst = fsm_entry_pointer(fsm, st, p->moves[p->pathlen - 1]);
 	if (*dst != FSM_UNASSIGNED) {
 		path_string(pathstr, p);
 		fprintf(stderr, "%s: is prefix of some other entry\n", pathstr);
@@ -146,48 +162,11 @@ static void
 addalias(struct fsm *fsm, struct fsmfile *header, struct path *p, struct path *newp)
 {
 	struct fsm_state st, newst;
-	size_t i;
 	unsigned *dst;
 	char pathstr[PATH_STR_LEN];
 
-	/* find entry for curtailed p as in addloop */
-	st = fsm_start_state(p->moves[0]);
-	for (i = 1; i < p->pathlen - 1; i++) {
-		dst = fsm_entry_pointer(fsm, st, p->moves[i]);
-		if (*dst == FSM_UNASSIGNED)
-			*dst = addstate(fsm, header, p->moves[i]);
-		else if (*dst == FSM_MATCH) {
-			path_string(pathstr, p);
-			fprintf(stderr, "%s: prefix already present: ", pathstr);
-			p->pathlen = i + 1; /* kludge */
-			path_string(pathstr, p);
-			fprintf(stderr, "%s\n", pathstr);
-			exit(EXIT_FAILURE);
-		}
-
-		st.zloc = p->moves[i];
-		st.state = *dst;
-	}
-
-	/* find entry for newp */
-	newst = fsm_start_state(newp->moves[0]);
-	for (i = 1; i < newp->pathlen; i++) {
-		dst = fsm_entry_pointer(fsm, newst, newp->moves[i]);
-		if (*dst == FSM_UNASSIGNED)
-			*dst = addstate(fsm, header, newp->moves[i]);
-		else if (*dst == FSM_MATCH) {
-			path_string(pathstr, newp);
-			fprintf(stderr, "%s: prefix alreay present: ", pathstr);
-			newp->pathlen = i + 1; /* kludge */
-			path_string(pathstr, newp);
-			fprintf(stderr, "%s\n", pathstr);
-			exit(EXIT_FAILURE);
-		}
-
-		newst.zloc = newp->moves[i];
-		newst.state = *dst;
-	}
-
+	st = tracepath(fsm, header, p, p->pathlen - 1);
+	newst = tracepath(fsm, header, newp, newp->pathlen);
 	dst = fsm_entry_pointer(fsm, st, p->moves[p->pathlen - 1]);
 	if (*dst != FSM_UNASSIGNED) {
 		path_string(pathstr, p);
