@@ -145,7 +145,7 @@ do_loop(struct compact_puzzle *cp, FILE *fsmfile,
 		/*
 		 * entry of the form
 		 *
-		 * A,E,F,D,C = A,B,C
+		 * A,E,F,D,C > A,B,C
 		 *
 		 * such an entry is printed whenever paths[i] does not
 		 * share a common prefix with paths[i0].  We print it
@@ -158,7 +158,7 @@ do_loop(struct compact_puzzle *cp, FILE *fsmfile,
 			paths[i].pathlen = len - 1;
 
 			path_string(pathstr, paths + i0);
-			fprintf(fsmfile, "%s = ", pathstr);
+			fprintf(fsmfile, "%s > ", pathstr);
 			path_string(pathstr, paths + i);
 			fprintf(fsmfile, "%s\n", pathstr);
 
@@ -191,7 +191,7 @@ do_loops(FILE *fsmfile, struct cp_slice *rounds, size_t len)
 }
 
 /*
- * Print the trivial loops of the form a,b,a = a for square sq.
+ * Print the trivial loops of the form a,b,a > a for square sq.
  */
 static void
 trivial_loops(FILE *fsmfile, int sq)
@@ -203,7 +203,7 @@ trivial_loops(FILE *fsmfile, int sq)
 	n_moves = move_count(sq);
 
 	for (i = 0; i < n_moves; i++)
-		fprintf(fsmfile, "%d,%d,%d = %d\n", sq, moves[i], sq, sq);
+		fprintf(fsmfile, "%d,%d,%d > %d\n", sq, moves[i], sq, sq);
 }
 
 static noreturn void
