@@ -40,7 +40,7 @@ enum {
 
 extern alignas(64) const unsigned char automorphisms[AUTOMORPHISM_COUNT][2][32];
 /* transposition of the tray along the main diagonal */
-#define transpositions (automorphisms[4][0])
+#define transpositions (automorphisms[0][1])
 
 extern void	transpose(struct puzzle *);
 extern void	morph(struct puzzle *, unsigned);
