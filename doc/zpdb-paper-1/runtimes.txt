@@ -1,0 +1,4 @@
+what			real		user		sys
+small-zpdb		3683m0.761s	31712m46.158s	0m13.873s
+clausecker-zpdb		8323m49.415s	53590m40.582s	0m13.510s
+clausecker-apdb		17726m43.439s	86273m55.646s	0m12.971s
