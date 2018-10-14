@@ -1,0 +1,8 @@
+what			real		user		sys
+small-apdb		3937m10.856s	24149m57.177s	4m11.076s
+small-zpdb		3218m1.538s	20301m17.161s	0m37.953s
+reinefeld-apdb		7240m5.129s	39028m34.393s	0m44.184s
+reinefeld-zpdb		4444m39.795s	26068m45.490s	0m19.270s
+clausecker-apdb		7865m25.917s	40787m42.301s	5m15.928s
+clausecker-zpdb		4606m6.880s	26857m40.286s	0m25.405s
+
