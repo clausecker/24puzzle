@@ -26,6 +26,7 @@ test/bitpdbtest
 test/etatest
 test/explore
 test/hitanalysis
+test/indexbench
 test/indextest
 test/morphtest
 test/qualitytest

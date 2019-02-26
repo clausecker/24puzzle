@@ -22,7 +22,7 @@ BINARIES=cmd/pdbstats test/indextest util/rankgen test/ranktest cmd/genpdb \
 	cmd/pdbcount test/bitpdbtest test/morphtest cmd/pdbmatch \
 	cmd/pdbquality test/walkdist cmd/puzzledist test/etatest \
 	test/samplegen test/statmerge cmd/etacount cmd/randompdb cmd/genloops \
-	cmd/compilefsm test/explore
+	cmd/compilefsm test/explore test/indexbench
 
 all: $(BINARIES) 24puzzle.a
 
@@ -46,6 +46,7 @@ ranktbl.c: util/rankgen
 	@util/rankgen >$@
 
 test/hitanalysis: test/hitanalysis.o 24puzzle.a
+test/indexbench: test/indexbench.o 24puzzle.a
 test/indextest: test/indextest.o 24puzzle.a
 test/tiletest: test/tiletest.o 24puzzle.a
 cmd/parsearch: cmd/parsearch.o 24puzzle.a
