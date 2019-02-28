@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2017 Robert Clausecker. All rights reserved.
+ * Copyright (c) 2017, 2019 Robert Clausecker. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -88,7 +88,7 @@ main()
 	printf("#include <tileset.h>\n\n");
 
 	/* generate tails */
-	printf("const unsigned short\nrank_tails[1 << RANK_SPLIT1] = {\n");
+	printf("const tsrank\nrank_tails[1 << RANK_SPLIT1] = {\n");
 
 	for (i = 0; i < 1 << RANK_SPLIT1; i++)
 		print_entry(rank(i), i);
@@ -96,7 +96,7 @@ main()
 	printf("};\n\n");
 
 	/* generate mids */
-	printf("const unsigned short\nrank_mids[RANK_SPLIT1 + 1][1 << RANK_SPLIT2 - RANK_SPLIT1] = {\n");
+	printf("const tsrank\nrank_mids[RANK_SPLIT1 + 1][1 << RANK_SPLIT2 - RANK_SPLIT1] = {\n");
 	for (i = 0; i < RANK_SPLIT1 + 1; i++) {
 		for (j = 0; j < 1 << RANK_SPLIT2 - RANK_SPLIT1; j++)
 			print_entry(rank(j << RANK_SPLIT1 | (1 << i) - 1), j);
