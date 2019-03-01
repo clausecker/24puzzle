@@ -71,10 +71,10 @@ static __m512i popcount16_32(__m512i x)
  * TODO: add some way to mask the indices.
  */
 extern void
-compute_index_16a6(unsigned pidxbuf[restrict 16], unsigned maprank[restrict 16],
-    const struct puzzle *p, const tileset tsarg[restrict 16])
+compute_index_16a6(permindex pidxbuf[restrict VECTORWIDTH], tsrank maprank[restrict VECTORWIDTH],
+    const struct puzzle *p, const tileset tsarg[restrict VECTORWIDTH])
 {
-	__m512i tiles, grid, ts; /* arguments */
+	__m512i tileslo, tileshi, ts; /* arguments */
 	__m512i zero, one, thirtyone; /* constants */
 	__m512i t, least, x, y, tail, mid, head, count, factor; /* immediate values */
 	__m512i map, rank, pidx; /* result values */
@@ -83,10 +83,10 @@ compute_index_16a6(unsigned pidxbuf[restrict 16], unsigned maprank[restrict 16],
 
 	/*
 	 * AVX512BW lacks useful byte permute instructions.  To cope with
-	 * this, we expand p->tiles and p->grid to 16 bit elements.
+	 * this, we expand p->tiles and p->grid to 32 bit elements.
 	 */
-	tiles = _mm512_cvtepu8_epi16(_mm256_loadu_si256((const __m256i *)p->tiles));
-	grid = _mm512_cvtepu8_epi16(_mm256_loadu_si256((const __m256i *)p->tiles));
+	tileslo = _mm512_cvtepu8_epi32(_mm_loadu_si128((const __m128i *)p->tiles));
+	tileshi = _mm512_cvtepu8_epi32(_mm_loadu_si128((const __m128i *)p->tiles + 1));
 	ts = _mm512_loadu_si512(tsarg);
 
 	/* common constants */
@@ -103,21 +103,17 @@ compute_index_16a6(unsigned pidxbuf[restrict 16], unsigned maprank[restrict 16],
 	map = zero;
 
 	for (i = 0; i < 6; i++) {
-		/* least = t & -t (get least bit) */
-		least = _mm512_and_epi32(t, _mm512_sub_epi32(zero, t));
+		/* x = 31 - clz(t) (which gives us the index of the MSB of t) */
+		x = _mm512_sub_epi32(thirtyone, _mm512_lzcnt_epi32(t));
 
-		/* x = 31 - clz(least) (which gives us ctz(t)) */
-		x = _mm512_sub_epi32(thirtyone, _mm512_lzcnt_epi32(least));
-
-		/* x = tiles[ctz(t)] (find tile location) */
-		x = _mm512_cvtepu16_epi32(_mm512_castsi512_si256(_mm512_permutex2var_epi16(tiles,
-		    _mm512_castsi256_si512(_mm512_cvtepi32_epi16(x)), zero)));
+		/* y = tiles[ctz(t)] (find tile location) */
+		y = _mm512_permutex2var_epi32(tileslo, x, tileshi);
 
 		/* map |= 1 << x (add tile to map) */
-		map = _mm512_or_epi32(_mm512_sllv_epi16(one, x), map);
+		map = _mm512_or_epi32(_mm512_sllv_epi32(one, y), map);
 
-		/* t &= ~least (clear least bit) */
-		t = _mm512_andnot_epi32(least, t);
+		/* t &= ~(1 << x) (clear MSB) */
+		t = _mm512_andnot_epi32(_mm512_sllv_epi32(one, x), t);
 	}
 
 	/*
@@ -157,8 +153,7 @@ compute_index_16a6(unsigned pidxbuf[restrict 16], unsigned maprank[restrict 16],
 		x = _mm512_sub_epi32(thirtyone, _mm512_lzcnt_epi32(least));
 
 		/* x = tiles[ctz(t)] (find grid location) */
-		x = _mm512_cvtepu16_epi32(_mm512_castsi512_si256(_mm512_permutex2var_epi16(tiles,
-		    _mm512_castsi256_si512(_mm512_cvtepi32_epi16(x)), zero)));
+		x = _mm512_permutex2var_epi32(tileslo, x, tileshi);
 
 		/* y = 1 << x (tile at index x) */
 		y = _mm512_sllv_epi32(one, x);

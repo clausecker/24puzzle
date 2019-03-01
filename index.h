@@ -123,6 +123,10 @@ extern void	index_string(tileset, char[INDEX_STR_LEN], const struct index*);
 extern void	make_index_aux(struct index_aux*, tileset);
 extern int	puzzle_partially_equal(const struct puzzle *, const struct puzzle *, const struct index_aux *);
 
+/* vectorised functions from index_avx512.c */
+enum { VECTORWIDTH = 16 };
+extern void	compute_index_16a6(permindex[restrict 16], tsrank[restrict 16],
+    const struct puzzle *, const tileset[restrict 16]);
 
 extern const unsigned factorials[INDEX_MAX_TILES + 1];
 
