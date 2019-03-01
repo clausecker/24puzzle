@@ -51,14 +51,14 @@ static __m512i popcount16_32(__m512i x)
 	mask = _mm512_set1_epi32(0x33333333);
 	x = _mm512_add_epi32(_mm512_and_epi32(_mm512_srli_epi32(x, 2), mask), _mm512_and_epi32(x, mask));
 
-	/* x = (x >> 4) + (x & 0x0f0f0f0f) */
-	x = _mm512_add_epi32(_mm512_srli_epi32(x, 4), _mm512_and_epi32(x, _mm512_set1_epi32(0x0f0f0f0f)));
+	/* x = (x >> 4) + x & 0x0f0f0f0f */
+	x = _mm512_and_epi32(_mm512_add_epi32(_mm512_srli_epi32(x, 4), x), _mm512_set1_epi32(0x0f0f0f0f));
 
-	/* x = (x >> 8) + (x & 0x00ff00ff) */
-	x = _mm512_add_epi32(_mm512_srli_epi32(x, 8), _mm512_and_epi32(x, _mm512_set1_epi32(0x00ff00ff)));
+	/* x = (x >> 8) + x & 0x00ff00ff */
+	x = _mm512_and_epi32(_mm512_add_epi32(_mm512_srli_epi32(x, 8), x), _mm512_set1_epi32(0x00ff00ff));
 
-	/* x = (x >> 16) + (x & 0x0000ffff) */
-	x = _mm512_add_epi32(_mm512_srli_epi32(x, 16), _mm512_and_epi32(x, _mm512_set1_epi32(0x0000ffff)));
+	/* x = (x >> 16) + x & 0x0000ffff */
+	x = _mm512_and_epi32(_mm512_add_epi32(_mm512_srli_epi32(x, 16), x), _mm512_set1_epi32(0x0000ffff));
 
 	return (x);
 #endif
@@ -106,7 +106,7 @@ compute_index_16a6(permindex pidxbuf[restrict VECTORWIDTH], tsrank maprank[restr
 		/* x = 31 - clz(t) (which gives us the index of the MSB of t) */
 		x = _mm512_sub_epi32(thirtyone, _mm512_lzcnt_epi32(t));
 
-		/* y = tiles[ctz(t)] (find tile location) */
+		/* y = tiles[clz(t)] (find tile location) */
 		y = _mm512_permutex2var_epi32(tileslo, x, tileshi);
 
 		/* map |= 1 << x (add tile to map) */
