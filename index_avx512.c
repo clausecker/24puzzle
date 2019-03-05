@@ -29,7 +29,7 @@
 #include "puzzle.h"
 #include "tileset.h"
 
-#if __AVX512BW__ && __AVX512VL__ && __AVX512CD__
+#if __AVX512BW__ && __AVX512VL__ && __AVX512CD__ && __AVX512DQ__
 #include <immintrin.h>
 
 /*
@@ -178,6 +178,50 @@ compute_index_16a6(permindex pidxbuf[restrict VECTORWIDTH], tsrank maprank[restr
 	_mm512_storeu_si512(maprank, rank);
 }
 
-#else /* __AVX512BW__ && __AVX512VL__ && __AVX512CD__ */
+/*
+ * Take 8 offsets into 8 byte arrays pdb_data and store the
+ * zero-extended bytes you found there into h.
+ */
+static void
+lookup8(int h[restrict 8], __m256i idx, const atomic_uchar *restrict pdb_data[restrict 8])
+{
+	__m512i addr, base, mask;
+	__m256i off, hvals;
+
+	/* TODO: what to do on i386? */
+	addr = _mm512_add_epi64(_mm512_loadu_si512((const void *)pdb_data), _mm512_cvtepu32_epi64(idx));
+	mask = _mm512_set1_epi64(3);
+	base = _mm512_andnot_epi64(mask, addr);
+	off = _mm256_slli_epi32(_mm512_cvtepi64_epi32(_mm512_and_epi64(mask, addr)), 3);
+	hvals = _mm512_i64gather_epi32(base, NULL, 1);
+	hvals = _mm256_and_si256(_mm256_srlv_epi32(hvals, off), _mm256_set1_epi32(0xff));
+	_mm256_storeu_si256((void *)h, hvals);
+}
+
+
+/*
+ * Take 16 indices into 6 tile PDBs and look up the corresponding
+ * h values.  pdb_data must contain the pdb->data fields of the
+ * PDBs.
+ */
+extern void
+pdb_lookup_16a6(int h[restrict 16], const permindex pidxbuf[restrict 16],
+    const tsrank maprank[restrict 16], const atomic_uchar *restrict pdb_data[restrict 16])
+{
+	__m512i pidx, rank;
+	__m512i idx;
+
+	pidx = _mm512_loadu_si512(pidxbuf);
+	rank = _mm512_loadu_si512(maprank);
+
+	/* finalise the index computation by multiplying up the index components */
+	idx = _mm512_add_epi32(_mm512_mullo_epi32(rank, _mm512_set1_epi32(720)), pidx);
+
+	/* now do two groups of lookups @ 8 lookups each */
+	lookup8(h + 0, _mm512_extracti32x8_epi32(idx, 0), pdb_data + 0);
+	lookup8(h + 8, _mm512_extracti32x8_epi32(idx, 1), pdb_data + 8);
+}
+
+#else /* __AVX512BW__ && __AVX512VL__ && __AVX512CD__ && __AVX512DQ__ */
 # error TODO: implement fallback
 #endif

@@ -127,6 +127,8 @@ extern int	puzzle_partially_equal(const struct puzzle *, const struct puzzle *, 
 enum { VECTORWIDTH = 16 };
 extern void	compute_index_16a6(permindex[restrict 16], tsrank[restrict 16],
     const struct puzzle *, const tileset[restrict 16]);
+extern void	pdb_lookup_16a6(int[restrict 16], const permindex[restrict 16],
+    const tsrank[restrict 16], const atomic_uchar *restrict[restrict 16]);
 
 extern const unsigned factorials[INDEX_MAX_TILES + 1];
 

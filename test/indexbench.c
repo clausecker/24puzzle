@@ -107,13 +107,24 @@ dovbench(struct patterndb **pdbs, const tileset *tilesets, size_t npdb,
 {
 	permindex pidxbuf[VECTORWIDTH];
 	tsrank maprank[VECTORWIDTH];
+	int h[VECTORWIDTH];
+	const atomic_uchar *pdb_data[VECTORWIDTH];
 
 	size_t i;
 
-	for (i = 0; i < npuzzle; i++)
+	if (flags & WANT_LOOKUP) {
+		for (i = 0; i < npdb; i++)
+			pdb_data[i] = pdbs[i]->data;
+	}
+
+	for (i = 0; i < npuzzle; i++) {
 		compute_index_16a6(pidxbuf, maprank, puzzles + i, tilesets);
 
-	/* TODO: implement ZPDBs and lookups */
+		if (flags & WANT_LOOKUP)
+			pdb_lookup_16a6(h, pidxbuf, maprank, pdb_data);
+	}
+
+	/* TODO: implement ZPDBs */
 }
 
 /*
