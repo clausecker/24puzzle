@@ -71,8 +71,8 @@ static __m512i popcount16_32(__m512i x)
  * TODO: add some way to mask the indices.
  */
 extern void
-compute_index_16a6(permindex pidxbuf[restrict VECTORWIDTH], tsrank maprank[restrict VECTORWIDTH],
-    const struct puzzle *p, const tileset tsarg[restrict VECTORWIDTH])
+compute_index_16a6(permindex pidxbuf[restrict 16], tsrank maprank[restrict 16],
+    const struct puzzle *p, const tileset tsarg[restrict 16])
 {
 	__m512i tileslo, tileshi, ts; /* arguments */
 	__m512i zero, one, thirtyone; /* constants */
@@ -209,7 +209,8 @@ pdb_lookup_16a6(int h[restrict 16], const permindex pidxbuf[restrict 16],
     const tsrank maprank[restrict 16], const atomic_uchar *restrict pdb_data[restrict 16])
 {
 	__m512i pidx, rank;
-	__m512i idx;
+	__m512i idx, base, off, mask, baselo, basehi, hvals;
+	__m256i hvalslo, hvalshi;
 
 	pidx = _mm512_loadu_si512(pidxbuf);
 	rank = _mm512_loadu_si512(maprank);
@@ -217,9 +218,196 @@ pdb_lookup_16a6(int h[restrict 16], const permindex pidxbuf[restrict 16],
 	/* finalise the index computation by multiplying up the index components */
 	idx = _mm512_add_epi32(_mm512_mullo_epi32(rank, _mm512_set1_epi32(720)), pidx);
 
-	/* now do two groups of lookups @ 8 lookups each */
-	lookup8(h + 0, _mm512_extracti32x8_epi32(idx, 0), pdb_data + 0);
-	lookup8(h + 8, _mm512_extracti32x8_epi32(idx, 1), pdb_data + 8);
+	/* 4-byte aligned base */
+	mask = _mm512_set1_epi32(3);
+	base = _mm512_andnot_epi32(mask, idx);
+
+	/* load low part */
+	baselo = _mm512_cvtepu32_epi64(_mm512_extracti32x8_epi32(base, 0));
+	baselo = _mm512_add_epi64(_mm512_loadu_si512((const __m512i *)pdb_data + 0), baselo);
+	hvalslo = _mm512_i64gather_epi32(baselo, NULL, 1);
+
+	/* load high part */
+	basehi = _mm512_cvtepu32_epi64(_mm512_extracti32x8_epi32(base, 1));
+	basehi = _mm512_add_epi64(_mm512_loadu_si512((const __m512i *)pdb_data + 1), basehi);
+	hvalshi = _mm512_i64gather_epi32(basehi, NULL, 1);
+
+	/* join parts and shift */
+	off = _mm512_slli_epi32(_mm512_and_epi32(mask, idx), 3);
+	hvals = _mm512_inserti32x8(_mm512_castsi256_si512(hvalslo), hvalshi, 1);
+	hvals = _mm512_and_epi32(_mm512_srlv_epi32(hvals, off), _mm512_set1_epi32(0xff));
+
+	_mm512_storeu_si512(h, hvals);
+}
+
+/*
+ * Compute the population count of 16 integers of 32 bit each.  Use
+ * the relevant intrinsic if possible, otherwise fall back to bit
+ * fiddling tricks.
+ */
+static __m256i popcount8_32(__m256i x)
+{
+#ifdef __AVX512VPOPCNTDQ__
+	return (_mm256_popcnt_epi32(x));
+#else
+	__m256i mask;
+
+	/* x = x - (x >> 1 & 0x55555555) */
+	x = _mm256_sub_epi32(x, _mm256_and_si256(_mm256_srli_epi32(x, 1), _mm256_set1_epi32(0x55555555)));
+
+	/* x = (x >> 2 & 0x33333333) + (x & 0x33333333) */
+	mask = _mm256_set1_epi32(0x33333333);
+	x = _mm256_add_epi32(_mm256_and_si256(_mm256_srli_epi32(x, 2), mask), _mm256_and_si256(x, mask));
+
+	/* x = (x >> 4) + x & 0x0f0f0f0f */
+	x = _mm256_and_si256(_mm256_add_epi32(_mm256_srli_epi32(x, 4), x), _mm256_set1_epi32(0x0f0f0f0f));
+
+	/* x = (x >> 8) + x & 0x00ff00ff */
+	x = _mm256_and_si256(_mm256_add_epi32(_mm256_srli_epi32(x, 8), x), _mm256_set1_epi32(0x00ff00ff));
+
+	/* x = (x >> 16) + x & 0x0000ffff */
+	x = _mm256_and_si256(_mm256_add_epi32(_mm256_srli_epi32(x, 16), x), _mm256_set1_epi32(0x0000ffff));
+
+	return (x);
+#endif
+}
+
+/*
+ * Compute 8 indices into 6 tile APDBs at once.  Combine the indices into
+ * offsets and store them to idx.
+ *
+ * TODO: add some way to mask the indices.
+ */
+extern void
+compute_index_8a6(permindex pidxbuf[restrict 8], tsrank maprank[restrict 8],
+    const struct puzzle *p, const tileset tsarg[restrict 8])
+{
+	__m256i tileslo, tileshi, ts; /* arguments */
+	__m256i zero, one, thirtyone; /* constants */
+	__m256i t, least, x, y, tail, mid, head, count, factor; /* immediate values */
+	__m256i map, rank, pidx; /* result values */
+
+	size_t i;
+
+	/*
+	 * AVX256BW lacks useful byte permute instructions.  To cope with
+	 * this, we expand p->tiles and p->grid to 16 bit elements.
+	 */
+	tileslo = _mm256_cvtepu8_epi16(_mm_loadu_si128((const __m128i *)p->tiles));
+	tileshi = _mm256_cvtepu8_epi16(_mm_loadu_si128((const __m128i *)p->tiles + 1));
+	ts = _mm256_loadu_si256((const __m256i *)tsarg);
+
+	/* common constants */
+	zero = _mm256_setzero_si256();
+	one = _mm256_set1_epi32(1);
+	thirtyone = _mm256_set1_epi32(31);
+
+	/*
+	 * Compute tile_map() for all tile sets.  This is done as in
+	 * the unvectorised version as iterating the loop 6 times is
+	 * faster than issuing pcmpistrm 16 times (or so I think).
+	 */
+	t = ts;
+	map = zero;
+
+	for (i = 0; i < 6; i++) {
+		/* x = 31 - clz(t) (which gives us the index of the MSB of t) */
+		x = _mm256_sub_epi32(thirtyone, _mm256_lzcnt_epi32(t));
+
+		/* y = tiles[clz(t)] (find tile location) */
+		y = _mm256_cvtepu16_epi32(_mm256_castsi256_si128(
+		    _mm256_permutex2var_epi32(tileslo, _mm256_castsi128_si256(_mm256_cvtepi32_epi16(x)), tileshi)));
+
+		/* map |= 1 << x (add tile to map) */
+		map = _mm256_or_si256(_mm256_sllv_epi32(one, y), map);
+
+		/* t &= ~(1 << x) (clear MSB) */
+		t = _mm256_andnot_si256(_mm256_sllv_epi32(one, x), t);
+	}
+
+	/*
+	 * Compute tileset_rank() for each map.
+	 * This uses the auxillary popcount function.
+	 */
+	tail = _mm256_and_si256(map, _mm256_set1_epi32(tileset_least(RANK_SPLIT1)));
+	mid = _mm256_and_si256(map, _mm256_set1_epi32(tileset_least(RANK_SPLIT2)));
+	head = _mm256_srli_epi32(map, RANK_SPLIT2);
+
+	/* rank = rank_tails[tail] */
+	rank = _mm256_i32gather_epi32(rank_tails, tail, 4);
+
+	/* rank += rank_mids[tileset_count(tail)][mid >> RANK_SPLIT1] */
+	count = popcount8_32(tail);
+	x = _mm256_add_epi32(_mm256_slli_epi32(count, RANK_SPLIT2 - RANK_SPLIT1), _mm256_srli_epi32(mid, RANK_SPLIT1));
+	rank = _mm256_add_epi32(rank, _mm256_i32gather_epi32(rank_mids, x, 4));
+
+	/* rank += rank_heads[tileset_count(mid)][head]) */
+	/* where tileset_count(mid) = tileset_count(midshift) + tileset_count(tail) */
+	count = popcount8_32(mid);
+	x = _mm256_add_epi32(_mm256_slli_epi32(count, TILE_COUNT - RANK_SPLIT2), head);
+	rank = _mm256_add_epi32(rank, _mm256_i32gather_epi32(rank_heads, x, 4));
+
+	/*
+	 * Compute index_permutation() for each map.
+	 * This too uses the auxillary popcount function.
+	 */
+	pidx = zero;
+	factor = one;
+	t = ts;
+	for (i = 0; i < 6; i++) {
+		/* least = t & -t (get least bit) */
+		least = _mm256_and_si256(t, _mm256_sub_epi32(zero, t));
+
+		/* x = 31 - clz(least) (which gives us ctz(t)) */
+		x = _mm256_sub_epi32(thirtyone, _mm256_lzcnt_epi32(least));
+
+		/* x = tiles[ctz(t)] (find grid location) */
+		x = _mm256_cvtepu16_epi32(_mm256_castsi256_si128(
+		    _mm256_permutex2var_epi32(tileslo, _mm256_castsi128_si256(_mm256_cvtepi32_epi16(x)), tileshi)));
+
+		/* y = 1 << x (tile at index x) */
+		y = _mm256_sllv_epi32(one, x);
+
+		/* x = cnt(y - 1 & map) (inversion number) */
+		x = popcount8_32(_mm256_and_si256(_mm256_sub_epi32(y, one), map));
+
+		/* pidx += factor * x */
+		pidx = _mm256_add_epi32(pidx, _mm256_mullo_epi32(factor, x));
+
+		/* factor *= 6 - i */
+		factor = _mm256_mullo_epi32(factor, _mm256_set1_epi32(6 - i));
+
+		/* t &= ~least (clear least bit) */
+		t = _mm256_andnot_si256(least, t);
+
+		/* map &= ~y (clear bit in inversion map) */
+		map = _mm256_andnot_si256(y, map);
+	}
+
+	_mm256_storeu_si256((__m256i *)pidxbuf, pidx);
+	_mm256_storeu_si256((__m256i *)maprank, rank);
+}
+
+/*
+ * Take 16 indices into 6 tile PDBs and look up the corresponding
+ * h values.  pdb_data must contain the pdb->data fields of the
+ * PDBs.
+ */
+extern void
+pdb_lookup_8a6(int h[restrict 8], const permindex pidxbuf[restrict 8],
+    const tsrank maprank[restrict 8], const atomic_uchar *restrict pdb_data[restrict 8])
+{
+	__m256i pidx, rank;
+	__m256i idx;
+
+	pidx = _mm256_loadu_si256((const __m256i *)pidxbuf);
+	rank = _mm256_loadu_si256((const __m256i *)maprank);
+
+	/* finalise the index computation by multiplying up the index components */
+	idx = _mm256_add_epi32(_mm256_mullo_epi32(rank, _mm256_set1_epi32(720)), pidx);
+
+	/* now do a lookup @ 8 lookups each */
+	lookup8(h, idx, pdb_data);
 }
 
 #else /* __AVX512BW__ && __AVX512VL__ && __AVX512CD__ && __AVX512DQ__ */

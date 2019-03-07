@@ -129,6 +129,10 @@ extern void	compute_index_16a6(permindex[restrict 16], tsrank[restrict 16],
     const struct puzzle *, const tileset[restrict 16]);
 extern void	pdb_lookup_16a6(int[restrict 16], const permindex[restrict 16],
     const tsrank[restrict 16], const atomic_uchar *restrict[restrict 16]);
+extern void	compute_index_8a6(permindex[restrict 8], tsrank[restrict 8],
+    const struct puzzle *, const tileset[restrict 8]);
+extern void	pdb_lookup_8a6(int[restrict 8], const permindex[restrict 8],
+    const tsrank[restrict 8], const atomic_uchar *restrict[restrict 8]);
 
 extern const unsigned factorials[INDEX_MAX_TILES + 1];
 

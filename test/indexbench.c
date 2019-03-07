@@ -71,6 +71,7 @@ enum {
 	WANT_LOOKUP = 1 << 0,
 	WANT_ZPDB = 1 << 1,
 	WANT_VECTORIZED = 1 << 2,
+	WANT_8ELEMS = 1 << 3,
 };
 
 /*
@@ -118,9 +119,19 @@ dovbench(struct patterndb **pdbs, const tileset *tilesets, size_t npdb,
 	}
 
 	for (i = 0; i < npuzzle; i++) {
-		compute_index_16a6(pidxbuf, maprank, puzzles + i, tilesets);
+		if (flags & WANT_8ELEMS) {
+			compute_index_8a6(pidxbuf + 0, maprank + 0, puzzles + i, tilesets + 0);
+			compute_index_8a6(pidxbuf + 8, maprank + 8, puzzles + i, tilesets + 8);
+		} else
+			compute_index_16a6(pidxbuf, maprank, puzzles + i, tilesets);
 
-		if (flags & WANT_LOOKUP)
+		if (~flags & WANT_LOOKUP)
+			continue;
+
+		if (flags & WANT_8ELEMS) {
+			pdb_lookup_8a6(h + 0, pidxbuf + 0, maprank + 0, pdb_data + 0);
+			pdb_lookup_8a6(h + 8, pidxbuf + 8, maprank + 8, pdb_data + 8);
+		} else
 			pdb_lookup_16a6(h, pidxbuf, maprank, pdb_data);
 	}
 
@@ -160,7 +171,7 @@ dobench(struct patterndb **pdbs, const tileset *tilesets, size_t npdb,
 static void
 usage(const char *argv0)
 {
-	fprintf(stderr, "Usage: %s [-lvz] [runs]\n", argv0);
+	fprintf(stderr, "Usage: %s [-8lvz] [runs]\n", argv0);
 	exit(EXIT_FAILURE);
 }
 
@@ -175,7 +186,7 @@ main(int argc, char *argv[])
 	size_t i;
 	int optchar, flags = 0;
 
-	while (optchar = getopt(argc, argv, "lvz"), optchar != -1)
+	while (optchar = getopt(argc, argv, "8lvz"), optchar != -1)
 		switch (optchar) {
 		case 'z':
 			flags |= WANT_ZPDB;
@@ -187,6 +198,10 @@ main(int argc, char *argv[])
 
 		case 'l':
 			flags |= WANT_LOOKUP;
+			break;
+
+		case '8':
+			flags |= WANT_8ELEMS;
 			break;
 
 		default:
