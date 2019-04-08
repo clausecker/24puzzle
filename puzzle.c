@@ -46,18 +46,16 @@ extern int
 puzzle_parity(const struct puzzle *p)
 {
 	tileset ts = FULL_TILESET;
-	int i, start, len, parity = zero_location(p);
+	int i, start, parity = zero_location(p) ^ 1;
 
 	/* count cycle lengths */
 	while (!tileset_empty(ts)) {
-		len = 0;
+		parity ^= 1;
 		start = i = tileset_get_least(ts);
 		do {
 			ts = tileset_remove(ts, i);
 			i = p->grid[i];
-			len++;
 		} while (i != start);
-		parity ^= len ^ 1;
 	}
 
 	return (parity & 1);
