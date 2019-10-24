@@ -411,5 +411,62 @@ pdb_lookup_8a6(int h[restrict 8], const permindex pidxbuf[restrict 8],
 }
 
 #else /* __AVX512BW__ && __AVX512VL__ && __AVX512CD__ && __AVX512DQ__ */
-# error TODO: implement fallback
+extern void
+compute_index_16a6(permindex pidxbuf[restrict 16], tsrank maprank[restrict 16],
+    const struct puzzle *p, const tileset tsarg[restrict 16])
+{
+	struct index_aux aux;
+	struct index idx;
+	size_t i;
+
+	for (i = 0; i < 16; i++) {
+		make_index_aux(&aux, tsarg[i]);
+		compute_index(&aux, &idx, p);
+		pidxbuf[i] = idx.pidx;
+		maprank[i] = idx.maprank;
+	}
+}
+
+
+extern void
+pdb_lookup_16a6(int h[restrict 16], const permindex pidxbuf[restrict 16],
+    const tsrank maprank[restrict 16], const atomic_uchar *restrict pdb_data[restrict 16])
+{
+	size_t i, offset;
+
+	for (i = 0; i < 16; i++) {
+		offset = maprank[i] * (size_t)720 + pidxbuf[i];
+		h[i] = pdb_data[i][offset];
+	}
+}
+
+extern void
+compute_index_8a6(permindex pidxbuf[restrict 8], tsrank maprank[restrict 8],
+    const struct puzzle *p, const tileset tsarg[restrict 8])
+{
+	struct index_aux aux;
+	struct index idx;
+	size_t i;
+
+	for (i = 0; i < 8; i++) {
+		make_index_aux(&aux, tsarg[i]);
+		compute_index(&aux, &idx, p);
+		pidxbuf[i] = idx.pidx;
+		maprank[i] = idx.maprank;
+	}
+}
+
+
+extern void
+pdb_lookup_8a6(int h[restrict 8], const permindex pidxbuf[restrict 8],
+    const tsrank maprank[restrict 8], const atomic_uchar *restrict pdb_data[restrict 8])
+{
+	size_t i, offset;
+
+	for (i = 0; i < 8; i++) {
+		offset = maprank[i] * (size_t)720 + pidxbuf[i];
+		h[i] = pdb_data[i][offset];
+	}
+}
+
 #endif
