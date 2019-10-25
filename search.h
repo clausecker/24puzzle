@@ -68,7 +68,7 @@ extern char	*path_parse(struct path *, const char *);
 extern void	 path_walk(struct puzzle *, const struct path *);
 
 /* various */
-extern unsigned long long	search_ida(struct pdb_catalogue *, const struct fsm *, const struct puzzle *, struct path *, int);
-extern unsigned long long	search_ida_bounded(struct pdb_catalogue *, const struct fsm *, const struct puzzle *, size_t, struct path *, int);
+extern unsigned long long	search_ida(struct pdb_catalogue *, const struct fsm *, const struct puzzle *, struct path *, void (*)(const struct path *, void *), void *, int);
+extern unsigned long long	search_ida_bounded(struct pdb_catalogue *, const struct fsm *, const struct puzzle *, size_t, struct path *, void (*)(const struct path *, void *), void *, int);
 
 #endif /* SEARCH_H */

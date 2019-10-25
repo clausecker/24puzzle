@@ -50,6 +50,8 @@ struct search_state {
 	size_t bound;
 	unsigned long long expanded, pruned;
 	int n_solutions, flags;
+	void (*on_solved)(const struct path *, void *);
+	void *on_solved_payload;
 };
 
 /*
@@ -73,6 +75,9 @@ expand_node(struct search_state *sst, size_t g, struct puzzle *p,
 
 		if (sst->flags & IDA_VERBOSE)
 			fprintf(stderr, "Solution found at depth %zu\n", g);
+
+		if (sst->on_solved != NULL)
+			sst->on_solved(sst->path, sst->on_solved_payload);
 
 		if (~sst->flags & IDA_LAST_FULL)
 			longjmp(sst->finish, 1);
@@ -113,12 +118,15 @@ expand_node(struct search_state *sst, size_t g, struct puzzle *p,
  * Use PDB catalogue cat and finite state machine fsm to search for a
  * solution for p with length bound.  Return the number of solutions found.
  * Update bound with the least bound needed to expand extra nodes.
- * Write the number of expanded nodes to expanded.
+ * Write the number of expanded nodes to expanded.  For each solution found,
+ * if on_solved is not NULL call on_solved on the solution with
+ * payload as the second argument
  */
 static int
 search_to_bound(struct path *path, struct pdb_catalogue *cat,
     const struct fsm *fsm, const struct puzzle *p, size_t bound,
-    unsigned long long *expanded, int flags) {
+    unsigned long long *expanded, void (*on_solved)(const struct path *,
+    void *), void *payload, int flags) {
 	struct partial_hvals ph;
 	struct puzzle pp;
 	struct search_state sst;
@@ -133,6 +141,9 @@ search_to_bound(struct path *path, struct pdb_catalogue *cat,
 	sst.expanded = 0;
 	sst.pruned = 0;
 	sst.bound = bound;
+	sst.on_solved = on_solved;
+	sst.on_solved_payload = payload;
+
 	if (setjmp(sst.finish))
 		goto finish;
 
@@ -195,11 +206,13 @@ verify(const struct puzzle *p, const struct path *path)
  * goal is more than limit steps away, abort the search and set
  * path->pathlen = SEARCH_NO_PATH.  Store the path found in path and
  * return the number of nodes expanded.  If f is not NULL, print
- * diagnostic messages to f.
+ * diagnostic messages to f.  If on_solved is not NULL, call on_solved
+ * for each solution found with the solution and payload for arguments.
  */
 extern unsigned long long
 search_ida_bounded(struct pdb_catalogue *cat, const struct fsm *fsm,
-    const struct puzzle *p, size_t limit, struct path *path, int flags)
+    const struct puzzle *p, size_t limit, struct path *path,
+    void (*on_solved)(const struct path *, void *), void *payload, int flags)
 {
 	struct timespec begin, round_begin, round_end, duration;
 	unsigned long long expanded, total_expanded = 0;
@@ -220,7 +233,7 @@ search_ida_bounded(struct pdb_catalogue *cat, const struct fsm *fsm,
 		if (flags & IDA_VERBOSE)
 			fprintf(stderr, "Searching for solution with bound %zu\n", bound);
 
-		n_solution = search_to_bound(path, cat, fsm, p, bound, &expanded, flags);
+		n_solution = search_to_bound(path, cat, fsm, p, bound, &expanded, on_solved, payload, flags);
 		total_expanded += expanded;
 
 		if (flags & IDA_VERBOSE)
@@ -273,7 +286,8 @@ search_ida_bounded(struct pdb_catalogue *cat, const struct fsm *fsm,
  */
 extern unsigned long long
 search_ida(struct pdb_catalogue *cat, const struct fsm *fsm,
-    const struct puzzle *p, struct path *path, int flags)
+    const struct puzzle *p, struct path *path,
+    void (*on_solved)(const struct path *, void *), void *payload, int flags)
 {
-	return (search_ida_bounded(cat, fsm, p, SEARCH_PATH_LEN, path, flags));
+	return (search_ida_bounded(cat, fsm, p, SEARCH_PATH_LEN, path, on_solved, payload, flags));
 }

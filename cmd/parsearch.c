@@ -87,7 +87,7 @@ lookup_worker(void *cfgarg)
 			continue;
 		}
 
-		expansions = search_ida(cfg->cat, cfg->fsm, &p, &path, cfg->idaflags);
+		expansions = search_ida(cfg->cat, cfg->fsm, &p, &path, NULL, NULL, cfg->idaflags);
 		linebuf[strcspn(linebuf, "\n")] = '\0';
 		flockfile(stdout);
 		printf("%s %3zu %12llu ", linebuf, path.pathlen, expansions);

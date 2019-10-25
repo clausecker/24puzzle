@@ -143,7 +143,7 @@ main(int argc, char *argv[])
 		}
 
 		fprintf(stderr, "Solving puzzle...\n");
-		search_ida(cat, fsm, &p, &path, idaflags);
+		search_ida(cat, fsm, &p, &path, NULL, NULL, idaflags);
 		path_string(pathstr, &path);
 		printf("Solution found: %s\n", pathstr);
 	}
