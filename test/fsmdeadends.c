@@ -30,6 +30,26 @@
 #include "fsm.h"
 
 /*
+ * return nonzero if table entry i for table t in fsm is a dead end.
+ * A table entry is a dead end if all outgoing transitions are matches.
+ */
+static int
+is_dead_end(struct fsm *fsm, int t, size_t i)
+{
+	size_t j;
+
+	if (t < 0 || i >= FSM_DEAD_END)
+		return (1);
+
+	for (j = 0; j < 4; j++) {
+		if (fsm->tables[t][i][j] < FSM_DEAD_END)
+			break;
+	}
+
+	return (j == 4);
+}
+
+/*
  * find out how many FSM states for tile t accept all outgoing
  * transitions (i.e. are dead ends).  Return that number.
  */
@@ -37,29 +57,59 @@ static unsigned long long
 count_dead_ends(struct fsm *fsm, int t)
 {
 	unsigned long long count = 0;
-	size_t i, j;
-	const unsigned (*table)[4];
+	size_t i;
 
-	table = fsm->tables[t];
-	for (i = 0; i < fsm->sizes[t]; i++) {
-		for (j = 0; j < 4; j++) {
-			if (table[i][j] <= FSM_MAX_LEN)
-				break;
-		}
-
-		/* if all were FSM_MATCH or FSM_UNASSIGNED */
-		if (j == 4)
+	for (i = 0; i < fsm->sizes[t]; i++)
+		if (is_dead_end(fsm, t, i))
 			count++;
-	}
 
 	return (count);
+}
+
+/*
+ * turn all configurations that lead to nothing but dead ends into
+ * dead ends themselves.  This function works in two passes: first,
+ * all new dead ends are detected.  Then, these new found dead ends
+ * are turned into proper dead ends.  This avoids detecting dead
+ * ends earlier than expected.
+ */
+static void
+transitive_closure(struct fsm *fsm)
+{
+	int t;
+	size_t i, j;
+
+	/* phase one: detect new dead ends */
+	for (t = 0; t < TILE_COUNT; t++)
+		for (i = 0; i < fsm->sizes[t]; i++) {
+			for (j = 0; j < 4; j++) {
+				if (!is_dead_end(fsm, get_moves(t)[j], fsm->tables[t][i][j]))
+					break;
+			}
+
+			/* if not all outgoing edges lead to dead ends, continue */
+			if (j < 4)
+				continue;
+
+			/* found a new dead end */
+			for (j = 0; j < 4; j++)
+				fsm->tables[t][i][j] = FSM_NEW_DEAD;
+
+		}
+
+	/* phase two: turn new dead ends into proper dead ends */
+	for (t = 0; t < TILE_COUNT; t++)
+		for (i = 0; i < fsm->sizes[t]; i++)
+			for (j = 0; j < 4; j++)
+				if (fsm->tables[t][i][j] == FSM_NEW_DEAD)
+					fsm->tables[t][i][j] = FSM_DEAD_END;
 }
 
 extern int
 main(int argc, char *argv[])
 {
-	unsigned long long count, total;
-	int i;
+	unsigned long long prev, count, total;
+	int i, j;
 	struct fsm *fsm;
 	FILE *fsmfile;
 
@@ -82,14 +132,20 @@ main(int argc, char *argv[])
 
 	fclose(fsmfile);
 
+	i = 0;
 	total = 0;
-	for (i = 0; i < TILE_COUNT; i++) {
-		count = count_dead_ends(fsm, i);
-		total += count;
-		printf("%5d  %20llu\n", i, count);
-	}
+	do {
+		prev = total;
+		total = 0;
+		for (j = 0; j < TILE_COUNT; j++) {
+			count = count_dead_ends(fsm, j);
+			total += count;
+			printf("%5d/%d  %20llu\n", j, i, count);
+		}
 
-	printf("total  %20llu\n", total);
+		printf("total/%d  %20llu\n", i++, total);
+		transitive_closure(fsm);
+	} while (prev < total);
 
 	return (EXIT_SUCCESS);
 }

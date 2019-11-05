@@ -75,13 +75,15 @@ struct fsm_state {
  */
 #define FSM_BEGIN      0x00000000u
 #define FSM_MAX_LEN    0xfffffff0u
+#define FSM_NEW_DEAD   0xfffffff1u /* for internal use by test/fsmdeadends.c */
+#define FSM_DEAD_END   0xfffffff2u /* for internal use by test/fsmdeadends.c */
 #define FSM_MATCH      0xfffffffeu
 #define FSM_UNASSIGNED 0xffffffffu
 
 extern struct fsm	*fsm_load(FILE *fsmfile);
 
-extern const struct fsm fsm_dummy, fsm_simple
-;
+extern const struct fsm fsm_dummy, fsm_simple;
+
 /*
  * Release storage associated with finite state machine fsm.
  */
