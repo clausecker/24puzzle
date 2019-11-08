@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2018 Robert Clausecker. All rights reserved.
+ * Copyright (c) 2018--2019 Robert Clausecker. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -178,16 +178,89 @@ do_loop(struct compact_puzzle *cp, FILE *fsmfile,
 }
 
 /*
- * Execute do_loop() for every half loop in rounds[len - 1].
+ * Search through expansion round len - 1 and print out all new half
+ * loops to fsmfile.  We only print those loops spanning the entirety of
+ * the search tree, i.e. where the two paths only join in the root node.
+ * As opposed to do_loop, this function only prints an FSM entry of the
+ * form A,E,F,D,C > A,B,C, thus preserving all paths to goal.
  */
 static void
-do_loops(FILE *fsmfile, struct cp_slice *rounds, size_t len)
+do_loop_weak(struct compact_puzzle *cp, FILE *fsmfile,
+    struct cp_slice *rounds, size_t len)
+{
+	struct path paths[4];
+	struct puzzle p;
+	size_t i, j;
+	int mask = move_mask(cp), last_steps[4];
+	const signed char *moves;
+	char pathstr[PATH_STR_LEN];
+
+	/* is there more than one way to this configuration? */
+	if (popcount(mask) <= 1)
+		return;
+
+	unpack_puzzle(&p, cp);
+	moves = get_moves(zero_location(&p));
+
+	assert(len >= 2); /* make sure every path has a last step */
+
+	/* determine all possible paths */
+	for (i = 0; i < 4; i++) {
+		if (~mask & 1 << i)
+			continue;
+
+		find_path(paths + i, &p, moves[i], rounds, len);
+		last_steps[i] = paths[i].moves[1];
+	}
+
+	/* for all pairs of paths i, j */
+	for (i = 0; i < 4; i++) {
+		if (~mask & 1 << i)
+			continue;
+
+		for (j = 0; j < 4; j++) {
+			if (~mask & 1 << j)
+				continue;
+
+			/*
+			 * if the two share a common prefix, the loop was
+			 * already detected elsewhere.  Omit it.
+			 */
+			if (last_steps[i] == last_steps[j])
+				continue;
+
+			/* print the loop using the same method as in do_loop */
+			paths[j].pathlen = len + 1;
+			paths[j].moves[len] = paths[i].moves[len - 2];
+			paths[i].pathlen = len - 1;
+
+			path_string(pathstr, paths + j);
+			fprintf(fsmfile, "%s > ", pathstr);
+			path_string(pathstr, paths + i);
+			fprintf(fsmfile, "%s\n", pathstr);
+
+			paths[j].pathlen = len;
+			paths[i].pathlen = len;
+		}
+	}
+}
+
+/*
+ * If all_paths is clear, execute do_loop() for every half loop in
+ * rounds[len - 1].  Otherwise execute do_loop_weak() for every half
+ * loop in rounds[len - 1].
+ */
+static void
+do_loops(FILE *fsmfile, struct cp_slice *rounds, size_t len, int all_paths)
 {
 	struct compact_puzzle *cps = rounds[len - 1].data;
 	size_t i, n_cps = rounds[len - 1].len;
 
 	for (i = 0; i < n_cps; i++)
-		do_loop(cps + i, fsmfile, rounds, len);
+		if (all_paths)
+			do_loop_weak(cps + i, fsmfile, rounds, len);
+		else
+			do_loop(cps + i, fsmfile, rounds, len);
 }
 
 /*
@@ -209,7 +282,7 @@ trivial_loops(FILE *fsmfile, int sq)
 static noreturn void
 usage(const char *argv0)
 {
-	fprintf(stderr, "Usage: %s [-l limit] [-s start_tile] [fsm]\n", argv0);
+	fprintf(stderr, "Usage: %s [-a] [-l limit] [-s start_tile] [fsm]\n", argv0);
 	exit(EXIT_FAILURE);
 }
 
@@ -220,10 +293,15 @@ main(int argc, char *argv[])
 	struct puzzle p;
 	struct compact_puzzle cp;
 	struct cp_slice cps[PDB_HISTOGRAM_LEN];
-	int i, optchar, limit = PDB_HISTOGRAM_LEN, start_tile = 0;
+	int all_paths = 0, i, optchar, limit = PDB_HISTOGRAM_LEN, start_tile = 0;
 
-	while (optchar = getopt(argc, argv, "l:s:"), optchar != -1)
+	while (optchar = getopt(argc, argv, "al:s:"), optchar != -1)
 		switch (optchar) {
+		case 'a':
+			/* preserve all shortest paths at the cost of pruning efficiency */
+			all_paths = 1;
+			break;
+
 		case 'l':
 			limit = atoi(optarg);
 			if (limit > PDB_HISTOGRAM_LEN)
@@ -280,10 +358,10 @@ main(int argc, char *argv[])
 
 		cps_init(cps + i);
 		cps_round(cps + i, cps + i - 1);
-		do_loops(fsmfile, cps, i);
+		do_loops(fsmfile, cps, i, all_paths);
 	}
 
-	do_loops(fsmfile, cps, i);
+	do_loops(fsmfile, cps, i, all_paths);
 
 	return (EXIT_SUCCESS);
 }
