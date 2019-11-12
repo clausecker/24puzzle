@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2018 Robert Clausecker. All rights reserved.
+ * Copyright (c) 2018--2019 Robert Clausecker. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -110,8 +110,9 @@ random_walk(struct puzzle *p, int steps, const struct fsm *fsm)
 }
 
 static void
-collect_walks(size_t samples[SEARCH_PATH_LEN], int steps, size_t n_puzzle,
-    struct pdb_catalogue *cat, const struct fsm *fsm, int give_heu)
+collect_walks(size_t samples[SEARCH_PATH_LEN], size_t *failures, int steps,
+    size_t n_puzzle, struct pdb_catalogue *cat, const struct fsm *fsm,
+    int give_heu)
 {
 	struct puzzle p;
 	struct path path;
@@ -119,8 +120,10 @@ collect_walks(size_t samples[SEARCH_PATH_LEN], int steps, size_t n_puzzle,
 
 	while (i < n_puzzle) {
 		p = solved_puzzle;
-		if (random_walk(&p, steps, fsm) == 0)
+		if (random_walk(&p, steps, fsm) == 0) {
+			++*failures;
 			continue;
+		}
 
 		if (give_heu)
 			samples[catalogue_hval(cat, &p)]++;
@@ -135,12 +138,12 @@ collect_walks(size_t samples[SEARCH_PATH_LEN], int steps, size_t n_puzzle,
 }
 
 static void
-print_statistics(size_t samples[SEARCH_PATH_LEN], int steps, size_t n_puzzle)
+print_statistics(size_t samples[SEARCH_PATH_LEN], size_t failures, int steps, size_t n_puzzle)
 {
 	double n_quot = 1.0 / n_puzzle;
 	size_t i, len = 0;
 
-	printf("%d %zu", steps, n_puzzle);
+	printf("%d %zu %zu", steps, n_puzzle, failures);
 
 	/* find last nonzero entry in samples */
 	for (i = 0; i < SEARCH_PATH_LEN; i++)
@@ -159,7 +162,7 @@ main(int argc, char *argv[])
 	const struct fsm *fsm = &fsm_simple;
 	struct pdb_catalogue *cat;
 	FILE *fsmfile;
-	size_t samples[SEARCH_PATH_LEN], n_puzzle = 1000;
+	size_t samples[SEARCH_PATH_LEN], n_puzzle = 1000, failures = 0;
 	int optchar, catflags = 0, give_heu = 0, steps, transpose = 0;
 	char *pdbdir = NULL;
 
@@ -242,8 +245,8 @@ main(int argc, char *argv[])
 
 	memset(samples, 0, sizeof samples);
 
-	collect_walks(samples, steps, n_puzzle, cat, fsm, give_heu);
-	print_statistics(samples, steps, n_puzzle);
+	collect_walks(samples, &failures, steps, n_puzzle, cat, fsm, give_heu);
+	print_statistics(samples, failures, steps, n_puzzle);
 
 	return (EXIT_SUCCESS);
 }
