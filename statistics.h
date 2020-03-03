@@ -31,6 +31,7 @@
 #include <stdio.h>
 
 #include "pdb.h"
+#include "puzzle.h"
 
 /*
  * The content of a stat file.  These files first contain
@@ -52,5 +53,16 @@ struct stat_file {
 
 extern int	parse_stat_file(struct stat_file *, FILE *);
 extern void	write_stat_file(FILE *, const struct stat_file *);
+
+extern const double equilibrium_bias[TILE_COUNT];
+
+/*
+ * Compute the equilibrium bias of a puzzle p.
+ */
+static inline double
+bias_of(const struct puzzle *p)
+{
+	return (equilibrium_bias[zero_location(p)]);
+}
 
 #endif /* STATISTICS_H */
