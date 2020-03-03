@@ -61,66 +61,23 @@ index_equal(tileset ts, struct index *idx1, const struct index *idx2)
  * if we don't.
  */
 static int
-test_puzzle(const struct index_aux *aux, const struct puzzle *p, struct index *idx)
+test_puzzle(const struct index_aux *aux, const struct puzzle *p)
 {
 	char puzzle_str[PUZZLE_STR_LEN], index_str[INDEX_STR_LEN];
 	struct puzzle pp;
+	struct index idx;
 
-	compute_index(aux, idx, p);
-	invert_index(aux, &pp, idx);
+	compute_index(aux, &idx, p);
+	invert_index(aux, &pp, &idx);
 
 	if (!puzzle_partially_equal(p, &pp, aux)) {
 		printf("test_puzzle failed for 0x%07x:\n", aux->ts);
 		puzzle_string(puzzle_str, p);
 		puts(puzzle_str);
-		index_string(aux->ts, index_str, idx);
+		index_string(aux->ts, index_str, &idx);
 		puts(index_str);
 		puzzle_string(puzzle_str, &pp);
 		puts(puzzle_str);
-
-		return (0);
-	}
-
-	return (1);
-}
-
-/*
- * Use a vectorised index function to compute the index for p and check
- * if the result is equal to idx.  Return 1 if it is; otherwise return 0
- * and print some information.
- */
-static int
-test_vpuzzle(const struct index_aux *aux, const struct puzzle *p, struct index *idx)
-{
-	size_t i;
-	permindex pidx[16];
-	tsrank maprank[16];
-	tileset ts[16];
-	char puzzle_str[PUZZLE_STR_LEN], index_str[INDEX_STR_LEN];
-
-	if (tileset_has(aux->ts, ZERO_TILE))
-		return (1); /* TODO */
-
-	if (tileset_count(aux->ts) != 6)
-		return (1); /* TODO */
-
-	for (i = 0; i < 16; i++)
-		ts[i] = aux->ts;
-
-	compute_index_16a6(pidx, maprank, p, ts);
-
-	for (i = 0; i < 16; i++) {
-		if (pidx[i] == idx->pidx && maprank[i] == idx->maprank)
-			continue;
-
-		printf("test_vpuzzle failed for 0x%07x:\n", aux->ts);
-		puzzle_string(puzzle_str, p);
-		index_string(aux->ts, index_str, idx);
-		puts(puzzle_str);
-		puts(index_str);
-
-		for (i = 0; i < 16; i++)
-			printf("%2zu: pidx = %3d, maprank = %6d\n", i, pidx[i], maprank[i]);
 
 		return (0);
 	}
@@ -197,10 +154,7 @@ main(int argc, char *argv[])
 
 	for (i = 0; i < n; i++) {
 		random_puzzle(&p);
-		if (!test_puzzle(&aux, &p, &idx))
-			return (EXIT_FAILURE);
-
-		if (!test_vpuzzle(&aux, &p, &idx))
+		if (!test_puzzle(&aux, &p))
 			return (EXIT_FAILURE);
 	}
 

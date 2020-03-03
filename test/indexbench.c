@@ -27,7 +27,6 @@
 
 #define _POSIX_C_SOURCE 200809L
 #include <stdlib.h>
-#include <stdint.h>
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
@@ -71,8 +70,6 @@ static tileset bench_ts[TESTWIDTH] = {
 enum {
 	WANT_LOOKUP = 1 << 0,
 	WANT_ZPDB = 1 << 1,
-	WANT_VECTORIZED = 1 << 2,
-	WANT_8ELEMS = 1 << 3,
 };
 
 /*
@@ -101,45 +98,6 @@ randomize(struct patterndb *pdb)
 }
 
 /*
- * Vectorised benchmark: same as dobench, but with vectors.
- */
-static void
-dovbench(struct patterndb **pdbs, const tileset *tilesets, size_t npdb,
-    const struct puzzle *puzzles, size_t npuzzle, int flags)
-{
-	permindex pidxbuf[VECTORWIDTH];
-	tsrank maprank[VECTORWIDTH];
-	int h[VECTORWIDTH];
-	const atomic_uchar *pdb_data[VECTORWIDTH];
-
-	size_t i;
-
-	if (flags & WANT_LOOKUP) {
-		for (i = 0; i < npdb; i++)
-			pdb_data[i] = pdbs[i]->data;
-	}
-
-	for (i = 0; i < npuzzle; i++) {
-		if (flags & WANT_8ELEMS) {
-			compute_index_8a6(pidxbuf + 0, maprank + 0, puzzles + i, tilesets + 0);
-			compute_index_8a6(pidxbuf + 8, maprank + 8, puzzles + i, tilesets + 8);
-		} else
-			compute_index_16a6(pidxbuf, maprank, puzzles + i, tilesets);
-
-		if (~flags & WANT_LOOKUP)
-			continue;
-
-		if (flags & WANT_8ELEMS) {
-			pdb_lookup_8a6(h + 0, pidxbuf + 0, maprank + 0, pdb_data + 0);
-			pdb_lookup_8a6(h + 8, pidxbuf + 8, maprank + 8, pdb_data + 8);
-		} else
-			pdb_lookup_16a6(h, pidxbuf, maprank, pdb_data);
-	}
-
-	/* TODO: implement ZPDBs */
-}
-
-/*
  * Benchmark: compute the indices for npuzzle puzzles in npdb pdbs.  If
  * flags & WANT_LOOKUP, also look the result up in the pdbs.
  */
@@ -151,11 +109,6 @@ dobench(struct patterndb **pdbs, const tileset *tilesets, size_t npdb,
 	size_t i, j;
 	volatile int sink; /* prevent the compiler from optimising this away */
 	int sum;
-
-	if (flags & WANT_VECTORIZED) {
-		dovbench(pdbs, tilesets, npdb, puzzles, npuzzle, flags);
-		return;
-	}
 
 	for (i = 0; i < npuzzle; i++) {
 		sum = 0;
@@ -172,7 +125,7 @@ dobench(struct patterndb **pdbs, const tileset *tilesets, size_t npdb,
 static void
 usage(const char *argv0)
 {
-	fprintf(stderr, "Usage: %s [-8lvz] [runs]\n", argv0);
+	fprintf(stderr, "Usage: %s [-lz] [runs]\n", argv0);
 	exit(EXIT_FAILURE);
 }
 
@@ -187,22 +140,14 @@ main(int argc, char *argv[])
 	size_t i;
 	int optchar, flags = 0;
 
-	while (optchar = getopt(argc, argv, "8lvz"), optchar != -1)
+	while (optchar = getopt(argc, argv, "lz"), optchar != -1)
 		switch (optchar) {
 		case 'z':
 			flags |= WANT_ZPDB;
 			break;
 
-		case 'v':
-			flags |= WANT_VECTORIZED;
-			break;
-
 		case 'l':
 			flags |= WANT_LOOKUP;
-			break;
-
-		case '8':
-			flags |= WANT_8ELEMS;
 			break;
 
 		default:
