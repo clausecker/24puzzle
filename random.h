@@ -30,11 +30,13 @@
 
 #include "puzzle.h"
 #include "index.h"
+#include "fsm.h"
 
 extern atomic_ullong	random_seed;
 extern unsigned long long	xorshift(void);
 extern void	random_puzzle(struct puzzle *);
 extern void	random_index(const struct index_aux *, struct index *);
+extern int	random_walk(struct puzzle *, int, const struct fsm *);
 
 /*
  * A 64 bit xorshift step function with parameters (13, 7, 17).

@@ -151,3 +151,63 @@ random_index(const struct index_aux *aux, struct index *idx)
 	else
 		idx->eqidx = -1;
 }
+
+/*
+ * Perform an n step random walk from p, using fsm to prune moves.
+ * Return 1 if the random walk was successful, 0 otherwise.  A random
+ * walk is unsuccessful if the fsm at some point doesn't provide us
+ * with a move to progress.
+ */
+extern int
+random_walk(struct puzzle *p, int steps, const struct fsm *fsm)
+{
+	struct fsm_state st, new_st;
+	unsigned long long lseed, entropy;
+	size_t n_move, dloc;
+	int i, j, zloc, reservoir = 0;
+	const signed char *moves;
+
+	entropy = lseed = xorshift();
+	reservoir = 32;
+
+	zloc = zero_location(p);
+	st = fsm_start_state(zloc);
+
+	while (steps > 0) {
+		if (reservoir == 0) {
+			entropy = lseed = xorshift_step(lseed);
+			reservoir = 32;
+		}
+
+		i = entropy & 3;
+		entropy >>= 2;
+		reservoir--;
+
+		n_move = move_count(zloc);
+		if (i >= n_move)
+			continue;
+
+		moves = get_moves(zloc);
+		dloc = moves[i];
+		new_st = fsm_advance_idx(fsm, st, i);
+		if (fsm_is_match(new_st)) {
+			/* check if there is a valid move at all */
+			for (j = 0; j < n_move; j++)
+				if (!fsm_is_match(fsm_advance(fsm, st, moves[j])))
+					goto try_again;
+
+			/* cannot proceed */
+			return (0);
+
+		try_again:
+			continue;
+		}
+
+		move(p, dloc);
+		zloc = dloc;
+		st = new_st;
+		steps--;
+	}
+
+	return (1);
+}
