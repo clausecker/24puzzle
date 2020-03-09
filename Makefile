@@ -22,7 +22,8 @@ BINARIES=cmd/pdbstats test/indextest util/rankgen test/ranktest cmd/genpdb \
 	cmd/pdbcount test/bitpdbtest test/morphtest cmd/pdbmatch \
 	cmd/pdbquality test/walkdist cmd/puzzledist test/etatest \
 	test/samplegen test/statmerge cmd/etacount cmd/randompdb cmd/genloops \
-	cmd/compilefsm test/explore test/indexbench test/fsmdeadends
+	cmd/compilefsm test/explore test/indexbench test/fsmdeadends \
+	cmd/spheresample
 
 all: $(BINARIES) 24puzzle.a
 
@@ -70,6 +71,7 @@ cmd/puzzlegen: cmd/puzzlegen.o 24puzzle.a
 cmd/pdbcount: cmd/pdbcount.o 24puzzle.a
 cmd/pdbmatch: cmd/pdbmatch.o 24puzzle.a
 cmd/pdbquality: cmd/pdbquality.o 24puzzle.a
+cmd/spheresample: cmd/spheresample.o 24puzzle.a
 cmd/randompdb: cmd/randompdb.o 24puzzle.a
 test/bitpdbtest: test/bitpdbtest.o 24puzzle.a
 test/morphtest: test/morphtest.o 24puzzle.a

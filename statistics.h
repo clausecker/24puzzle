@@ -32,6 +32,7 @@
 
 #include "pdb.h"
 #include "puzzle.h"
+#include "compact.h"
 
 /*
  * The content of a stat file.  These files first contain
@@ -64,5 +65,16 @@ bias_of(const struct puzzle *p)
 {
 	return (equilibrium_bias[zero_location(p)]);
 }
+
+/*
+ * a sphere-stratified sample as written to a sample file.  Each sample
+ * contains both a puzzle description and the probability of having
+ * reached it through whatever sampling process was used to find the
+ * sample.
+ */
+struct sample {
+	struct compact_puzzle cp;
+	double p;
+};
 
 #endif /* STATISTICS_H */
