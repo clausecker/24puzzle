@@ -72,6 +72,8 @@ cmd/pdbcount: cmd/pdbcount.o 24puzzle.a
 cmd/pdbmatch: cmd/pdbmatch.o 24puzzle.a
 cmd/pdbquality: cmd/pdbquality.o 24puzzle.a
 cmd/spheresample: cmd/spheresample.o 24puzzle.a
+	@echo "CCLD	$@"
+	@$(CC) $(ZSTDLDFLAGS) $(LDFLAGS) -o $@ $^ $(LDLIBS) -lm
 cmd/randompdb: cmd/randompdb.o 24puzzle.a
 test/bitpdbtest: test/bitpdbtest.o 24puzzle.a
 test/morphtest: test/morphtest.o 24puzzle.a

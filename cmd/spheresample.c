@@ -26,6 +26,7 @@
 /* spheresample.c -- generate spherical samples */
 
 #define _POSIX_C_SOURCE 200809L
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -54,6 +55,7 @@ struct samplestate {
 	long long n_samples;	/* puzzles generated */
 	long long n_accepted;	/* puzzles with the right distance */
 	long long n_aborted;	/* aborted random walks */
+	double prob_sum;	/* sum of probabilities (to compute mean and variance) */
 };
 
 /*
@@ -66,6 +68,31 @@ struct payload {
 	int zloc;		/* original zero-tile location */
 };
 
+/*
+ * Transition by moving the zero tile to move.  Compute the probability
+ * of this having happened if fsm was used.  Update st appropriately.
+ * Return the probability or zero if it could not have happened.
+ */
+static double
+add_step(struct fsm_state *st, const struct fsm *fsm, int zloc, int move)
+{
+	int i, legal = 0;
+	const signed char *moves;
+
+	/* we can't proceed from a match state, so rule that out */
+	if (fsm_is_match(*st))
+		return (0.0);
+
+	/* count the number of moves fsm would allow out of this situation */
+	moves = get_moves(zloc);
+	for (i = 0; i < move_count(zloc); i++)
+		legal += !fsm_is_match(fsm_advance(fsm, *st, moves[i]));
+
+	/* update st according to m */
+	*st = fsm_advance(fsm, *st, move);
+
+	return (1.0 / legal);
+}
 
 /*
  * Verify that pa would not have been pruned by plarg.  If
@@ -76,8 +103,27 @@ static void
 add_solution(const struct path *pa, void *plarg)
 {
 	struct payload *pl = (struct payload *)plarg;
+	struct fsm_state st;
+	double prob = 1.0;
+	size_t i, zloc, move;
 
-	/* TODO */
+	zloc = zero_location(&solved_puzzle);
+	st = fsm_start_state(zloc);
+
+	/* no <= because we want to skip the last step */
+	for (i = 1; i < pa->pathlen; i++) {
+		move = pa->moves[pa->pathlen - i - 1];
+		prob *= add_step(&st, pl->fsm, zloc, move);
+		zloc = move;
+	}
+
+	/* finish undoing the solution */
+	prob *= add_step(&st, pl->fsm, zloc, pl->zloc);
+
+	if (!fsm_is_match(st)) {
+		pl->prob += prob;
+		pl->n_solution++;
+	}
 }
 
 /*
@@ -146,7 +192,7 @@ take_samples(FILE *outfile, struct samplestate *state, const struct fsm *fsm,
 
 	for (; state->n_samples < state->n_puzzle; state->n_samples++) {
 		/* print state every once in a while */
-		if (verbose && state->n_samples % 1000 == 0)
+		if (verbose && state->n_samples % 100 == 0)
 			print_state(state);
 
 		p = solved_puzzle;
@@ -163,7 +209,11 @@ take_samples(FILE *outfile, struct samplestate *state, const struct fsm *fsm,
 		if (pa.pathlen != steps)
 			continue;
 
+		/* we came there some way, so we should always find a solution */
+		assert(pl.n_solution > 0);
+
 		state->n_accepted++;
+		state->prob_sum += pl.prob;
 		write_sample(outfile, &p, pl.prob);
 	}
 
@@ -181,20 +231,29 @@ take_samples(FILE *outfile, struct samplestate *state, const struct fsm *fsm,
  * after initial sampling, the probabilities need to be adjusted to be
  * relative to the chance of hitting an accepted sample, not just any
  * sample at all.  This is done by multiplying each prob with
- * state->n_samples/state->n_accepted.
+ * state->n_samples/state->n_accepted.  Additionally, some statistical
+ * numbers are computed and printed out if verbose is set.
  */
 static void
-fix_up(FILE *outfile, FILE *prelimfile, struct samplestate *state)
+fix_up(FILE *outfile, FILE *prelimfile, struct samplestate *state, int verbose)
 {
 	struct sample s;
-	double adjust;
+	double mean, adjust, hsum = 0.0, variance = 0.0;
 	size_t count;
 
+	if (verbose)
+		fprintf(stderr, "fixing up %lld samples\n", state->n_samples);
+
 	adjust = state->n_samples / state->n_accepted;
+	mean = state->prob_sum / state->n_accepted;
+
 	rewind(prelimfile);
 
 	while (count = fread(&s, sizeof s, 1, prelimfile), count == 1) {
 		s.p *= adjust;
+		hsum += 1.0 / s.p;
+		variance += (mean - s.p) * (mean - s.p);
+
 		count = fwrite(&s, sizeof s, 1, outfile);
 		if (count != 1) {
 			perror("fwrite");
@@ -206,12 +265,19 @@ fix_up(FILE *outfile, FILE *prelimfile, struct samplestate *state)
 		perror("fread");
 		exit(EXIT_FAILURE);
 	}
+
+	if (verbose) {
+		variance /= state->n_accepted;
+		hsum = hsum / state->n_accepted;
+		fprintf(stderr, "mean %g\nvar  %g\nsdev %g\nsize %g\n",
+		    mean, variance, sqrt(variance), hsum);
+	}
 }
 
 extern int
 main(int argc, char *argv[])
 {
-	struct samplestate state = { 1000, 0, 0, 0 };
+	struct samplestate state = { 1000, 0, 0, 0, 0.0 };
 	const struct fsm *fsm = &fsm_simple;
 	struct pdb_catalogue *cat;
 	FILE *fsmfile, *prelimfile, *outfile = NULL;
@@ -293,7 +359,7 @@ main(int argc, char *argv[])
 	}
 
 	take_samples(prelimfile, &state, fsm, cat, steps, verbose);
-	fix_up(outfile, prelimfile, &state);
+	fix_up(outfile, prelimfile, &state, verbose);
 
 	return (EXIT_SUCCESS);
 }
