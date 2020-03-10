@@ -74,7 +74,7 @@ struct payload {
  * Return the probability or zero if it could not have happened.
  */
 static double
-add_step(struct fsm_state *st, const struct fsm *fsm, int zloc, int move)
+add_step(struct fsm_state *st, const struct fsm *fsm, int move)
 {
 	int i, legal = 0;
 	const signed char *moves;
@@ -84,8 +84,8 @@ add_step(struct fsm_state *st, const struct fsm *fsm, int zloc, int move)
 		return (0.0);
 
 	/* count the number of moves fsm would allow out of this situation */
-	moves = get_moves(zloc);
-	for (i = 0; i < move_count(zloc); i++)
+	moves = get_moves(st->zloc);
+	for (i = 0; i < move_count(st->zloc); i++)
 		legal += !fsm_is_match(fsm_advance(fsm, *st, moves[i]));
 
 	/* update st according to m */
@@ -105,20 +105,16 @@ add_solution(const struct path *pa, void *plarg)
 	struct payload *pl = (struct payload *)plarg;
 	struct fsm_state st;
 	double prob = 1.0;
-	size_t i, zloc, move;
+	size_t i;
 
-	zloc = zero_location(&solved_puzzle);
-	st = fsm_start_state(zloc);
+	st = fsm_start_state(pa->moves[pa->pathlen - 1]);
 
 	/* no <= because we want to skip the last step */
-	for (i = 1; i < pa->pathlen; i++) {
-		move = pa->moves[pa->pathlen - i - 1];
-		prob *= add_step(&st, pl->fsm, zloc, move);
-		zloc = move;
-	}
+	for (i = 1; i < pa->pathlen; i++)
+		prob *= add_step(&st, pl->fsm, pa->moves[pa->pathlen - i - 1]);
 
 	/* finish undoing the solution */
-	prob *= add_step(&st, pl->fsm, zloc, pl->zloc);
+	prob *= add_step(&st, pl->fsm, pl->zloc);
 
 	if (!fsm_is_match(st)) {
 		pl->prob += prob;
