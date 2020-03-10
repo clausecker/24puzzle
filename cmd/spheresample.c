@@ -54,7 +54,6 @@ struct samplestate {
 	long long n_samples;	/* puzzles generated */
 	long long n_accepted;	/* puzzles with the right distance */
 	long long n_aborted;	/* aborted random walks */
-	double harmonic_sum;	/* harmonic sum of probabilities for accepted puzzles */
 };
 
 /*
@@ -87,7 +86,7 @@ add_solution(const struct path *pa, void *plarg)
  * other programs.
  */
 static void
-write_entry(FILE *outfile, const struct puzzle *p, double prob)
+write_sample(FILE *outfile, const struct puzzle *p, double prob)
 {
 	struct sample s;
 	size_t count;
@@ -111,7 +110,23 @@ write_entry(FILE *outfile, const struct puzzle *p, double prob)
 static void
 print_state(const struct samplestate *state)
 {
-	/* TODO */
+	static const char *fmt = NULL;
+	long long total, samples, accepted, aborted, failed;
+	double ratio;
+
+	if (fmt == NULL)
+		fmt = isatty(fileno(stderr))
+		    ? "\r%5.2f%% acc %5.2f%% fail %5.2f%% abort %5.2f%% done (%10lld/%10lld)"
+		    :   "%5.2f%% acc %5.2f%% fail %5.2f%% abort %5.2f%% done (%10lld/%10lld)\n";
+
+	total = state->n_puzzle;
+	samples = state->n_samples;
+	accepted = state->n_accepted;
+	aborted = state->n_aborted;
+	failed = samples - accepted - aborted;
+	ratio = 100.0 / samples;
+	fprintf(stderr, fmt, accepted * ratio, failed * ratio, aborted * ratio,
+	    (100.0 * samples) / total, samples, total);
 }
 
 /*
@@ -130,6 +145,10 @@ take_samples(FILE *outfile, struct samplestate *state, const struct fsm *fsm,
 	pl.fsm = fsm;
 
 	for (; state->n_samples < state->n_puzzle; state->n_samples++) {
+		/* print state every once in a while */
+		if (verbose && state->n_samples % 1000 == 0)
+			print_state(state);
+
 		p = solved_puzzle;
 		if (!random_walk(&p, steps, fsm)) {
 			state->n_aborted++;
@@ -145,18 +164,54 @@ take_samples(FILE *outfile, struct samplestate *state, const struct fsm *fsm,
 			continue;
 
 		state->n_accepted++;
-		state->harmonic_sum += 1.0 / pl.prob;
-		write_entry(outfile, &p, pl.prob);
+		write_sample(outfile, &p, pl.prob);
+	}
 
-		if (verbose)
-			print_state(state);
+	/* print final state */
+	if (verbose) {
+		print_state(state);
+
+		/* end line if tty which print_state does not */
+		if (isatty(fileno(stderr)))
+			fprintf(stderr, "\n");
+	}
+}
+
+/*
+ * after initial sampling, the probabilities need to be adjusted to be
+ * relative to the chance of hitting an accepted sample, not just any
+ * sample at all.  This is done by multiplying each prob with
+ * state->n_samples/state->n_accepted.
+ */
+static void
+fix_up(FILE *outfile, FILE *prelimfile, struct samplestate *state)
+{
+	struct sample s;
+	double adjust;
+	size_t count;
+
+	adjust = state->n_samples / state->n_accepted;
+	rewind(prelimfile);
+
+	while (count = fread(&s, sizeof s, 1, prelimfile), count == 1) {
+		s.p *= adjust;
+		count = fwrite(&s, sizeof s, 1, outfile);
+		if (count != 1) {
+			perror("fwrite");
+			exit(EXIT_FAILURE);
+		}
+	}
+
+	if (ferror(prelimfile)) {
+		perror("fread");
+		exit(EXIT_FAILURE);
 	}
 }
 
 extern int
 main(int argc, char *argv[])
 {
-	struct samplestate state = { 1000, 0, 0, 0, 0.0 };
+	struct samplestate state = { 1000, 0, 0, 0 };
 	const struct fsm *fsm = &fsm_simple;
 	struct pdb_catalogue *cat;
 	FILE *fsmfile, *prelimfile, *outfile = NULL;
@@ -204,6 +259,7 @@ main(int argc, char *argv[])
 
 		case 'v':
 			verbose = 1;
+			break;
 
 		default:
 			usage(argv[0]);
@@ -237,6 +293,7 @@ main(int argc, char *argv[])
 	}
 
 	take_samples(prelimfile, &state, fsm, cat, steps, verbose);
-	/* TODO: add code to fix up probabilities */
-	/* fix_up(outfile, prelimfile, &state); */
+	fix_up(outfile, prelimfile, &state);
+
+	return (EXIT_SUCCESS);
 }
