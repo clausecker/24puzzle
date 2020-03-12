@@ -77,22 +77,20 @@ struct payload {
 static double
 add_step(struct fsm_state *st, const struct fsm *fsm, int move)
 {
-	int i, legal = 0;
-	const signed char *moves;
+	int n_legal = 0;
+	signed char moves[4];
 
 	/* we can't proceed from a match state, so rule that out */
 	if (fsm_is_match(*st))
 		return (0.0);
 
 	/* count the number of moves fsm would allow out of this situation */
-	moves = get_moves(st->zloc);
-	for (i = 0; i < move_count(st->zloc); i++)
-		legal += !fsm_is_match(fsm_advance(fsm, *st, moves[i]));
+	n_legal = fsm_get_moves(moves, *st, fsm);
 
 	/* update st according to m */
 	*st = fsm_advance(fsm, *st, move);
 
-	return (1.0 / legal);
+	return (1.0 / n_legal);
 }
 
 /*
