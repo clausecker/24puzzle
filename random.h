@@ -52,4 +52,20 @@ xorshift_step(unsigned long long x)
 	return (x);
 }
 
+/*
+ * A 64 bit xorshift step function with parameters (7, 23, 8).
+ * This is used to ensure independence when drawing a seed using
+ * xorshift().
+ */
+static inline unsigned long long
+xorshift_step_alt(unsigned long long x)
+{
+	x ^= x >> 7;
+	x ^= x << 23;
+	x &= 0xffffffffffffffffull;
+	x ^= x >> 8;
+
+	return (x);
+}
+
 #endif /* RANDOM_H */

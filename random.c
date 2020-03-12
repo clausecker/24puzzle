@@ -79,7 +79,7 @@ random_puzzle(struct puzzle *p)
 	 */
 	do {
 		rnd1 = xorshift();
-		rnd2 = xorshift_step(rnd1);
+		rnd2 = xorshift_step_alt(rnd1);
 		rnd = (__uint128_t)rnd1 << 64 | rnd2;
 
 		/* 23 * 24 * 25! */
@@ -161,51 +161,40 @@ random_index(const struct index_aux *aux, struct index *idx)
 extern int
 random_walk(struct puzzle *p, int steps, const struct fsm *fsm)
 {
-	struct fsm_state st, new_st;
+	struct fsm_state st;
 	unsigned long long lseed, entropy;
-	size_t n_move, dloc;
-	int i, j, zloc, reservoir = 0;
-	const signed char *moves;
+	int i, n_move, reservoir = 0;
+	signed char moves[4];
 
 	entropy = lseed = xorshift();
 	reservoir = 32;
 
-	zloc = zero_location(p);
-	st = fsm_start_state(zloc);
+	st = fsm_start_state(zero_location(p));
 
 	while (steps > 0) {
-		if (reservoir == 0) {
-			entropy = lseed = xorshift_step(lseed);
-			reservoir = 32;
+		n_move = fsm_get_moves(moves, st, fsm);
+
+		switch (n_move) {
+		case 0:	return (0); /* cannot proceed */
+
+		case 1: i = 0; /* no choice to make */
+			break;
+
+		default:
+			do {
+				if (reservoir == 0) {
+					entropy = lseed = xorshift_step_alt(lseed);
+					reservoir = 32;
+				}
+
+				i = entropy & 3;
+				entropy >>= 2;
+				reservoir--;
+			} while (i >= n_move);
 		}
 
-		i = entropy & 3;
-		entropy >>= 2;
-		reservoir--;
-
-		n_move = move_count(zloc);
-		if (i >= n_move)
-			continue;
-
-		moves = get_moves(zloc);
-		dloc = moves[i];
-		new_st = fsm_advance_idx(fsm, st, i);
-		if (fsm_is_match(new_st)) {
-			/* check if there is a valid move at all */
-			for (j = 0; j < n_move; j++)
-				if (!fsm_is_match(fsm_advance(fsm, st, moves[j])))
-					goto try_again;
-
-			/* cannot proceed */
-			return (0);
-
-		try_again:
-			continue;
-		}
-
-		move(p, dloc);
-		zloc = dloc;
-		st = new_st;
+		st = fsm_advance(fsm, st, moves[i]);
+		move(p, moves[i]);
 		steps--;
 	}
 
