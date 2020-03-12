@@ -55,6 +55,7 @@ struct samplestate {
 	long long n_samples;	/* puzzles generated */
 	long long n_accepted;	/* puzzles with the right distance */
 	long long n_aborted;	/* aborted random walks */
+	long long path_sum;	/* sum of solution numbers */
 	double prob_sum;	/* sum of probabilities (to compute mean and variance) */
 };
 
@@ -209,6 +210,7 @@ take_samples(FILE *outfile, struct samplestate *state, const struct fsm *fsm,
 		assert(pl.n_solution > 0);
 
 		state->n_accepted++;
+		state->path_sum += pl.n_solution;
 		state->prob_sum += pl.prob;
 		write_sample(outfile, &p, pl.prob);
 	}
@@ -234,7 +236,7 @@ static void
 fix_up(FILE *outfile, FILE *prelimfile, struct samplestate *state, int verbose)
 {
 	struct sample s;
-	double mean, adjust, hsum = 0.0, variance = 0.0;
+	double mean, adjust, hsum = 0.0, variance = 0.0, paths;
 	size_t count;
 
 	if (verbose)
@@ -265,15 +267,16 @@ fix_up(FILE *outfile, FILE *prelimfile, struct samplestate *state, int verbose)
 	if (verbose) {
 		variance /= state->n_accepted;
 		hsum = hsum / state->n_accepted;
-		fprintf(stderr, "mean %g\nvar  %g\nsdev %g\nsize %g\n",
-		    mean, variance, sqrt(variance), hsum);
+		paths = state->path_sum / (double)state->n_accepted;
+		fprintf(stderr, "mean %g\nvar  %g\nsdev %g\nsize %g\npath %g\n",
+		    mean, variance, sqrt(variance), hsum, paths);
 	}
 }
 
 extern int
 main(int argc, char *argv[])
 {
-	struct samplestate state = { 1000, 0, 0, 0, 0.0 };
+	struct samplestate state = { 1000, 0, 0, 0, 0, 0.0 };
 	const struct fsm *fsm = &fsm_simple;
 	struct pdb_catalogue *cat;
 	FILE *fsmfile, *prelimfile, *outfile = NULL;
