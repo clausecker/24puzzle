@@ -106,7 +106,16 @@ add_solution(const struct path *pa, void *plarg)
 	double prob = 1.0;
 	size_t i;
 
+	/* special case: can't access pa->moves[pa->pathlen - 1] if pa->pathlen == 0 */
+	if (pa->pathlen == 0) {
+		pl->prob += 1.0;
+		pl->n_solution++;
+
+		return;
+	}
+
 	st = fsm_start_state(pa->moves[pa->pathlen - 1]);
+	assert(pa->moves[pa->pathlen - 1] == zero_location(&solved_puzzle));
 
 	/* no <= because we want to skip the last step */
 	for (i = 1; i < pa->pathlen; i++)
