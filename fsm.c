@@ -29,6 +29,7 @@
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "fsm.h"
 #include "puzzle.h"
@@ -199,4 +200,27 @@ fail:
 	errno = error;
 
 	return (NULL);
+}
+
+/*
+ * Fill moves with a list of moves possible from the zero tile location
+ * in st that are allowed under fsm.  Return the number of moves.
+ * Like with get_moves(), the remaining bytes of moves are filled with
+ * -1.
+ */
+extern int
+fsm_get_moves(signed char moves[static 4], struct fsm_state st,
+    const struct fsm *fsm)
+{
+	int n, i;
+	const signed char *fullmoves;
+
+	memset(moves, -1, 4);
+
+	fullmoves = get_moves(st.zloc);
+	for (n = i = 0; i < move_count(st.zloc); i++)
+		if (fsm->tables[st.zloc][st.state][i] != FSM_MATCH)
+			moves[n++] = fullmoves[i];
+
+	return (n);
 }

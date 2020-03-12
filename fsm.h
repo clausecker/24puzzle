@@ -81,6 +81,7 @@ struct fsm_state {
 #define FSM_UNASSIGNED 0xffffffffu
 
 extern struct fsm	*fsm_load(FILE *fsmfile);
+extern int		 fsm_get_moves(signed char[static 4], struct fsm_state, const struct fsm *);
 
 extern const struct fsm fsm_dummy, fsm_simple;
 
