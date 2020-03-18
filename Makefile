@@ -4,7 +4,7 @@ COPTS=-std=c11 -I. -Wall -Wno-missing-braces -Wno-parentheses
 HOSTCC=cc
 HOSTCFLAGS=-O3 -g
 HOSTCOPTS=-w -I. $(HOSTCFLAGS)
-LDLIBS=-lpthread -lzstd
+LDLIBS=-lpthread -lzstd -lm
 
 ZSTDCOPTS=-I$(HOME)/include
 ZSTDLDFLAGS=-L$(HOME)/lib
@@ -63,8 +63,6 @@ cmd/compilefsm: cmd/compilefsm.o 24puzzle.a
 cmd/etacount: cmd/etacount.o 24puzzle.a
 cmd/genloops: cmd/genloops.o 24puzzle.a
 cmd/pdbstats: cmd/pdbstats.o 24puzzle.a
-	@echo "CCLD	$@"
-	@$(CC) $(ZSTDLDFLAGS) $(LDFLAGS) -o $@ $^ $(LDLIBS) -lm
 cmd/pdbsearch: cmd/pdbsearch.o 24puzzle.a
 cmd/puzzledist: cmd/puzzledist.o 24puzzle.a
 cmd/puzzlegen: cmd/puzzlegen.o 24puzzle.a
@@ -72,8 +70,6 @@ cmd/pdbcount: cmd/pdbcount.o 24puzzle.a
 cmd/pdbmatch: cmd/pdbmatch.o 24puzzle.a
 cmd/pdbquality: cmd/pdbquality.o 24puzzle.a
 cmd/spheresample: cmd/spheresample.o 24puzzle.a
-	@echo "CCLD	$@"
-	@$(CC) $(ZSTDLDFLAGS) $(LDFLAGS) -o $@ $^ $(LDLIBS) -lm
 cmd/randompdb: cmd/randompdb.o 24puzzle.a
 test/bitpdbtest: test/bitpdbtest.o 24puzzle.a
 test/morphtest: test/morphtest.o 24puzzle.a
