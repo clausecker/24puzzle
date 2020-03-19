@@ -301,7 +301,7 @@ random_walk(struct puzzle *p, int steps, const struct fsm *fsm)
 
 	res = 1;
 
-fail:	err = pthread_mutex_lock(&seed_lock);
+fail:	err = pthread_mutex_unlock(&seed_lock);
 	assert(err == 0);
 
 	return (res);
