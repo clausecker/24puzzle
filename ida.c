@@ -70,8 +70,8 @@ expand_node(struct search_state *sst, size_t g, struct puzzle *p,
 
 	h = catalogue_ph_hval(sst->cat, ph);
 	if (h == 0 && memcmp(p->tiles, solved_puzzle.tiles, TILE_COUNT) == 0) {
-		if (sst->n_solutions++ == 0)
-			sst->path->pathlen = g;
+		sst->n_solutions++;
+		sst->path->pathlen = g;
 
 		if (sst->flags & IDA_VERBOSE)
 			fprintf(stderr, "Solution found at depth %zu\n", g);
@@ -91,8 +91,8 @@ expand_node(struct search_state *sst, size_t g, struct puzzle *p,
 	fsm_prefetch(sst->fsm, st);
 	sst->expanded++;
 	zloc = zero_location(p);
-	moves = get_moves(zero_location(p));
-	n_moves = move_count(zero_location(p));
+	moves = get_moves(zloc);
+	n_moves = move_count(zloc);
 
 	for (i = 0; i < n_moves; i++) {
 		dest = moves[i];
@@ -102,8 +102,7 @@ expand_node(struct search_state *sst, size_t g, struct puzzle *p,
 			continue;
 		}
 
-		if (sst->n_solutions == 0)
-			sst->path->moves[g] = dest;
+		sst->path->moves[g] = dest;
 
 		tile = p->grid[dest];
 		move(p, dest);
