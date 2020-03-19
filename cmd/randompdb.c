@@ -70,12 +70,7 @@ main(int argc, char *argv[])
 		return (EXIT_FAILURE);
 	}
 
-	random_seed = now.tv_sec + (unsigned long long)now.tv_nsec << 32;
-
-	/* shuffle the bits around a little bit */
-	xorshift();
-	xorshift();
-	xorshift();
+	set_seed(now.tv_sec + (unsigned long long)now.tv_nsec << 32);
 
 	for (i = optind; i < argc; i++) {
 		free_spots = tileset_count(tileset_complement(used));
@@ -89,7 +84,7 @@ main(int argc, char *argv[])
 		max = (1 << n_tile) - 1 << free_spots - n_tile;
 		limit = tileset_rank(max) + 1;
 
-		rnd = xorshift() % limit;
+		rnd = random32() % limit;
 		tileset_unrank_init(n_tile);
 		ts = pdep(tileset_complement(used), tileset_unrank(n_tile, rnd));
 

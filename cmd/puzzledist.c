@@ -81,7 +81,7 @@ do_sampling(const char *samplefile, struct cp_slice *cps, int round, size_t n_sa
 	else {
 		// TODO eliminate modulo bias
 		for (i = 0; i < n_samples; i++) {
-			j = i + xorshift() % (cps->len - i);
+			j = i + random32() % (cps->len - i);
 			tmp = cps->data[i];
 			cps->data[i] = cps->data[j];
 			cps->data[j] = tmp;
@@ -136,7 +136,7 @@ main(int argc, char *argv[])
 			break;
 
 		case 's':
-			random_seed = strtoull(optarg, NULL, 0);
+			set_seed(strtoull(optarg, NULL, 0));
 			break;
 
 		default:

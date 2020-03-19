@@ -149,7 +149,7 @@ main(int argc, char *argv[])
 			usage(argv[0]);
 		}
 
-	random_seed = time(NULL);
+	set_seed(time(NULL));
 	make_index_aux(&aux, ts);
 
 	for (i = 0; i < n; i++) {

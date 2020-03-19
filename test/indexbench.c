@@ -79,7 +79,7 @@ enum {
 static void
 randomize(struct patterndb *pdb)
 {
-	uint64_t x;
+	uint32_t x;
 	size_t i, n;
 	int fill = 0;
 
@@ -87,8 +87,8 @@ randomize(struct patterndb *pdb)
 
 	for (i = 0; i < n; i++) {
 		if (fill <= 0) {
-			x = xorshift();
-			fill = 64 / 6;
+			x = random32();
+			fill = 32 / 6;
 		}
 
 		pdb->data[i] = x & 64;

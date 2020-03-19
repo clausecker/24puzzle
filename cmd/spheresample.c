@@ -326,7 +326,7 @@ main(int argc, char *argv[])
 			break;
 
 		case 's':
-			random_seed = strtoll(optarg, NULL, 0);
+			set_seed(strtoll(optarg, NULL, 0));
 			break;
 
 		case 'v':

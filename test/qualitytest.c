@@ -246,7 +246,6 @@ main(int argc, char *argv[])
 	struct pdb_catalogue *cat;
 	struct qualitytest_config qtcfg;
 	size_t n_puzzle = 1000;
-	unsigned long long seed = random_seed;
 	int optchar, transpose = 0, catflags = 0;
 	char *pdbdir = NULL;
 
@@ -275,7 +274,7 @@ main(int argc, char *argv[])
 			break;
 
 		case 's':
-			seed = strtoll(optarg, NULL, 0);
+			set_seed(strtoll(optarg, NULL, 0));
 			break;
 
 		case 't':
@@ -295,7 +294,6 @@ main(int argc, char *argv[])
 		return (EXIT_FAILURE);
 	}
 
-	random_seed = seed;
 	fprintf(stderr, "Looking up %zu random instances...\n\n", n_puzzle);
 
 	memset(&qtcfg, 0, sizeof qtcfg);

@@ -79,7 +79,6 @@ main(int argc, char *argv[])
 {
 	struct patterndb *pdb, *morphpdb;
 	FILE *pdbfile, *morphfile;
-	unsigned long long seed = random_seed;
 	long i, n_puzzle = 1;
 	int optchar, morphism;
 	tileset ts = DEFAULT_TILESET, morphts, zero = 0;
@@ -96,7 +95,7 @@ main(int argc, char *argv[])
 			break;
 
 		case 's':
-			seed = strtoll(optarg, NULL, 0);
+			set_seed(strtoll(optarg, NULL, 0));
 			break;
 
 		case 't':
@@ -110,8 +109,6 @@ main(int argc, char *argv[])
 		default:
 			usage(argv[0]);
 		}
-
-	random_seed = seed;
 
 	if (argc != optind + 1)
 		usage(argv[0]);

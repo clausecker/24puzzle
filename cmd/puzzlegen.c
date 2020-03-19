@@ -41,7 +41,7 @@ main(int argc, char *argv[])
 
 	switch (argc) {
 	case 3:
-		random_seed = strtoull(argv[2], NULL, 0);
+		set_seed(strtoull(argv[2], NULL, 0));
 		/* FALLTHROUGH */
 
 	case 2:

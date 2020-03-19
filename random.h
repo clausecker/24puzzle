@@ -26,46 +26,15 @@
 #ifndef RANDOM_H
 #define RANDOM_H
 
-#include <stdatomic.h>
-
 #include "puzzle.h"
 #include "index.h"
 #include "fsm.h"
 
-extern atomic_ullong	random_seed;
-extern unsigned long long	xorshift(void);
+extern void	set_seed(unsigned long long);
+extern unsigned long long	random64(void);
+extern unsigned int		random32(void);
 extern void	random_puzzle(struct puzzle *);
 extern void	random_index(const struct index_aux *, struct index *);
 extern int	random_walk(struct puzzle *, int, const struct fsm *);
-
-/*
- * A 64 bit xorshift step function with parameters (13, 7, 17).
- */
-static inline unsigned long long
-xorshift_step(unsigned long long x)
-{
-	x ^= x >> 13;
-	x ^= x << 7;
-	x &= 0xffffffffffffffffull;
-	x ^= x >> 17;
-
-	return (x);
-}
-
-/*
- * A 64 bit xorshift step function with parameters (7, 23, 8).
- * This is used to ensure independence when drawing a seed using
- * xorshift().
- */
-static inline unsigned long long
-xorshift_step_alt(unsigned long long x)
-{
-	x ^= x >> 7;
-	x ^= x << 23;
-	x &= 0xffffffffffffffffull;
-	x ^= x >> 8;
-
-	return (x);
-}
 
 #endif /* RANDOM_H */

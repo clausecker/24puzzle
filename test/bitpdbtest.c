@@ -70,7 +70,6 @@ main(int argc, char *argv[])
 	struct patterndb *pdb;
 	struct bitpdb *bpdb;
 	FILE *pdbfile, *bpdbfile;
-	unsigned long long seed = random_seed;
 	long i, n_puzzle = 1;
 	int optchar;
 	tileset ts = DEFAULT_TILESET;
@@ -82,7 +81,7 @@ main(int argc, char *argv[])
 			break;
 
 		case 's':
-			seed = strtoll(optarg, NULL, 0);
+			set_seed(strtoll(optarg, NULL, 0));
 			break;
 
 		case 't':
@@ -96,8 +95,6 @@ main(int argc, char *argv[])
 		default:
 			usage(argv[0]);
 		}
-
-	random_seed = seed;
 
 	if (argc != optind + 2)
 		usage(argv[0]);
