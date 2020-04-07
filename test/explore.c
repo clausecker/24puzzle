@@ -34,18 +34,20 @@ extern int
 main(void)
 {
 	struct puzzle p = solved_puzzle;
-	int dest;
+	int dest, n_moves = 1;
 	char puzstr[PUZZLE_STR_LEN];
 
 	for (;;) {
 		puzzle_visualization(puzstr, &p);
 		fputs(puzstr, stdout);
 
-		printf("move: ");
+		printf("move %3d: ", n_moves);
 		fflush(stdout);
 
 		switch (scanf("%d", &dest)) {
 		case EOF:
+			puzzle_string(puzstr, &p);
+			printf("\n%s\n", puzstr);
 			return (EXIT_SUCCESS);
 
 		case 0:
@@ -55,7 +57,8 @@ main(void)
 			if (dest < 0 || dest >= TILE_COUNT)
 				continue;
 
-			move(&p, dest);
+			move(&p, p.tiles[dest]);
+			n_moves++;
 		}
 	}
 }
