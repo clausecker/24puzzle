@@ -86,6 +86,7 @@ add_step(struct fsm_state *st, const struct fsm *fsm, int move)
 
 	/* count the number of moves fsm would allow out of this situation */
 	n_legal = fsm_get_moves(moves, *st, fsm);
+	assert(0 <= n_legal && n_legal <= 4);
 
 	/* update st according to m */
 	*st = fsm_advance(fsm, *st, move);
@@ -117,7 +118,15 @@ add_solution(const struct path *pa, void *plarg)
 	st = fsm_start_state(pa->moves[pa->pathlen - 1]);
 	assert(pa->moves[pa->pathlen - 1] == zero_location(&solved_puzzle));
 
-	/* no <= because we want to skip the last step */
+	/*
+	 * the path records moves to solve the puzzle, but we want to do
+	 * opposite: generate a puzzle configuration from the solved
+	 * puzzle.  To do so, the moves are executed in reverse order,
+	 * swapping source and destination.  As the source of each move
+	 * is the destination of the previous move, this is achieved by
+	 * leaving out the first move and appending a final move to
+	 * reach the solved configuration.
+	 */
 	for (i = 1; i < pa->pathlen; i++)
 		prob *= add_step(&st, pl->fsm, pa->moves[pa->pathlen - i - 1]);
 
