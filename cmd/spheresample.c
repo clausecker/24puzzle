@@ -219,6 +219,7 @@ take_samples(FILE *outfile, struct samplestate *state, const struct fsm *fsm,
 		pl.zloc = zero_location(&p);
 
 		search_ida(cat, &fsm_simple, &p, &pa, add_solution, &pl, IDA_LAST_FULL);
+		assert(pa.pathlen <= steps);
 		if (pa.pathlen != steps)
 			continue;
 
@@ -261,7 +262,7 @@ fix_up(FILE *outfile, FILE *prelimfile, struct samplestate *state, int verbose)
 	}
 
 	if (verbose)
-		fprintf(stderr, "fixing up %lld samples\n", state->n_samples);
+		fprintf(stderr, "fixing up %lld samples\n", state->n_accepted);
 
 	adjust = state->n_samples / state->n_accepted;
 	mean = state->prob_sum / state->n_accepted;
