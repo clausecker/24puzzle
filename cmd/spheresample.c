@@ -255,6 +255,11 @@ fix_up(FILE *outfile, FILE *prelimfile, struct samplestate *state, int verbose)
 	double mean, adjust, hsum = 0.0, variance = 0.0, paths;
 	size_t count;
 
+	if (state->n_accepted == 0) {
+		fprintf(stderr, "no samples obtained\n");
+		return;
+	}
+
 	if (verbose)
 		fprintf(stderr, "fixing up %lld samples\n", state->n_samples);
 
