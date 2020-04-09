@@ -70,9 +70,10 @@ struct payload {
 };
 
 /*
- * Transition by moving the zero tile to move.  Compute the probability
- * of this having happened if fsm was used.  Update st appropriately.
- * Return the probability or zero if it could not have happened.
+ * Transition by moving the zero tile to move.  Compute the reciprocal
+ * probability of this having happened if fsm was used.  Update st
+ * appropriately.  Return the probability or zero if it could not have
+ * happened.
  */
 static double
 add_step(struct fsm_state *st, const struct fsm *fsm, int move)
@@ -91,7 +92,7 @@ add_step(struct fsm_state *st, const struct fsm *fsm, int move)
 	/* update st according to m */
 	*st = fsm_advance(fsm, *st, move);
 
-	return (1.0 / n_legal);
+	return (n_legal);
 }
 
 /*
@@ -134,7 +135,8 @@ add_solution(const struct path *pa, void *plarg)
 	prob *= add_step(&st, pl->fsm, pl->zloc);
 
 	if (!fsm_is_match(st)) {
-		pl->prob += prob;
+		assert(prob != 0.0);
+		pl->prob += 1.0 / prob;
 		pl->n_solution++;
 	}
 }
@@ -254,7 +256,7 @@ fix_up(FILE *outfile, FILE *prelimfile, struct samplestate *state, int verbose)
 {
 	struct sample s;
 	double mean, adjust, hsum = 0.0, variance = 0.0, paths;
-	size_t count;
+	size_t count, samples_read = 0;
 
 	if (state->n_accepted == 0) {
 		fprintf(stderr, "no samples obtained\n");
@@ -264,12 +266,14 @@ fix_up(FILE *outfile, FILE *prelimfile, struct samplestate *state, int verbose)
 	if (verbose)
 		fprintf(stderr, "fixing up %lld samples\n", state->n_accepted);
 
-	adjust = state->n_samples / state->n_accepted;
+	adjust = (double)state->n_samples / state->n_accepted;
 	mean = state->prob_sum / state->n_accepted;
 
 	rewind(prelimfile);
 
 	while (count = fread(&s, sizeof s, 1, prelimfile), count == 1) {
+		samples_read++;
+
 		s.p *= adjust;
 		hsum += 1.0 / s.p;
 		variance += (mean - s.p) * (mean - s.p);
@@ -285,6 +289,8 @@ fix_up(FILE *outfile, FILE *prelimfile, struct samplestate *state, int verbose)
 		perror("fread");
 		exit(EXIT_FAILURE);
 	}
+
+	assert(samples_read == state->n_accepted);
 
 	if (verbose) {
 		variance /= state->n_accepted;
