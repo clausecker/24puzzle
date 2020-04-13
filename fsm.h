@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2018 Robert Clausecker. All rights reserved.
+ * Copyright (c) 2018, 2020 Robert Clausecker. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -51,9 +51,24 @@ struct fsmfile {
 	unsigned lengths[TILE_COUNT];
 };
 
+/*
+ * An FSM file can be augmented with a set of moribund state tables.  If
+ * present, pointers to them follow the main header.  If all state
+ * tables have offsets to after this extended header, we assume that it
+ * is present.
+ */
+struct fsmfile_moribund {
+	/* the normal header */
+	struct fsmfile header;
+
+	/* offsets of the moribund state tables */
+	off_t moribund_offsets[TILE_COUNT];
+};
+
 struct fsm {
 	unsigned sizes[TILE_COUNT];
 	unsigned (*tables[TILE_COUNT])[4];
+	unsigned char *moribund[TILE_COUNT];
 };
 
 /*
@@ -93,8 +108,10 @@ fsm_free(struct fsm *fsm)
 {
 	size_t i;
 
-	for (i = 0; i < TILE_COUNT; i++)
+	for (i = 0; i < TILE_COUNT; i++) {
 		free(fsm->tables[i]);
+		free(fsm->moribund[i]);
+	}
 
 	free(fsm);
 }

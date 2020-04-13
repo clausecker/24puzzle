@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2018 Robert Clausecker. All rights reserved.
+ * Copyright (c) 2018, 2020 Robert Clausecker. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,6 +27,7 @@
 
 #define _POSIX_C_SOURCE 200809L
 #include <errno.h>
+#include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -142,6 +143,22 @@ const struct fsm fsm_simple = {
 };
 
 /*
+ * Check if moribund tables are present.  If none of the tables lie
+ * inside the suspected extended header, we assume that they are.
+ */
+static int
+has_moribund(struct fsmfile *header)
+{
+	size_t i;
+
+	for (i = 0; i < TILE_COUNT; i++)
+		if (header->offsets[i] < sizeof (struct fsmfile_moribund))
+			return (0);
+
+	return (1);
+}
+
+/*
  * Load a finite state machine from file fsmfile.  On success, return a
  * pointer to the FSM loader.  On error, return NULL and set errno to
  * indicate the problem.
@@ -149,50 +166,77 @@ const struct fsm fsm_simple = {
 extern struct fsm *
 fsm_load(FILE *fsmfile)
 {
-	struct fsmfile header;
+	struct fsmfile_moribund header;
 	struct fsm *fsm = malloc(sizeof *fsm);
 	size_t i, count;
-	int error;
+	int error, moribund;
 
 	if (fsm == NULL)
 		return (NULL);
 
-	rewind(fsmfile);
-	count = fread(&header, sizeof header, 1, fsmfile);
-	if (count != 1) {
-		error = errno;
-
-		if (!ferror(fsmfile))
-			errno = EINVAL;
-
-		free(fsm);
-		errno = error;
-		return (NULL);
+	/* make it easier to bail out */
+	for (i = 0; i < TILE_COUNT; i++) {
+		fsm->tables[i] = NULL;
+		fsm->moribund[i] = NULL;
 	}
 
-	/* make it easier to bail out */
-	for (i = 0; i < TILE_COUNT; i++)
-		fsm->tables[i] = NULL;
+	/* load main header */
+	rewind(fsmfile);
+	count = fread(&header.header, sizeof header.header, 1, fsmfile);
+	if (count != 1)
+		goto fail_ferror;
 
+	/* load extended header if present */
+	moribund = has_moribund(&header.header);
+	if (moribund) {
+		/* fetch remaining header */
+		rewind(fsmfile);
+		if (ferror(fsmfile))
+			goto fail;
+
+		count = fread(&header, sizeof header, 1, fsmfile);
+		if (count != 1)
+			goto fail_ferror;
+	}
+
+	/* load tables */
 	for (i = 0; i < TILE_COUNT; i++) {
-		fsm->sizes[i] = header.lengths[i];
+		fsm->sizes[i] = header.header.lengths[i];
 		fsm->tables[i] = malloc(fsm->sizes[i] * sizeof *fsm->tables[i]);
 		if (fsm->tables[i] == NULL)
 			goto fail;
 
-		if (fseeko(fsmfile, header.offsets[i], SEEK_SET) != 0)
+		if (fseeko(fsmfile, header.header.offsets[i], SEEK_SET) != 0)
 			goto fail;
 
 		count = fread(fsm->tables[i], sizeof *fsm->tables[i], fsm->sizes[i], fsmfile);
-		if (count != fsm->sizes[i]) {
-			if (!ferror(fsmfile))
-				errno = EINVAL;
+		if (count != fsm->sizes[i])
+			goto fail_ferror;
+	}
 
+	/* load moribund tables or fake them */
+	for (i = 0; i < TILE_COUNT; i++) {
+		fsm->moribund[i] = malloc(fsm->sizes[i] * sizeof *fsm->moribund[i]);
+		if (fsm->moribund[i] == NULL)
 			goto fail;
-		}
+
+		if (moribund) {
+			if (fseeko(fsmfile, header.moribund_offsets[i], SEEK_SET) != 0)
+				goto fail;
+
+			count = fread(fsm->moribund[i], sizeof *fsm->moribund[i], fsm->sizes[i], fsmfile);
+			if (count != fsm->sizes[i])
+				goto fail_ferror;
+		} else
+			memset(fsm->moribund[i], -1, fsm->sizes[i] * sizeof *fsm->moribund[i]);
 	}
 
 	return (fsm);
+
+fail_ferror:
+	/* handle EOF condition */
+	if (!ferror(fsmfile))
+		errno = EINVAL;
 
 fail:
 	error = errno;
