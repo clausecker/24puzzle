@@ -27,7 +27,6 @@ cmd/spheresample
 test/bitpdbtest
 test/etatest
 test/explore
-test/fsmdeadends
 test/hitanalysis
 test/indexbench
 test/indextest
