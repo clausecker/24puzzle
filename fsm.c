@@ -247,6 +247,74 @@ fail:
 }
 
 /*
+ * Compute table offsets and write fsm to fsmfile.  Set errno and return
+ * -1 on failure.  As a side effect, fsmfile may be closed.  This
+ * is done to report errors that appear upon fclose.  If FSM_VERBOSE is
+ * set in flags, print some interesting information to stderr.  If
+ * FSM_MORIBUND is set in flags, write moribund state tables, too.
+ */
+extern int
+fsm_write(FILE *fsmfile, const struct fsm *fsm, int flags)
+{
+	struct fsmfile_moribund header;
+	off_t offset;
+	size_t headerlen, i, count;
+
+	if (flags & FSM_VERBOSE)
+		fprintf(stderr, "writing finite state machine...\n");
+
+	/* populate the header */
+	headerlen = flags & FSM_MORIBUND ? sizeof header : sizeof header.header;
+	offset = (off_t)headerlen;
+	for (i = 0; i < TILE_COUNT; i++) {
+		header.header.offsets[i] = offset;
+		header.header.lengths[i] = fsm->sizes[i];
+		offset += sizeof *fsm->tables[i] * fsm->sizes[i];
+	}
+
+	if (flags & FSM_MORIBUND)
+		for (i = 0; i < TILE_COUNT; i++) {
+			header.moribund_offsets[i] = offset;
+			offset += sizeof *fsm->moribund[i] * fsm->sizes[i];
+		}
+
+	count = fwrite(&header, headerlen, 1, fsmfile);
+	if (count != 1)
+		return (-1);
+
+	for (i = 0; i < TILE_COUNT; i++) {
+		if (flags & FSM_VERBOSE)
+			fprintf(stderr, "square %2zu: %10u states (%11zu bytes)\n",
+			    i, fsm->sizes[i], fsm->sizes[i] * sizeof *fsm->tables[i]);
+
+		count = fwrite(fsm->tables[i], sizeof *fsm->tables[i],
+		    fsm->sizes[i], fsmfile);
+		if (count != fsm->sizes[i])
+			return (-1);
+	}
+
+	if (flags & FSM_MORIBUND) {
+		if (flags & FSM_VERBOSE)
+			fprintf(stderr, "writing moribund state tables...\n");
+
+		for (i = 0; i < TILE_COUNT; i++) {
+			count = fwrite(fsm->moribund[i], sizeof *fsm->moribund[i],
+			    fsm->sizes[i], fsmfile);
+			if (count != fsm->sizes[i])
+			    return (-1);
+		}
+	}
+
+	if (fclose(fsmfile) == EOF)
+		return (-1);
+
+	if (flags & FSM_VERBOSE)
+		fprintf(stderr, "finite state machine successfully written\n");
+
+	return (0);
+}
+
+/*
  * Fill moves with a list of moves possible from the zero tile location
  * in st that are allowed under fsm.  Return the number of moves.
  * Like with get_moves(), the remaining bytes of moves are filled with

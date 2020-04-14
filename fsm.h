@@ -47,7 +47,7 @@ struct fsmfile {
 	/* table offsets in bytes from the beginning of the file */
 	off_t offsets[TILE_COUNT];
 
-	/* table lengths in 32 bit words */
+	/* number of table entries */
 	unsigned lengths[TILE_COUNT];
 };
 
@@ -95,7 +95,16 @@ struct fsm_state {
 #define FSM_MATCH      0xfffffffeu
 #define FSM_UNASSIGNED 0xffffffffu
 
-extern struct fsm	*fsm_load(FILE *fsmfile);
+/*
+ * flags for fsm_write
+ */
+enum {
+	FSM_VERBOSE  = 1 << 0, /* be verbose */
+	FSM_MORIBUND = 1 << 1, /* write moribund state tables */
+};
+
+extern struct fsm	*fsm_load(FILE *);
+extern int		 fsm_write(FILE *, const struct fsm *, int);
 extern int		 fsm_get_moves(signed char[static 4], struct fsm_state, const struct fsm *);
 
 extern const struct fsm fsm_dummy, fsm_simple;

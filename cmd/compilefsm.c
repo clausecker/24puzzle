@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2018 Robert Clausecker. All rights reserved.
+ * Copyright (c) 2018, 2020 Robert Clausecker. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -389,57 +389,6 @@ addbackedges(struct fsm *fsm, int verbose)
 		free(backmaps[i]);
 }
 
-/*
- * Compute table offsets and write fsm to fsmfile.  Print an error
- * message and exit on failure.  As a side effect, close fsmfile.  This
- * is done to report errors that appear upon fclose.  If verbose is set,
- * print some interesting information to stderr.
- */
-static void
-writefsm(FILE *fsmfile, struct fsm *fsm, struct fsmfile *header, int verbose)
-{
-	off_t offset, start;
-	size_t i, count;
-
-	if (verbose)
-		fprintf(stderr, "writing finite state machine...\n");
-
-	start = ftello(fsmfile);
-
-	offset = sizeof *header;
-	for (i = 0; i < TILE_COUNT; i++) {
-		header->offsets[i] = offset;
-		offset += sizeof *fsm->tables[i] * fsm->sizes[i];
-	}
-
-	count = fwrite(header, sizeof *header, 1, fsmfile);
-	if (count != 1) {
-		perror("fwrite");
-		exit(EXIT_FAILURE);
-	}
-
-	for (i = 0; i < TILE_COUNT; i++) {
-		if (verbose)
-			fprintf(stderr, "square %2zu: %10u states (%11zu bytes)\n",
-			    i, fsm->sizes[i], fsm->sizes[i] * sizeof *fsm->tables[i]);
-
-		count = fwrite(fsm->tables[i], sizeof *fsm->tables[i],
-		    fsm->sizes[i], fsmfile);
-		if (count != fsm->sizes[i]) {
-			perror("fwrite");
-			exit(EXIT_FAILURE);
-		}
-	}
-
-	if (fclose(fsmfile) == EOF) {
-		perror("fclose");
-		exit(EXIT_FAILURE);
-	}
-
-	if (verbose)
-		fprintf(stderr, "finite state machine successfully written\n");
-}
-
 static void noreturn
 usage(const char *argv0)
 {
@@ -462,7 +411,7 @@ main(int argc, char *argv[])
 			break;
 
 		case 'v':
-			verbose = 1;
+			verbose = FSM_VERBOSE;
 			break;
 
 		default:
@@ -490,7 +439,10 @@ main(int argc, char *argv[])
 	initfsm(&fsm, &header);
 	readloops(&fsm, &header, stdin, makealiases);
 	addbackedges(&fsm, verbose);
-	writefsm(fsmfile, &fsm, &header, verbose);
+	if (fsm_write(fsmfile, &fsm, verbose) != 0) {
+		perror("fsm_write");
+		return (EXIT_FAILURE);
+	}
 
 	return (EXIT_SUCCESS);
 }
