@@ -149,6 +149,19 @@ fsm_is_match(struct fsm_state st)
 }
 
 /*
+ * Get the moribundness number of the current state.
+ * This number is 0 if the current state is a match.
+ */
+static inline int
+fsm_moribundness(const struct fsm *fsm, struct fsm_state st)
+{
+	if (fsm_is_match(st))
+		return (0);
+	else
+		return (fsm->moribund[st.zloc][st.state]);
+}
+
+/*
  * Given an FSM, a state, and the zero tile location of the destination,
  * return a pointer to the corresponding table entry.
  */

@@ -6,6 +6,7 @@ core
 *.pdb
 
 # binaries
+cmd/addmoribund
 cmd/bitpdb
 cmd/compilefsm
 cmd/diffcode

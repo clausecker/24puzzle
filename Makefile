@@ -23,7 +23,7 @@ BINARIES=cmd/pdbstats test/indextest util/rankgen test/ranktest cmd/genpdb \
 	cmd/pdbquality test/walkdist cmd/puzzledist test/etatest \
 	test/samplegen test/statmerge cmd/etacount cmd/randompdb cmd/genloops \
 	cmd/compilefsm test/explore test/indexbench test/fsmdeadends \
-	cmd/spheresample
+	cmd/spheresample cmd/addmoribund
 
 all: $(BINARIES) 24puzzle.a
 
@@ -51,6 +51,7 @@ test/hitanalysis: test/hitanalysis.o 24puzzle.a
 test/indexbench: test/indexbench.o 24puzzle.a
 test/indextest: test/indextest.o 24puzzle.a
 test/tiletest: test/tiletest.o 24puzzle.a
+cmd/addmoribund: cmd/addmoribund.o 24puzzle.a
 cmd/parsearch: cmd/parsearch.o 24puzzle.a
 test/ranktest: test/ranktest.o 24puzzle.a
 test/qualitytest: test/qualitytest.o 24puzzle.a
