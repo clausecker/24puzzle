@@ -392,7 +392,7 @@ addbackedges(struct fsm *fsm, int verbose)
 static void noreturn
 usage(const char *argv0)
 {
-	fprintf(stderr, "Usage: %s [-av] [fsmfile]\n", argv0);
+	fprintf(stderr, "Usage: %s [-amv] [fsmfile]\n", argv0);
 	exit(EXIT_FAILURE);
 }
 
@@ -402,16 +402,20 @@ main(int argc, char *argv[])
 	FILE *fsmfile;
 	struct fsm fsm;
 	struct fsmfile header;
-	int optchar, verbose = 0, makealiases = 0;
+	int i, optchar, flags = 0, makealiases = 0;
 
-	while (optchar = getopt(argc, argv, "av"), optchar != EOF)
+	while (optchar = getopt(argc, argv, "amv"), optchar != EOF)
 		switch (optchar) {
 		case 'a':
 			makealiases = 1;
 			break;
 
+		case 'm':
+			flags |= FSM_MORIBUND;
+			break;
+
 		case 'v':
-			verbose = FSM_VERBOSE;
+			flags |= FSM_VERBOSE;
 			break;
 
 		default:
@@ -438,8 +442,23 @@ main(int argc, char *argv[])
 
 	initfsm(&fsm, &header);
 	readloops(&fsm, &header, stdin, makealiases);
-	addbackedges(&fsm, verbose);
-	if (fsm_write(fsmfile, &fsm, verbose) != 0) {
+	addbackedges(&fsm, flags & FSM_VERBOSE);
+
+	if (flags & FSM_MORIBUND) {
+		for (i = 0; i < TILE_COUNT; i++) {
+			fsm.moribund[i] = malloc(fsm.sizes[i] * sizeof *fsm.moribund[i]);
+			if (fsm.moribund[i] == NULL) {
+				perror("malloc");
+				return (EXIT_FAILURE);
+			}
+
+			memset(fsm.moribund[i], 0xff, fsm.sizes[i] * sizeof *fsm.moribund[i]);
+		}
+
+		fsm_add_moribund(&fsm, flags);
+	}
+
+	if (fsm_write(fsmfile, &fsm, flags) != 0) {
 		perror("fsm_write");
 		return (EXIT_FAILURE);
 	}
