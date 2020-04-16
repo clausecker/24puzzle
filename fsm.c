@@ -260,11 +260,36 @@ fsm_get_moves(signed char moves[static 4], struct fsm_state st,
 	const signed char *fullmoves;
 
 	memset(moves, -1, 4);
-
 	fullmoves = get_moves(st.zloc);
+
 	for (n = i = 0; i < move_count(st.zloc); i++)
 		if (fsm->tables[st.zloc][st.state][i] != FSM_MATCH)
 			moves[n++] = fullmoves[i];
+
+	return (n);
+}
+
+/*
+ * Same as fsm_get_moves, but only return those moves that are not
+ * moribund within budget steps.
+ */
+extern int
+fsm_get_moves_moribund(signed char moves[static 4], struct fsm_state st,
+    const struct fsm *fsm, int budget)
+{
+	struct fsm_state nst;
+	int n, i;
+	const signed char *fullmoves;
+
+	assert(budget > 0);
+	memset(moves, -1, 4);
+	fullmoves = get_moves(st.zloc);
+
+	for (n = i = 0; i < move_count(st.zloc); i++) {
+		nst = fsm_advance_idx(fsm, st, i);
+		if (fsm_moribundness(fsm, nst) >= budget)
+			moves[n++] = fullmoves[i];
+	}
 
 	return (n);
 }

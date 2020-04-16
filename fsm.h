@@ -105,6 +105,7 @@ enum {
 
 extern struct fsm	*fsm_load(FILE *);
 extern int		 fsm_get_moves(signed char[static 4], struct fsm_state, const struct fsm *);
+extern int		 fsm_get_moves_moribund(signed char[static 4], struct fsm_state, const struct fsm *, int);
 extern int		 fsm_write(FILE *, const struct fsm *, int);
 extern void		 fsm_add_moribund(struct fsm *, int);
 

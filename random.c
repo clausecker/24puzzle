@@ -273,7 +273,7 @@ random_walk(struct puzzle *p, int steps, const struct fsm *fsm)
 	st = fsm_start_state(zero_location(p));
 
 	while (steps > 0) {
-		n_move = fsm_get_moves(moves, st, fsm);
+		n_move = fsm_get_moves_moribund(moves, st, fsm, steps);
 
 		switch (n_move) {
 		case 0:	goto fail; /* cannot proceed */

@@ -76,7 +76,7 @@ struct payload {
  * happened.
  */
 static double
-add_step(struct fsm_state *st, const struct fsm *fsm, int move)
+add_step(struct fsm_state *st, const struct fsm *fsm, int move, int budget)
 {
 	int n_legal = 0;
 	signed char moves[4];
@@ -86,7 +86,7 @@ add_step(struct fsm_state *st, const struct fsm *fsm, int move)
 		return (0.0);
 
 	/* count the number of moves fsm would allow out of this situation */
-	n_legal = fsm_get_moves(moves, *st, fsm);
+	n_legal = fsm_get_moves_moribund(moves, *st, fsm, budget);
 	assert(0 <= n_legal && n_legal <= 4);
 
 	/* update st according to m */
@@ -128,11 +128,11 @@ add_solution(const struct path *pa, void *plarg)
 	 * leaving out the first move and appending a final move to
 	 * reach the solved configuration.
 	 */
-	for (i = 1; i < pa->pathlen; i++)
-		prob *= add_step(&st, pl->fsm, pa->moves[pa->pathlen - i - 1]);
+	for (i = 0; i < pa->pathlen - 1; i++)
+		prob *= add_step(&st, pl->fsm, pa->moves[pa->pathlen - i - 2], pa->pathlen - i);
 
 	/* finish undoing the solution */
-	prob *= add_step(&st, pl->fsm, pl->zloc);
+	prob *= add_step(&st, pl->fsm, pl->zloc, 1);
 
 	if (!fsm_is_match(st)) {
 		assert(prob != 0.0);
