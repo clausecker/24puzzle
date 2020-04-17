@@ -14,6 +14,7 @@ start=28
 limit=55
 cmddir=cmd
 reportfile=$sampledir/report
+statfile=$sampledir/stats
 
 PATH="$cmddir:$PATH"
 
@@ -40,4 +41,5 @@ then
 fi
 
 mkdir -p "$sampledir"
+puzzledist -l $((limit-1)) -f "$sampledir/" -n "$nsamples" | tee "$statfile"
 seq $start $limit | xargs -P "$NPROC" -n 1 -- "$0" -w
