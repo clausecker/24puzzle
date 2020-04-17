@@ -96,4 +96,13 @@ move_mask(const struct compact_puzzle *cp)
 	return (cp->lo & MOVE_MASK);
 }
 
+/*
+ * clear the bits in the move mask
+ */
+static inline void
+clear_move_mask(struct compact_puzzle *cp)
+{
+	cp->lo &= ~MOVE_MASK;
+}
+
 #endif /* COMPACT_H */

@@ -39,6 +39,7 @@
 #include "compact.h"
 #include "puzzle.h"
 #include "random.h"
+#include "statistics.h"
 
 /*
  * The number of legal puzzle configurations, i.e. 25! / 2.  This
@@ -51,19 +52,21 @@
 /*
  * Use samplefile as a prefix for a file name of the form %s.%d suffixed
  * with round and store up to n_samples randomly selected samples from
- * cps in it.  The samples are stored as struct cps with the move bits
- * undefined.  On error, report the error, discard the sample file, and
- * then continue.  The ordering of cps is destroyed in the process.
+ * cps in it.  The samples are stored as struct sample with the move bits
+ * cleared and the probability set to the reciprocal of the sphere size.
+ * On error, report the error, discard the sample file, and then continue.
+ * The ordering of cps is destroyed in the process.
  */
 static void
 do_sampling(const char *samplefile, struct cp_slice *cps, int round, size_t n_samples)
 {
 	FILE *f;
+	struct sample s;
 	struct compact_puzzle tmp;
 	size_t i, j, count;
 	char pathbuf[PATH_MAX];
 
-	snprintf(pathbuf, PATH_MAX, "%s.%d", samplefile, round);
+	snprintf(pathbuf, PATH_MAX, "%s%d.sample", samplefile, round);
 	f = fopen(pathbuf, "wb");
 	if (f == NULL) {
 		perror(pathbuf);
@@ -81,7 +84,7 @@ do_sampling(const char *samplefile, struct cp_slice *cps, int round, size_t n_sa
 	else {
 		// TODO eliminate modulo bias
 		for (i = 0; i < n_samples; i++) {
-			j = i + random32() % (cps->len - i);
+			j = i + random64() % (cps->len - i);
 			tmp = cps->data[i];
 			cps->data[i] = cps->data[j];
 			cps->data[j] = tmp;
@@ -90,16 +93,21 @@ do_sampling(const char *samplefile, struct cp_slice *cps, int round, size_t n_sa
 		qsort(cps->data, n_samples, sizeof *cps->data, compare_cp);
 	}
 
-	count = fwrite(cps->data, sizeof *cps->data, n_samples, f);
-	if (count != n_samples) {
-		if (ferror(f))
-			perror(pathbuf);
-		else
-			fprintf(stderr, "%s: end of file encountered while writing\n", pathbuf);
+	for (i = 0; i < n_samples; i++) {
+		s.cp = cps->data[i];
+		clear_move_mask(&s.cp);
+		s.p = 1.0 / cps->len;
+		count = fwrite(&s, sizeof s, 1, f);
+		if (count != 1) {
+			if (ferror(f))
+				perror(pathbuf);
+			else
+				fprintf(stderr, "%s: end of file encountered while writing\n", pathbuf);
 
-		fclose(f);
-		remove(pathbuf);
-		return;
+			fclose(f);
+			remove(pathbuf);
+			return;
+		}
 	}
 
 	fclose(f);
@@ -108,7 +116,7 @@ do_sampling(const char *samplefile, struct cp_slice *cps, int round, size_t n_sa
 static void
 usage(const char *argv0)
 {
-	fprintf(stderr, "Usage: %s [-l limit] [-f filename] [-n n_samples] [-s seed]\n", argv0);
+	fprintf(stderr, "Usage: %s [-l limit] [-f prefix] [-n n_samples] [-s seed]\n", argv0);
 	exit(EXIT_FAILURE);
 }
 
