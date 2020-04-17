@@ -56,7 +56,8 @@ struct samplestate {
 	long long n_accepted;	/* puzzles with the right distance */
 	long long n_aborted;	/* aborted random walks */
 	long long path_sum;	/* sum of solution numbers */
-	double prob_sum;	/* sum of probabilities (to compute mean and variance) */
+	double size_sum;	/* sum of reciprocal probabilities */
+	int steps;		/* number of steps to walk */
 };
 
 /*
@@ -173,12 +174,12 @@ print_state(const struct samplestate *state)
 {
 	static const char *fmt = NULL;
 	long long total, samples, accepted, aborted, failed;
-	double ratio;
+	double ratio, size;
 
 	if (fmt == NULL)
 		fmt = isatty(fileno(stderr))
-		    ? "\r%5.2f%% acc %5.2f%% fail %5.2f%% abort %5.2f%% done (%10lld/%10lld)"
-		    :   "%5.2f%% acc %5.2f%% fail %5.2f%% abort %5.2f%% done (%10lld/%10lld)\n";
+		    ? "\r%5.2f%% acc %5.2f%% fail %5.2f%% abort %5.2f%% done %#g size"
+		    :   "%5.2f%% acc %5.2f%% fail %5.2f%% abort %5.2f%% done %#g size\n";
 
 	total = state->n_puzzle;
 	samples = state->n_samples;
@@ -186,18 +187,20 @@ print_state(const struct samplestate *state)
 	aborted = state->n_aborted;
 	failed = samples - accepted - aborted;
 	ratio = 100.0 / samples;
+	size = state->size_sum / state->n_samples;
 	fprintf(stderr, fmt, accepted * ratio, failed * ratio, aborted * ratio,
-	    (100.0 * samples) / total, samples, total);
+	    (100.0 * samples) / total, size);
 }
 
 /*
- * Take state.n_puzzle samples at steps steps using fsmfile for pruning
- * and write them to outfile.  Use cat as an aid to solve the puzzle.
- * If verbose is set, print status information every now and then.
+ * Take state->n_puzzle samples at state->steps steps using fsmfile for
+ * pruning and write them to outfile.  Use cat as an aid to solve the
+ * puzzle.  If verbose is set, print status information every now and
+ * then.
  */
 static void
 take_samples(FILE *outfile, struct samplestate *state, const struct fsm *fsm,
-    struct pdb_catalogue *cat, int steps, int verbose)
+    struct pdb_catalogue *cat, int verbose)
 {
 	struct path pa;
 	struct puzzle p;
@@ -211,7 +214,7 @@ take_samples(FILE *outfile, struct samplestate *state, const struct fsm *fsm,
 			print_state(state);
 
 		p = solved_puzzle;
-		if (!random_walk(&p, steps, fsm)) {
+		if (!random_walk(&p, state->steps, fsm)) {
 			state->n_aborted++;
 			continue;
 		}
@@ -221,8 +224,8 @@ take_samples(FILE *outfile, struct samplestate *state, const struct fsm *fsm,
 		pl.zloc = zero_location(&p);
 
 		search_ida(cat, &fsm_simple, &p, &pa, add_solution, &pl, IDA_LAST_FULL);
-		assert(pa.pathlen <= steps);
-		if (pa.pathlen != steps)
+		assert(pa.pathlen <= state->steps);
+		if (pa.pathlen != state->steps)
 			continue;
 
 		/* we came there some way, so we should always find a solution */
@@ -230,7 +233,7 @@ take_samples(FILE *outfile, struct samplestate *state, const struct fsm *fsm,
 
 		state->n_accepted++;
 		state->path_sum += pl.n_solution;
-		state->prob_sum += pl.prob;
+		state->size_sum += 1.0 / pl.prob;
 		write_sample(outfile, &p, pl.prob);
 	}
 
@@ -248,14 +251,16 @@ take_samples(FILE *outfile, struct samplestate *state, const struct fsm *fsm,
  * after initial sampling, the probabilities need to be adjusted to be
  * relative to the chance of hitting an accepted sample, not just any
  * sample at all.  This is done by multiplying each prob with
- * state->n_samples/state->n_accepted.  Additionally, some statistical
- * numbers are computed and printed out if verbose is set.
+ * state->n_samples/state->n_accepted.  If report is set, a
+ * CSV-formatted report of the results is printed.  Additionally, some
+ * statistical numbers are computed and printed out if verbose is set.
  */
 static void
-fix_up(FILE *outfile, FILE *prelimfile, struct samplestate *state, int verbose)
+fix_up(FILE *outfile, FILE *prelimfile, struct samplestate *state, int report,
+    int verbose)
 {
 	struct sample s;
-	double mean, adjust, hsum = 0.0, variance = 0.0, paths;
+	double size, adjust, variance = 0.0, p_1, paths, error;
 	size_t count, samples_read = 0;
 
 	if (state->n_accepted == 0) {
@@ -267,7 +272,7 @@ fix_up(FILE *outfile, FILE *prelimfile, struct samplestate *state, int verbose)
 		fprintf(stderr, "fixing up %lld samples\n", state->n_accepted);
 
 	adjust = (double)state->n_samples / state->n_accepted;
-	mean = state->prob_sum / state->n_accepted;
+	size = state->size_sum / state->n_samples;
 
 	rewind(prelimfile);
 
@@ -275,8 +280,8 @@ fix_up(FILE *outfile, FILE *prelimfile, struct samplestate *state, int verbose)
 		samples_read++;
 
 		s.p *= adjust;
-		hsum += 1.0 / s.p;
-		variance += (mean - s.p) * (mean - s.p);
+		p_1 = 1.0 / s.p;
+		variance += (size - p_1) * (size - p_1);
 
 		count = fwrite(&s, sizeof s, 1, outfile);
 		if (count != 1) {
@@ -292,26 +297,37 @@ fix_up(FILE *outfile, FILE *prelimfile, struct samplestate *state, int verbose)
 
 	assert(samples_read == state->n_accepted);
 
+	variance /= state->n_accepted;
+	paths = state->path_sum / (double)state->n_accepted;
+	error = sqrt(variance / state->n_accepted);
+
 	if (verbose) {
-		variance /= state->n_accepted;
-		hsum = hsum / state->n_accepted;
-		paths = state->path_sum / (double)state->n_accepted;
-		fprintf(stderr, "mean %g\nvar  %g\nsdev %g\nsize %g\npath %g\n",
-		    mean, variance, sqrt(variance), hsum, paths);
+		fprintf(stderr, "size  %g\n", size);
+		fprintf(stderr, "sdev  %g\n", sqrt(variance));
+		fprintf(stderr, "moe68 %g (%5.2f%%)\n", 1 * error, 100 * error / size);
+		fprintf(stderr, "moe95 %g (%5.2f%%)\n", 2 * error, 200 * error / size);
+		fprintf(stderr, "moe99 %g (%5.2f%%)\n", 3 * error, 300 * error / size);
+		fprintf(stderr, "paths %g\n", paths);
+	}
+
+	if (report) {
+		printf("%d,%llu,%llu,%llu,%.16g,%.16g,%.16g,%.16g\n",
+		    state->steps, state->n_samples, state->n_accepted, state->n_aborted,
+		    size, sqrt(variance), error, paths);
 	}
 }
 
 extern int
 main(int argc, char *argv[])
 {
-	struct samplestate state = { 1000, 0, 0, 0, 0, 0.0 };
+	struct samplestate state = { 1000, 0, 0, 0, 0, 0.0, 0 };
 	const struct fsm *fsm = &fsm_simple;
 	struct pdb_catalogue *cat;
 	FILE *fsmfile, *prelimfile, *outfile = NULL;
-	int optchar, verbose = 0, steps;
+	int optchar, report = 0, verbose = 0;
 	char *pdbdir = NULL;
 
-	while (optchar = getopt(argc, argv, "d:m:n:o:s:v"), optchar != -1)
+	while (optchar = getopt(argc, argv, "d:m:n:o:rs:v"), optchar != -1)
 		switch (optchar) {
 		case 'd':
 			pdbdir = optarg;
@@ -346,6 +362,10 @@ main(int argc, char *argv[])
 
 			break;
 
+		case 'r':
+			report = 1;
+			break;
+
 		case 's':
 			set_seed(strtoll(optarg, NULL, 0));
 			break;
@@ -366,8 +386,8 @@ main(int argc, char *argv[])
 		usage(argv[0]);
 	}
 
-	steps = (int)strtol(argv[optind + 1], NULL, 0);
-	if (steps < 0) {
+	state.steps = (int)strtol(argv[optind + 1], NULL, 0);
+	if (state.steps < 0) {
 		fprintf(stderr, "Number of steps cannot be negative: %s\n", argv[optind + 1]);
 		usage(argv[0]);
 	}
@@ -385,8 +405,8 @@ main(int argc, char *argv[])
 		return (EXIT_FAILURE);
 	}
 
-	take_samples(prelimfile, &state, fsm, cat, steps, verbose);
-	fix_up(outfile, prelimfile, &state, verbose);
+	take_samples(prelimfile, &state, fsm, cat, verbose);
+	fix_up(outfile, prelimfile, &state, report, verbose);
 
 	return (EXIT_SUCCESS);
 }
