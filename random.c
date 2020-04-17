@@ -24,6 +24,7 @@
  */
 
 /* random.c -- generate random puzzles and indices */
+#define _POSIX_C_SOURCE 200809L
 #include <string.h>
 #include <pthread.h>
 

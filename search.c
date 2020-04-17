@@ -25,6 +25,7 @@
 
 /* search.c -- utility functions for search.h */
 
+#define _POSIX_C_SOURCE 200809L
 #include <stdlib.h>
 #include <stdio.h>
 
