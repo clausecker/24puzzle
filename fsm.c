@@ -43,6 +43,8 @@ static const unsigned dummy_states[1][4] = {
 	FSM_BEGIN, FSM_BEGIN, FSM_BEGIN, FSM_BEGIN,
 };
 
+static const char dummy_moribund[] = { -1 };
+
 const struct fsm fsm_dummy = {
 	.sizes = {
 		1, 1, 1, 1, 1,
@@ -59,6 +61,15 @@ const struct fsm fsm_dummy = {
 		DUMMY, DUMMY, DUMMY, DUMMY, DUMMY,
 		DUMMY, DUMMY, DUMMY, DUMMY, DUMMY,
 	},
+#define MORIBUND (unsigned char *)dummy_moribund
+	.moribund = {
+		MORIBUND, MORIBUND, MORIBUND, MORIBUND, MORIBUND,
+		MORIBUND, MORIBUND, MORIBUND, MORIBUND, MORIBUND,
+		MORIBUND, MORIBUND, MORIBUND, MORIBUND, MORIBUND,
+		MORIBUND, MORIBUND, MORIBUND, MORIBUND, MORIBUND,
+		MORIBUND, MORIBUND, MORIBUND, MORIBUND, MORIBUND,
+	},
+#undef MORIBUND
 #undef DUMMY
 };
 
@@ -120,6 +131,9 @@ static const unsigned simple_states_R[5][4] = {
 	             4,              3,      FSM_MATCH, FSM_UNASSIGNED, /* from below */
 };
 
+/* moribund state tables for the simple FSM */
+static const unsigned char simple_moribund[5] = { -1, -1, -1, -1, -1 };
+
 const struct fsm fsm_simple = {
 	.sizes = {
 		5, 5, 5, 5, 5,
@@ -136,6 +150,15 @@ const struct fsm fsm_simple = {
 		STATES(L), STATES(C), STATES(C), STATES(C), STATES(R),
 		STATES(LD), STATES(D), STATES(D), STATES(D), STATES(RD),
 	},
+#define SIMPLE (unsigned char *)simple_moribund
+	.moribund = {
+		SIMPLE, SIMPLE, SIMPLE, SIMPLE, SIMPLE,
+		SIMPLE, SIMPLE, SIMPLE, SIMPLE, SIMPLE,
+		SIMPLE, SIMPLE, SIMPLE, SIMPLE, SIMPLE,
+		SIMPLE, SIMPLE, SIMPLE, SIMPLE, SIMPLE,
+		SIMPLE, SIMPLE, SIMPLE, SIMPLE, SIMPLE,
+	},
+#undef SIMPLE
 #undef STATES
 #undef simple_states_D
 #undef simple_states_RD
