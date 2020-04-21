@@ -52,10 +52,14 @@ struct stat_file {
 	int max_i;
 };
 
+/* highest sphere for which we know the size */
+enum { MAX_SPHERE = 55, };
+
 extern int	parse_stat_file(struct stat_file *, FILE *);
 extern void	write_stat_file(FILE *, const struct stat_file *);
 
 extern const double equilibrium_bias[TILE_COUNT];
+extern const double sphere_sizes[MAX_SPHERE + 1];
 
 /*
  * Compute the equilibrium bias of a puzzle p.
