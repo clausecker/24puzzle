@@ -121,7 +121,38 @@ pdb_eta(struct patterndb *pdb)
 			eta += map_eta * region_bias(eqclass_from_index(aux, &idx));
 		}
 
-	eta /= (double)aux->n_perm * (double)aux->n_tile * (double)aux->n_maprank;
+	eta /= (double)aux->n_perm * (TILE_COUNT - aux->n_tile) * (double)aux->n_maprank;
 
 	return (eta);
+}
+
+/*
+ * Compute the average h value for a complete pattern database.  Works
+ * for both APDBs and ZPDBs.  Very similar to pdb_eta.
+ */
+extern double
+pdb_h_average(struct patterndb *pdb)
+{
+	const struct index_aux *aux = &pdb->aux;
+	double hsum = 0.0;
+	struct index idx;
+
+	idx.pidx = 0;
+
+	for (idx.maprank = 0; idx.maprank < aux->n_maprank; idx.maprank++)
+		for (idx.eqidx = 0; idx.eqidx < eqclass_count(aux, idx.maprank); idx.eqidx++) {
+			long long unsigned map_hsum = 0;
+			size_t i;
+			const unsigned char *table;
+
+			table = (const unsigned char *)pdb_entry_pointer(pdb, &idx);
+			for (i = 0; i < aux->n_perm; i++)
+				map_hsum += table[i];
+
+			hsum += map_hsum * region_bias(eqclass_from_index(aux, &idx));
+		}
+
+	hsum /= (double)aux->n_perm * (TILE_COUNT - aux->n_tile) * (double)aux->n_maprank;
+
+	return (hsum);
 }

@@ -101,9 +101,12 @@ extern int	pdb_verify(struct patterndb *, FILE *);
 extern void	pdb_identify(struct patterndb *);
 extern void	pdb_diffcode(struct patterndb *, unsigned char[]);
 
+
 extern int	pdb_histogram(size_t[PDB_HISTOGRAM_LEN], struct patterndb *, int);
 extern size_t	pdb_quality(const size_t[PDB_HISTOGRAM_LEN]);
 extern double	pdb_partial_eta(const size_t[PDB_HISTOGRAM_LEN]);
+extern double	pdb_eta(struct patterndb *);
+extern double	pdb_h_average(struct patterndb *);
 
 /*
  * Return a pointer to the PDB entry for idx.

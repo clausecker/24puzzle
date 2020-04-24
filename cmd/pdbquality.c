@@ -98,7 +98,7 @@ main(int argc, char *argv[])
 	fclose(pdbfile);
 	tileset_list_string(tsstr, ts);
 	pdb_histogram(histogram, pdb, histogram_flags);
-	printf("%zu %.18e %s\n", pdb_quality(histogram), pdb_partial_eta(histogram), tsstr);
+	printf("%.18f %.18e %.18e %s\n", pdb_h_average(pdb), pdb_partial_eta(histogram), pdb_eta(pdb), tsstr);
 
 	return (EXIT_SUCCESS);
 }
