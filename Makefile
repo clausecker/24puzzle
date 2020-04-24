@@ -11,7 +11,7 @@ ZSTDLDFLAGS=-L$(HOME)/lib
 ZSTDLDLIBS=$(HOME)/lib/libzstd.a
 
 OBJ=index.o puzzle.o tileset.o validation.o ranktbl.o rank.o random.o pdb.o \
-	moves.o parallel.o pdbgen.o pdbverify.o pdbdiff.o histogram.o \
+	moves.o parallel.o pdbgen.o pdbverify.o pdbdiff.o \
 	ida.o search.o catalogue.o pdbident.o transposition.o \
 	heuristic.o bitpdb.o bitpdbzstd.o match.o quality.o compact.o \
 	statistics.o fsm.o fsmwrite.o

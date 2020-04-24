@@ -28,15 +28,16 @@
 #define _POSIX_C_SOURCE 200809L
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdnoreturn.h>
 #include <unistd.h>
 
 #include "pdb.h"
 #include "tileset.h"
 
-static void
+static noreturn void
 usage(const char *argv0)
 {
-	fprintf(stderr, "Usage: %s [-w] [-t tile,...] [-j nproc] file.pdb\n", argv0);
+	fprintf(stderr, "Usage: %s [-v] [-t tile,...] [-j nproc] [file.pdb]\n", argv0);
 	exit(EXIT_FAILURE);
 }
 
@@ -45,12 +46,11 @@ main(int argc, char *argv[])
 {
 	struct patterndb *pdb;
 	FILE *pdbfile;
-	size_t histogram[PDB_HISTOGRAM_LEN];
 	tileset ts = DEFAULT_TILESET;
-	int optchar, jobs = pdb_jobs, histogram_flags = PDB_HISTOGRAM_WEIGHTED;
+	int optchar, verbose = 0, jobs = pdb_jobs;
 	char tsstr[TILESET_LIST_LEN];
 
-	while (optchar = getopt(argc, argv, "j:t:w"), optchar != -1)
+	while (optchar = getopt(argc, argv, "j:t:v"), optchar != -1)
 		switch (optchar) {
 		case 'j':
 			jobs = atoi(optarg);
@@ -70,8 +70,8 @@ main(int argc, char *argv[])
 
 			break;
 
-		case 'w':
-			histogram_flags &= ~PDB_HISTOGRAM_WEIGHTED;
+		case 'v':
+			verbose = 1;
 			break;
 
 		default:
@@ -80,25 +80,39 @@ main(int argc, char *argv[])
 
 	pdb_jobs = jobs;
 
-	if (argc - optind != 1)
+	switch (argc - optind) {
+	case 1:
+		pdbfile = fopen(argv[optind], "rb");
+		if (pdbfile == NULL) {
+			perror(argv[optind]);
+			return (EXIT_FAILURE);
+		}
+
+		pdb = pdb_mmap(ts, fileno(pdbfile), PDB_MAP_RDONLY);
+		if (pdb == NULL) {
+			perror("pdb_mmap");
+			return (EXIT_FAILURE);
+		}
+
+		fclose(pdbfile);
+		break;
+
+	case 0:
+		pdb = pdb_allocate(ts);
+		if (pdb == NULL) {
+			perror("pdb_allocate");
+			return (EXIT_FAILURE);
+		}
+
+		pdb_generate(pdb, verbose ? stderr : NULL);
+		break;
+
+	default:
 		usage(argv[0]);
-
-	pdbfile = fopen(argv[optind], "rb");
-	if (pdbfile == NULL) {
-		perror(argv[optind]);
-		return (EXIT_FAILURE);
 	}
 
-	pdb = pdb_mmap(ts, fileno(pdbfile), PDB_MAP_RDONLY);
-	if (pdb == NULL) {
-		perror("pdb_mmap");
-		return (EXIT_FAILURE);
-	}
-
-	fclose(pdbfile);
 	tileset_list_string(tsstr, ts);
-	pdb_histogram(histogram, pdb, histogram_flags);
-	printf("%.18f %.18e %.18e %s\n", pdb_h_average(pdb), pdb_partial_eta(histogram), pdb_eta(pdb), tsstr);
+	printf("%.18f %.18e %s\n", pdb_h_average(pdb), pdb_eta(pdb), tsstr);
 
 	return (EXIT_SUCCESS);
 }

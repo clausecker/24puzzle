@@ -62,9 +62,6 @@ enum {
 	/* maximum number of entries in a PDB histogram */
 	PDB_HISTOGRAM_LEN = 256,
 
-	/* flags for PDB_HISTOGRAM */
-	PDB_HISTOGRAM_WEIGHTED = 1 << 0,
-
 	/* constants for pdb_mmap */
 	PDB_MAP_RDONLY = 0,
 	PDB_MAP_RDWR = 1,
@@ -101,10 +98,7 @@ extern int	pdb_verify(struct patterndb *, FILE *);
 extern void	pdb_identify(struct patterndb *);
 extern void	pdb_diffcode(struct patterndb *, unsigned char[]);
 
-
-extern int	pdb_histogram(size_t[PDB_HISTOGRAM_LEN], struct patterndb *, int);
-extern size_t	pdb_quality(const size_t[PDB_HISTOGRAM_LEN]);
-extern double	pdb_partial_eta(const size_t[PDB_HISTOGRAM_LEN]);
+/* quality.c */
 extern double	pdb_eta(struct patterndb *);
 extern double	pdb_h_average(struct patterndb *);
 
