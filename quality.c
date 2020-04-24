@@ -34,6 +34,7 @@
 #include "index.h"
 #include "pdb.h"
 #include "parallel.h"
+#include "statistics.h"
 
 /*
  * From a PDB histogram, compute the quality of the PDB.  This is the
@@ -69,6 +70,58 @@ pdb_partial_eta(const size_t histogram[PDB_HISTOGRAM_LEN])
 		eta = histogram[PDB_HISTOGRAM_LEN - i] + eta * invb;
 
 	eta /= (double)sum;
+
+	return (eta);
+}
+
+/*
+ * Compute the bias associated with the given zero tile region.  This is
+ * the bias the PDB entries for that zero tile region enter the
+ * calculation of eta with.
+ */
+static double
+region_bias(tileset ts)
+{
+	double bias = 0.0;
+
+	for (; !tileset_empty(ts); ts = tileset_remove_least(ts))
+		bias += equilibrium_bias[tileset_get_least(ts)];
+
+	return (bias);
+}
+
+/*
+ * Compute eta for a complete pattern database.  Works for both APDBs
+ * and ZPDBs.
+ */
+extern double
+pdb_eta(struct patterndb *pdb)
+{
+	const struct index_aux *aux = &pdb->aux;
+	double eta = 0.0;
+	struct index idx;
+
+	idx.pidx = 0;
+
+	for (idx.maprank = 0; idx.maprank < aux->n_maprank; idx.maprank++)
+		for (idx.eqidx = 0; idx.eqidx < eqclass_count(aux, idx.maprank); idx.eqidx++) {
+			size_t i, histogram[PDB_HISTOGRAM_LEN];
+			double map_eta = 0.0;
+			const unsigned char *table;
+
+			memset(histogram, 0, sizeof histogram);
+			table = (const unsigned char *)pdb_entry_pointer(pdb, &idx);
+
+			for (i = 0; i < aux->n_perm; i++)
+				histogram[table[i]]++;
+
+			for (i = 0; i < PDB_HISTOGRAM_LEN; i++)
+				map_eta = histogram[PDB_HISTOGRAM_LEN - i - 1] + map_eta / B;
+
+			eta += map_eta * region_bias(eqclass_from_index(aux, &idx));
+		}
+
+	eta /= (double)aux->n_perm * (double)aux->n_tile * (double)aux->n_maprank;
 
 	return (eta);
 }
