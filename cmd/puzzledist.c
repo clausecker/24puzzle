@@ -42,14 +42,6 @@
 #include "statistics.h"
 
 /*
- * The number of legal puzzle configurations, i.e. 25! / 2.  This
- * number is provided as a string, too, so we can generate fancier
- * output.
- */
-#define CONFCOUNT 7755605021665492992000000.0
-#define CONFCOUNTSTR "7755605021665492992000000"
-
-/*
  * Use samplefile as a prefix for a file name of the form %s.%d suffixed
  * with round and store up to n_samples randomly selected samples from
  * cps in it.  The samples are stored as struct sample with the move bits

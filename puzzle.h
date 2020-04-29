@@ -63,6 +63,14 @@ enum { TILE_COUNT = 25, ZERO_TILE = 0 };
  */
 #define B 2.367604543724308131130874
 
+/*
+ * The number of legal puzzle configurations, i.e. 25! / 2.  This
+ * number is provided as a string, too, so we can generate fancier
+ * output.
+ */
+#define CONFCOUNT 7755605021665492992000000.0
+#define CONFCOUNTSTR "7755605021665492992000000"
+
 struct puzzle {
 	alignas(8) unsigned char tiles[TILE_COUNT], grid[TILE_COUNT];
 };
