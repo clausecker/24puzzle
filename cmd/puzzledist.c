@@ -47,10 +47,12 @@
  * cps in it.  The samples are stored as struct sample with the move bits
  * cleared and the probability set to the reciprocal of the sphere size.
  * On error, report the error, discard the sample file, and then continue.
- * The ordering of cps is destroyed in the process.
+ * The ordering of cps is destroyed in the process.  If sorted is set,
+ * sort the randomly picked samples before writing them out.
  */
 static void
-do_sampling(const char *samplefile, struct cp_slice *cps, int round, size_t n_samples)
+do_sampling(const char *samplefile, struct cp_slice *cps, int round,
+    size_t n_samples, int sorted)
 {
 	FILE *f;
 	struct sample s;
@@ -65,25 +67,20 @@ do_sampling(const char *samplefile, struct cp_slice *cps, int round, size_t n_sa
 		return;
 	}
 
-	/*
-	 * if we have enough space, write all samples.  Otherwise, use a
-	 * partial Fisher-Yates shuffle to generate samples.  Sort
-	 * samples before writing for better cache locality in
-	 * PDB lookup.
-	 */
+	/* can't take more samples than we have */
 	if (n_samples >= cps->len)
 		n_samples = cps->len;
-	else {
-		// TODO eliminate modulo bias
-		for (i = 0; i < n_samples; i++) {
-			j = i + random64() % (cps->len - i);
-			tmp = cps->data[i];
-			cps->data[i] = cps->data[j];
-			cps->data[j] = tmp;
-		}
 
-		qsort(cps->data, n_samples, sizeof *cps->data, compare_cp);
+	/* use an inside-out Fisher-Yates shuffle to pick a sample */
+	for (i = 0; i < n_samples; i++) {
+		j = i + random64() % (cps->len - i);
+		tmp = cps->data[i];
+		cps->data[i] = cps->data[j];
+		cps->data[j] = tmp;
 	}
+
+	if (sorted)
+		qsort(cps->data, n_samples, sizeof *cps->data, compare_cp);
 
 	for (i = 0; i < n_samples; i++) {
 		s.cp = cps->data[i];
@@ -108,7 +105,7 @@ do_sampling(const char *samplefile, struct cp_slice *cps, int round, size_t n_sa
 static void
 usage(const char *argv0)
 {
-	fprintf(stderr, "Usage: %s [-l limit] [-f prefix] [-n n_samples] [-s seed]\n", argv0);
+	fprintf(stderr, "Usage: %s [-S] [-l limit] [-f prefix] [-n n_samples] [-s seed]\n", argv0);
 	exit(EXIT_FAILURE);
 }
 
@@ -117,11 +114,11 @@ main(int argc, char *argv[])
 {
 	struct cp_slice old_cps, new_cps;
 	struct compact_puzzle cp;
-	int optchar, i, limit = INT_MAX;
+	int optchar, i, limit = INT_MAX, sorted = 0;
 	size_t n_samples = 1 << 20;
 	const char *samplefile = NULL;
 
-	while (optchar = getopt(argc, argv, "f:l:n:s:"), optchar != -1)
+	while (optchar = getopt(argc, argv, "f:l:n:s:S"), optchar != -1)
 		switch (optchar) {
 		case 'f':
 			samplefile = optarg;
@@ -139,6 +136,10 @@ main(int argc, char *argv[])
 			set_seed(strtoull(optarg, NULL, 0));
 			break;
 
+		case 'S':
+			sorted = 1;
+			break;
+
 		default:
 			usage(argv[0]);
 			break;
@@ -152,7 +153,7 @@ main(int argc, char *argv[])
 	cps_append(&new_cps, &cp);
 
 	if (samplefile != NULL)
-		do_sampling(samplefile, &new_cps, 0, n_samples);
+		do_sampling(samplefile, &new_cps, 0, n_samples, sorted);
 
 	/* keep format compatible with samplegen */
 	printf("%s\n\n", CONFCOUNTSTR);
@@ -169,7 +170,7 @@ main(int argc, char *argv[])
 
 		cps_round(&new_cps, &old_cps);
 		if (samplefile != NULL)
-			do_sampling(samplefile, &new_cps, i, n_samples);
+			do_sampling(samplefile, &new_cps, i, n_samples, sorted);
 
 		cps_free(&old_cps);
 
