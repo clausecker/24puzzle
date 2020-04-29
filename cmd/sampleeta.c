@@ -48,6 +48,7 @@ struct stratum {
 	long long n_samples;	/* actual number of samples */
 	double eta;		/* eta value determined for the stratum */
 	double var;		/* variance determined for the stratum */
+	double size;		/* stratum size as a fraction of 1 */
 };
 
 /*
@@ -107,10 +108,11 @@ sample_sphere(int d, struct stratum *str, struct pdb_catalogue *cat, FILE *sampl
 		return (-1);
 
 	str->var = accum / str->n_samples;
+	str->size = sphere_sizes[d] / CONFCOUNT;
 
 	if (verbose)
 		fprintf(stderr, "%4d avg %#e part %#e sdev %#e samples %8lld\n",
-		    d, str->eta, str->eta * sphere_sizes[d] / CONFCOUNT, sqrt(str->var), str->n_samples);
+		    d, str->eta, str->eta * str->size, sqrt(str->var), str->n_samples);
 
 	return (0);
 }
@@ -184,14 +186,49 @@ sample_rest(int lower, struct stratum *str, struct pdb_catalogue *cat,
 	}
 
 	str->var = accum / str->n_samples;
+	str->size = rest_size(lower) / CONFCOUNT;
 	free(hvals);
 
 	if (flags & VERBOSE)
 		fprintf(stderr, "rest avg %#e part %#e sdev %#e samples %8lld rej %lld)\n",
-		    str->eta, str->eta * rest_size(lower) / CONFCOUNT, sqrt(str->var),
+		    str->eta, str->eta * str->size, sqrt(str->var),
 		    str->n_samples, rejects);
 
 	return (0);
+}
+
+/*
+ * Compute eta from the various strata's partial results.
+ * Also compute variance, standard deviation, and confidence
+ * intervals.
+ */
+static void
+join_strata(struct stratum *strata, int limit)
+{
+	double eta = 0.0, var = 0.0, error = 0.0, diff, pop_corr, comp;
+	int i;
+
+	/* compute eta */
+	for (i = 0; i <= limit + 1; i++)
+		eta += strata[i].eta * strata[i].size;
+
+	/* compute standard deviation */
+	for (i = 0; i <= limit + 1; i++) {
+		diff = eta - strata[i].eta;
+		var += (strata[i].var + diff * diff) * strata[i].size;
+	}
+
+	/* compute standard error */
+	/* exclude i = 0 to avoid division by zero */
+	for (i = 1; i <= limit + 1; i++) {
+		pop_corr = (strata[i].size * CONFCOUNT - strata[i].n_samples)
+		    / (strata[i].size * CONFCOUNT - 1);
+		comp = strata[i].size * strata[i].size * strata[i].var
+		    / strata[i].n_samples;
+		error += pop_corr * comp;
+	}
+
+	printf("eta   %#e\nsdev  %#e\nerror %#e\n", eta, sqrt(var), sqrt(error));
 }
 
 static void
@@ -327,7 +364,7 @@ main(int argc, char *argv[])
 		return (EXIT_FAILURE);
 	}
 
-//	print_results(strata, limit);
+	join_strata(strata, limit);
 
 	return (EXIT_SUCCESS);
 }
