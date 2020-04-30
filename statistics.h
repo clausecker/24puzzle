@@ -53,7 +53,7 @@ struct stat_file {
 };
 
 /* highest sphere for which we know the size */
-enum { MAX_SPHERE = 57, };
+enum { MAX_SPHERE = 58, };
 
 extern int	parse_stat_file(struct stat_file *, FILE *);
 extern void	write_stat_file(FILE *, const struct stat_file *);
