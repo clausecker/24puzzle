@@ -3,32 +3,21 @@
 set -e
 
 # generate samples using cmd/sphericalsamples
-NPROC=20
+# NPROC=80
 pdbdir=/local/bzcclaus/pdbcat
-fsm=/local/bzcclaus/loops/22.mfsm
+fsm=/local/bzcclaus/loops/24.mfsm
 sampledir=/local/bzcclaus/spheresamples
 catalogue=catalogues/small-t.cat
-nsamples=10000000
-seed=8528
-start=28
-limit=55
+nsamples=100000000
+nout=10000000
+seed=4711
+start=0
+limit=69
 cmddir=cmd
 reportfile=$sampledir/report
 statfile=$sampledir/stats
 
 PATH="$cmddir:$PATH"
-
-# are we a worker?
-if [ "$1" = -w ]
-then
-	dist="$2"
-
-	nice spheresample -r -d "$pdbdir" -m "$fsm" -n "$nsamples" \
-	    -o "$sampledir/$dist.sample" -s "`printf $seed%02d $dist`" \
-	    "$catalogue" "$dist" | tee -a "$reportfile"
-
-	exit
-fi
 
 # find number of CPUs to use
 if [ ! "$NPROC" ]
@@ -41,5 +30,10 @@ then
 fi
 
 mkdir -p "$sampledir"
-puzzledist -l $((limit-1)) -f "$sampledir/" -n "$nsamples" | tee "$statfile"
-seq $start $limit | xargs -P "$NPROC" -n 1 -- "$0" -w
+# puzzledist -l $((limit-1)) -f "$sampledir/" -n "$nsamples" | tee "$statfile"
+for dist in `seq $start $limit`
+do
+	nice spheresample -r -d "$pdbdir" -m "$fsm" -n "$nsamples" \
+	    -o "$sampledir/$dist.sample" -s "`printf $seed%02d $dist`" \
+	    -N "$nout" -j "$NPROC" "$catalogue" "$dist" | tee -a "$reportfile"
+done
