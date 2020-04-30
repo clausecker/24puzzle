@@ -75,38 +75,40 @@ sample_sphere(int d, struct stratum *str, struct pdb_catalogue *cat, FILE *sampl
 	struct sample s;
 	long long i;
 	size_t count;
-	double diff, accum = 0.0;
+	double diff, accum = 0.0, (*observations)[2];
+
+	observations = malloc(max_samples * sizeof *observations);
+	if (observations == NULL)
+		return (-1);
 
 	/* first pass: compute expected value */
 	i = 0;
 	while (i < max_samples &&
 	    (count = fread(&s, sizeof s, 1, samplefile), count == 1)) {
-		i++;
 		unpack_puzzle(&p, &s.cp);
-		accum += pow_h(&p, cat) / s.p;
+		observations[i][0] = pow_h(&p, cat);
+		observations[i][1] = s.p;
+		accum += observations[i][0] / observations[i][1];
+		i++;
 	}
 
-	if (ferror(samplefile))
+	if (ferror(samplefile)) {
+		free(observations);
 		return (-1);
+	}
 
 	str->n_samples = i;
 	str->eta = accum / (sphere_sizes[d] * str->n_samples);
 
 	/* second pass: compute variance */
-	rewind(samplefile);
 	accum = 0.0;
 	i = 0;
-	while (i < str->n_samples &&
-	    (count = fread(&s, sizeof s, 1, samplefile), count == 1)) {
-		i++;
-		unpack_puzzle(&p, &s.cp);
-		diff = str->eta - pow_h(&p, cat);
-		accum += diff * diff / (sphere_sizes[d] * s.p);
+	for (i = 0; i < str->n_samples; i++) {
+		diff = str->eta - observations[i][0];
+		accum += diff * diff / (sphere_sizes[d] * observations[i][1]);
 	}
 
-	if (ferror(samplefile))
-		return (-1);
-
+	free(observations);
 	str->var = accum / str->n_samples;
 	str->size = sphere_sizes[d] / CONFCOUNT;
 
