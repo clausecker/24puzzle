@@ -26,11 +26,13 @@
 /* spheresample.c -- generate spherical samples */
 
 #define _POSIX_C_SOURCE 200809L
-#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+
+#include <math.h>
+#include <pthread.h>
 
 #include "catalogue.h"
 #include "fsm.h"
@@ -41,7 +43,7 @@
 static void
 usage(const char *argv0)
 {
-	fprintf(stderr, "Usage: %s [-v] [-d pdbdir] [-m fsmfile] [-n n_puzzle] -o outfile [-s seed] catalogue distance\n", argv0);
+	fprintf(stderr, "Usage: %s [-vr] [-d pdbdir] [-m fsmfile] [-n n_puzzle] -o outfile [-s seed] catalogue distance\n", argv0);
 
 	exit(EXIT_FAILURE);
 }
@@ -51,7 +53,15 @@ usage(const char *argv0)
  * every puzzle and keeps track of how far we are done.
  */
 struct samplestate {
+	/* members that may not be concurrently modified */
+	FILE *outfile;		/* temporary file for sample data */
+	const struct fsm *fsm;	/* finite state machine for sampling */
+	struct pdb_catalogue *cat; /* catalogue for searching */
 	long long n_puzzle;	/* total number of puzzles */
+	int verbose;		/* whether we want to print a status */
+
+	/* members that may only be accessed when lock is held */
+	pthread_mutex_t lock;	/* guards all members below* */
 	long long n_samples;	/* puzzles generated */
 	long long n_accepted;	/* puzzles with the right distance */
 	long long n_aborted;	/* aborted random walks */
@@ -193,57 +203,90 @@ print_state(const struct samplestate *state)
 }
 
 /*
- * Take state->n_puzzle samples at state->steps steps using fsmfile for
- * pruning and write them to outfile.  Use cat as an aid to solve the
- * puzzle.  If verbose is set, print status information every now and
- * then.
+ * Take state->n_puzzle samples at state->steps steps using
+ * state->fsmfile for pruning and write them to state->outfile.  Use
+ * state->cat as an aid to solve the puzzle.  If state->verbose is
+ * set, print status information every now and then.
  */
 static void
-take_samples(FILE *outfile, struct samplestate *state, const struct fsm *fsm,
-    struct pdb_catalogue *cat, int verbose)
+take_samples(void *starg)
 {
+	struct samplestate *state = (struct samplestate *)starg;
 	struct path pa;
 	struct puzzle p;
 	struct payload pl;
+	int error, success;
 
-	pl.fsm = fsm;
+	pl.fsm = state->fsm;
+
+	error = pthread_mutex_lock(&state->lock);
+	if (error != 0) {
+		fprintf(stderr, "pthread_mutex_lock: %s\n", strerror(error));
+		abort();
+	}
 
 	for (; state->n_samples < state->n_puzzle; state->n_samples++) {
 		/* print state every once in a while */
-		if (verbose && state->n_samples % 100 == 0)
+		if (state->verbose && state->n_samples % 100 == 0)
 			print_state(state);
 
 		p = solved_puzzle;
-		if (!random_walk(&p, state->steps, fsm)) {
+		if (!random_walk(&p, state->steps, state->fsm)) {
 			state->n_aborted++;
 			continue;
+		}
+
+		error = pthread_mutex_unlock(&state->lock);
+		if (error != 0) {
+			fprintf(stderr, "pthread_mutex_unlock1: %s\n", strerror(error));
+			abort();
 		}
 
 		pl.prob = 0.0;
 		pl.n_solution = 0;
 		pl.zloc = zero_location(&p);
 
-		search_ida(cat, &fsm_simple, &p, &pa, add_solution, &pl, IDA_LAST_FULL);
+		search_ida(state->cat, &fsm_simple, &p, &pa, add_solution, &pl, IDA_LAST_FULL);
 		assert(pa.pathlen <= state->steps);
-		if (pa.pathlen != state->steps)
-			continue;
+		success = pa.pathlen = state->steps;
 
-		/* we came there some way, so we should always find a solution */
-		assert(pl.n_solution > 0);
+		if (success)  {
+			/* we came there some way, so we should always find a solution */
+			assert(pl.n_solution > 0);
 
-		state->n_accepted++;
-		state->path_sum += pl.n_solution;
-		state->size_sum += 1.0 / pl.prob;
-		write_sample(outfile, &p, pl.prob);
+			/*
+			 * A FILE structure has its own lock, so this can be
+			 * done without holding state->lock.
+			 */
+			write_sample(state->outfile, &p, pl.prob);
+		}
+
+		error = pthread_mutex_lock(&state->lock);
+		if (error != 0) {
+			fprintf(stderr, "pthread_mutex_lock: %s\n", strerror(error));
+			abort();
+		}
+
+		if (success) {
+			state->n_accepted++;
+			state->path_sum += pl.n_solution;
+			state->size_sum += 1.0 / pl.prob;
+		}
 	}
 
 	/* print final state */
-	if (verbose) {
+	if (state->verbose) {
 		print_state(state);
 
 		/* end line if tty which print_state does not */
 		if (isatty(fileno(stderr)))
 			fprintf(stderr, "\n");
+	}
+
+	error = pthread_mutex_unlock(&state->lock);
+	if (error != 0) {
+		fprintf(stderr, "pthread_mutex_unlock2: %s\n", strerror(error));
+		abort();
 	}
 }
 
@@ -320,11 +363,12 @@ fix_up(FILE *outfile, FILE *prelimfile, struct samplestate *state, int report,
 extern int
 main(int argc, char *argv[])
 {
-	struct samplestate state = { 1000, 0, 0, 0, 0, 0.0, 0 };
+	struct samplestate state;
 	const struct fsm *fsm = &fsm_simple;
 	struct pdb_catalogue *cat;
 	FILE *fsmfile, *prelimfile, *outfile = NULL;
-	int optchar, report = 0, verbose = 0;
+	long long n_puzzle = 1000;
+	int optchar, report = 0, verbose = 0, error;
 	char *pdbdir = NULL;
 
 	while (optchar = getopt(argc, argv, "d:m:n:o:rs:v"), optchar != -1)
@@ -350,7 +394,7 @@ main(int argc, char *argv[])
 			break;
 
 		case 'n':
-			state.n_puzzle = strtol(optarg, NULL, 0);
+			n_puzzle = strtol(optarg, NULL, 0);
 			break;
 
 		case 'o':
@@ -386,12 +430,6 @@ main(int argc, char *argv[])
 		usage(argv[0]);
 	}
 
-	state.steps = (int)strtol(argv[optind + 1], NULL, 0);
-	if (state.steps < 0) {
-		fprintf(stderr, "Number of steps cannot be negative: %s\n", argv[optind + 1]);
-		usage(argv[0]);
-	}
-
 	cat = catalogue_load(argv[optind], pdbdir, 0, verbose ? stderr : NULL);
 	if (cat == NULL) {
 		perror("catalogue_load");
@@ -405,7 +443,30 @@ main(int argc, char *argv[])
 		return (EXIT_FAILURE);
 	}
 
-	take_samples(prelimfile, &state, fsm, cat, verbose);
+	state.outfile = prelimfile;
+	state.fsm = fsm;
+	state.cat = cat;
+	state.n_puzzle = n_puzzle;
+	state.verbose = verbose;
+
+	error = pthread_mutex_init(&state.lock, NULL);
+	if (error != 0) {
+		fprintf(stderr, "pthread_mutex_init: %s\n", strerror(error));
+		return (EXIT_FAILURE);
+	}
+
+	state.n_samples = 0;
+	state.n_accepted = 0;
+	state.n_aborted = 0;
+	state.path_sum = 0;
+	state.size_sum = 0.0;
+	state.steps = (int)strtol(argv[optind + 1], NULL, 0);
+	if (state.steps < 0) {
+		fprintf(stderr, "Number of steps cannot be negative: %s\n", argv[optind + 1]);
+		usage(argv[0]);
+	}
+
+	take_samples(&state);
 	fix_up(outfile, prelimfile, &state, report, verbose);
 
 	return (EXIT_SUCCESS);
