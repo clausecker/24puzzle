@@ -227,12 +227,13 @@ take_samples(void *starg)
 		abort();
 	}
 
-	for (; state->n_samples < state->n_puzzle; state->n_samples++) {
+	while (state->n_samples < state->n_puzzle) {
 		/* print state every once in a while */
 		if (state->verbose && state->n_samples % 1000 == 0)
 			print_state(state);
 
 		p = solved_puzzle;
+		state->n_samples++;
 		if (!random_walk(&p, state->steps, state->fsm)) {
 			state->n_aborted++;
 			continue;
