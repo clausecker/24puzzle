@@ -36,6 +36,7 @@
 
 #include "catalogue.h"
 #include "fsm.h"
+#include "pdb.h"
 #include "random.h"
 #include "search.h"
 #include "statistics.h"
@@ -43,7 +44,7 @@
 static void
 usage(const char *argv0)
 {
-	fprintf(stderr, "Usage: %s [-vr] [-d pdbdir] [-m fsmfile] [-n n_puzzle] -o outfile [-s seed] catalogue distance\n", argv0);
+	fprintf(stderr, "Usage: %s [-vr] [-d pdbdir] [-j nproc] [-m fsmfile] [-n n_puzzle] -o outfile [-s seed] catalogue distance\n", argv0);
 
 	exit(EXIT_FAILURE);
 }
@@ -206,9 +207,10 @@ print_state(const struct samplestate *state)
  * Take state->n_puzzle samples at state->steps steps using
  * state->fsmfile for pruning and write them to state->outfile.  Use
  * state->cat as an aid to solve the puzzle.  If state->verbose is
- * set, print status information every now and then.
+ * set, print status information every now and then.  This function
+ * always returns NULL for compatibility with pthread_create.
  */
-static void
+static void *
 take_samples(void *starg)
 {
 	struct samplestate *state = (struct samplestate *)starg;
@@ -227,7 +229,7 @@ take_samples(void *starg)
 
 	for (; state->n_samples < state->n_puzzle; state->n_samples++) {
 		/* print state every once in a while */
-		if (state->verbose && state->n_samples % 100 == 0)
+		if (state->verbose && state->n_samples % 1000 == 0)
 			print_state(state);
 
 		p = solved_puzzle;
@@ -238,7 +240,7 @@ take_samples(void *starg)
 
 		error = pthread_mutex_unlock(&state->lock);
 		if (error != 0) {
-			fprintf(stderr, "pthread_mutex_unlock1: %s\n", strerror(error));
+			fprintf(stderr, "pthread_mutex_unlock: %s\n", strerror(error));
 			abort();
 		}
 
@@ -248,7 +250,7 @@ take_samples(void *starg)
 
 		search_ida(state->cat, &fsm_simple, &p, &pa, add_solution, &pl, IDA_LAST_FULL);
 		assert(pa.pathlen <= state->steps);
-		success = pa.pathlen = state->steps;
+		success = pa.pathlen == state->steps;
 
 		if (success)  {
 			/* we came there some way, so we should always find a solution */
@@ -274,19 +276,65 @@ take_samples(void *starg)
 		}
 	}
 
+	error = pthread_mutex_unlock(&state->lock);
+	if (error != 0) {
+		fprintf(stderr, "pthread_mutex_unlock: %s\n", strerror(error));
+		abort();
+	}
+
+	return (NULL);
+}
+
+/*
+ * Take state->n_puzzle samples using up to pdb_jobs threads in
+ * parallel.  Otherwise same as take_samples (which does the
+ * heavy lifting).
+ */
+static void
+take_samples_parallel(struct samplestate *state)
+{
+	/* shamelessly ripped from parallel.c */
+	pthread_t pool[PDB_MAX_JOBS];
+
+	int i, jobs, error;
+
+	jobs = pdb_jobs;
+
+	/* for easier debugging, don't multithread when jobs == 1 */
+	if (jobs == 1) {
+		take_samples(state);
+		goto end;
+	}
+
+	/* spawn threads */
+	for (i = 0; i < jobs; i++) {
+		error = pthread_create(pool + i, NULL, take_samples, state);
+		if (error != 0) {
+			/* accept less threads, but not none */
+			if (i > 0)
+				break;
+
+			fprintf(stderr, "pthread_create: %s\n", strerror(error));
+			exit(EXIT_FAILURE);
+		}
+	}
+
+	jobs = i;
+
+	/* collect threads */
+	for (i = 0; i < jobs; i++) {
+		error = pthread_join(pool[i], NULL);
+		if (error != 0)
+			fprintf(stderr, "pthread_join: %s\n", strerror(error));
+	}
+
 	/* print final state */
-	if (state->verbose) {
+end:	if (state->verbose) {
 		print_state(state);
 
 		/* end line if tty which print_state does not */
 		if (isatty(fileno(stderr)))
 			fprintf(stderr, "\n");
-	}
-
-	error = pthread_mutex_unlock(&state->lock);
-	if (error != 0) {
-		fprintf(stderr, "pthread_mutex_unlock2: %s\n", strerror(error));
-		abort();
 	}
 }
 
@@ -371,10 +419,20 @@ main(int argc, char *argv[])
 	int optchar, report = 0, verbose = 0, error;
 	char *pdbdir = NULL;
 
-	while (optchar = getopt(argc, argv, "d:m:n:o:rs:v"), optchar != -1)
+	while (optchar = getopt(argc, argv, "d:j:m:n:o:rs:v"), optchar != -1)
 		switch (optchar) {
 		case 'd':
 			pdbdir = optarg;
+			break;
+
+		case 'j':
+			pdb_jobs = atoi(optarg);
+			if (pdb_jobs < 1 || pdb_jobs > PDB_MAX_JOBS) {
+				fprintf(stderr, "Number of threads must be between 1 and %d\n",
+				    PDB_MAX_JOBS);
+				return (EXIT_FAILURE);
+			}
+
 			break;
 
 		case 'm':
@@ -466,7 +524,7 @@ main(int argc, char *argv[])
 		usage(argv[0]);
 	}
 
-	take_samples(&state);
+	take_samples_parallel(&state);
 	fix_up(outfile, prelimfile, &state, report, verbose);
 
 	return (EXIT_SUCCESS);
