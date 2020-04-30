@@ -44,7 +44,7 @@
 static void
 usage(const char *argv0)
 {
-	fprintf(stderr, "Usage: %s [-vr] [-d pdbdir] [-j nproc] [-m fsmfile] [-n n_puzzle] -o outfile [-s seed] catalogue distance\n", argv0);
+	fprintf(stderr, "Usage: %s [-vr] [-d pdbdir] [-j nproc] [-m fsmfile] [-n n_puzzle] [-N n_written] -o outfile [-s seed] catalogue distance\n", argv0);
 
 	exit(EXIT_FAILURE);
 }
@@ -342,16 +342,18 @@ end:	if (state->verbose) {
  * after initial sampling, the probabilities need to be adjusted to be
  * relative to the chance of hitting an accepted sample, not just any
  * sample at all.  This is done by multiplying each prob with
- * state->n_samples/state->n_accepted.  If report is set, a
+ * state->n_samples/state->n_accepted.  Discard all but the first n_out
+ * samples after adding them to the statistic.  If report is set, a
  * CSV-formatted report of the results is printed.  Additionally, some
  * statistical numbers are computed and printed out if verbose is set.
  */
 static void
-fix_up(FILE *outfile, FILE *prelimfile, struct samplestate *state, int report,
-    int verbose)
+fix_up(FILE *outfile, FILE *prelimfile, struct samplestate *state,
+    long long n_out, int report, int verbose)
 {
 	struct sample s;
 	double size, adjust, variance = 0.0, p_1, paths, error;
+	long long i;
 	size_t count, samples_read = 0;
 
 	if (state->n_accepted == 0) {
@@ -367,12 +369,16 @@ fix_up(FILE *outfile, FILE *prelimfile, struct samplestate *state, int report,
 
 	rewind(prelimfile);
 
+	i = 0;
 	while (count = fread(&s, sizeof s, 1, prelimfile), count == 1) {
 		samples_read++;
 
 		s.p *= adjust;
 		p_1 = 1.0 / s.p;
 		variance += (size - p_1) * (size - p_1);
+
+		if (i++ >= n_out)
+			continue;
 
 		count = fwrite(&s, sizeof s, 1, outfile);
 		if (count != 1) {
@@ -415,11 +421,11 @@ main(int argc, char *argv[])
 	const struct fsm *fsm = &fsm_simple;
 	struct pdb_catalogue *cat;
 	FILE *fsmfile, *prelimfile, *outfile = NULL;
-	long long n_puzzle = 1000;
+	long long n_puzzle = 1000, n_out = -1;
 	int optchar, report = 0, verbose = 0, error;
 	char *pdbdir = NULL;
 
-	while (optchar = getopt(argc, argv, "d:j:m:n:o:rs:v"), optchar != -1)
+	while (optchar = getopt(argc, argv, "d:j:m:n:N:o:rs:v"), optchar != -1)
 		switch (optchar) {
 		case 'd':
 			pdbdir = optarg;
@@ -453,6 +459,10 @@ main(int argc, char *argv[])
 
 		case 'n':
 			n_puzzle = strtol(optarg, NULL, 0);
+			break;
+
+		case 'N': /* number of samples to write into the sample file */
+			n_out = strtol(optarg, NULL, 0);
 			break;
 
 		case 'o':
@@ -525,7 +535,10 @@ main(int argc, char *argv[])
 	}
 
 	take_samples_parallel(&state);
-	fix_up(outfile, prelimfile, &state, report, verbose);
+
+	if (n_out < 0)
+		n_out = n_puzzle;
+	fix_up(outfile, prelimfile, &state, n_out, report, verbose);
 
 	return (EXIT_SUCCESS);
 }
