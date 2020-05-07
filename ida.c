@@ -192,6 +192,10 @@ verify(const struct puzzle *p, const struct path *path)
 {
 	struct puzzle pp;
 
+	/* if no path was found, there's nothing to verify */
+	if (path->pathlen == SEARCH_NO_PATH)
+		return (1);
+
 	pp = *p;
 	path_walk(&pp, path);
 
@@ -227,6 +231,7 @@ search_ida_bounded(struct pdb_catalogue *cat, const struct fsm *fsm,
 	} else
 		round_end = begin;
 
+	path->pathlen = SEARCH_NO_PATH;
 	for (bound = catalogue_hval(cat, p); n_solution == 0 && bound <= limit; bound += 2) {
 		if (flags & IDA_VERBOSE)
 			fprintf(stderr, "Searching for solution with bound %zu\n", bound);
