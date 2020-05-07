@@ -252,7 +252,7 @@ main(int argc, char *argv[])
 	int i, optchar, flags = 0, limit = MAX_SPHERE;
 	char *prefix = NULL, *pdbdir = NULL, filename[PATH_MAX];
 
-	while (optchar = getopt(argc, argv, "d:j:l:n:p:r:s:v:V:"), optchar != -1)
+	while (optchar = getopt(argc, argv, "d:j:l:n:p:r:s:vV"), optchar != -1)
 		switch (optchar) {
 		case 'd':
 			pdbdir = optarg;
