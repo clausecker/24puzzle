@@ -221,8 +221,7 @@ search_ida_bounded(struct pdb_catalogue *cat, const struct fsm *fsm,
 
 	if (~flags & IDA_VERBOSE)
 		no_clocks = 1;
-
-	if (clock_gettime(CLOCK_THREAD_CPUTIME_ID, &begin) != 0) {
+	else if (clock_gettime(CLOCK_THREAD_CPUTIME_ID, &begin) != 0) {
 		perror("clock_gettime");
 		no_clocks = 1;
 	} else
@@ -242,6 +241,9 @@ search_ida_bounded(struct pdb_catalogue *cat, const struct fsm *fsm,
 			continue;
 
 		round_begin = round_end;
+
+		if (no_clocks)
+			continue;
 
 		if (clock_gettime(CLOCK_THREAD_CPUTIME_ID, &round_end) != 0) {
 			perror("clock_gettime");
