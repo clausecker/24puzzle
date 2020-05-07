@@ -136,13 +136,14 @@ rest_size(int limit)
 
 /*
  * generate n_samples random samples from the search space.  If VERIFY
- * is set in flags, make sure they have a distance of more than lower.
- * If VERBOSE is set in flags, print a human-readable record to stderr.
- * Return 0 on success, -1 on error.  Store statistical data to str.
+ * is set in flags, use vcat to make sure they have a distance of more
+ * than lower. If VERBOSE is set in flags, print a human-readable record
+ * to stderr. Return 0 on success, -1 on error.  Store statistical data
+ * to str.
  */
 static int
 sample_rest(int lower, struct stratum *str, struct pdb_catalogue *cat,
-    long long rest_samples, int flags)
+    struct pdb_catalogue *vcat, long long rest_samples, int flags)
 {
 	struct puzzle p;
 	long long i = 0, rejects = 0;
@@ -161,7 +162,7 @@ sample_rest(int lower, struct stratum *str, struct pdb_catalogue *cat,
 		random_puzzle(&p);
 
 		if (flags & VERIFY) {
-			search_ida_bounded(cat, &fsm_simple, &p, lower, &pa, NULL, NULL, 0);
+			search_ida_bounded(vcat, &fsm_simple, &p, lower, &pa, NULL, NULL, 0);
 			if (pa.pathlen != SEARCH_NO_PATH) {
 				rejects++;
 				continue;
@@ -236,24 +237,28 @@ join_strata(struct stratum *strata, int limit)
 static void
 usage(const char *argv0)
 {
-	fprintf(stderr, "Usage: %s [-vV] [-j nproc] [-s seed] [-n max_samples]"
-	    " [-d pdbdir] [-l limit] [-p sample_prefix] [-r rest_samples]"
-	    " catalogue\n", argv0);
+	fprintf(stderr, "Usage: %s [-vV] [-j nproc] [-s seed] [-n max_samples]\n"
+	    "    [-d pdbdir] [-c verification_catalogue] [-l limit]\n"
+	    "    [-p sample_prefix] [-r rest_samples] catalogue\n", argv0);
 	exit(EXIT_FAILURE);
 }
 
 extern int
 main(int argc, char *argv[])
 {
-	struct pdb_catalogue *cat;
+	struct pdb_catalogue *cat, *vcat;
 	struct stratum *strata;
 	FILE *samplefile;
 	long long max_samples = LLONG_MAX, rest_samples = 1000000;
 	int i, optchar, flags = 0, limit = MAX_SPHERE;
-	char *prefix = NULL, *pdbdir = NULL, filename[PATH_MAX];
+	char *prefix = NULL, *pdbdir = NULL, *vcatname = NULL, filename[PATH_MAX];
 
-	while (optchar = getopt(argc, argv, "d:j:l:n:p:r:s:vV"), optchar != -1)
+	while (optchar = getopt(argc, argv, "c:d:j:l:n:p:r:s:vV"), optchar != -1)
 		switch (optchar) {
+		case 'c':
+			vcatname = optarg;
+			break;
+
 		case 'd':
 			pdbdir = optarg;
 			break;
@@ -333,6 +338,16 @@ main(int argc, char *argv[])
 		return (EXIT_FAILURE);
 	}
 
+	if (vcatname == NULL)
+		vcat = cat;
+	else {
+		vcat = catalogue_load(vcatname, pdbdir, 0, flags & VERBOSE ? stderr : NULL);
+		if (vcat == NULL) {
+			perror("catalogue_load");
+			return (EXIT_FAILURE);
+		}
+	}	
+
 	/* limit+1 strata for the spheres, one for the rest of the graph */
 	strata = calloc(sizeof *strata, limit + 2);
 	if (strata == NULL) {
@@ -361,7 +376,7 @@ main(int argc, char *argv[])
 		fclose(samplefile);
 	}
 
-	if (sample_rest(limit, strata + limit + 1, cat, rest_samples, flags) != 0) {
+	if (sample_rest(limit, strata + limit + 1, cat, vcat, rest_samples, flags) != 0) {
 		perror("sample_rest");
 		return (EXIT_FAILURE);
 	}
