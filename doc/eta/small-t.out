@@ -1,0 +1,105 @@
+Loading PDB catalogue from catalogues/small-t.cat
+Loading PDB file /srv/pdb/pdbcat/0,1,5,6,10,11,12.pdb
+Loading PDB file /srv/pdb/pdbcat/0,2,3,4,7,8,9.pdb
+Loading PDB file /srv/pdb/pdbcat/0,13,14,18,19,23,24.pdb
+Loading PDB file /srv/pdb/pdbcat/0,15,16,17,20,21,22.pdb
+Loading PDB file /srv/pdb/pdbcat/0,1,2,5,6,7,12.pdb
+Loading PDB file /srv/pdb/pdbcat/0,10,11,15,16,20,21.pdb
+Loading PDB file /srv/pdb/pdbcat/0,17,18,19,22,23,24.pdb
+Loading PDB file /srv/pdb/pdbcat/0,3,4,8,9,13,14.pdb
+Loading PDB file /srv/pdb/pdbcat/0,1,2,5,6,10,11.pdb
+Loading PDB file /srv/pdb/pdbcat/0,3,4,7,8,9,12.pdb
+Loading PDB file /srv/pdb/pdbcat/0,11,12,15,16,20,21.pdb
+Loading PDB file /srv/pdb/pdbcat/0,1,2,5,6,7,10.pdb
+Loading PDB file /srv/pdb/pdbcat/0,13,14,15,16,17,18.pdb
+Loading PDB file /srv/pdb/pdbcat/0,19,20,21,22,23,24.pdb
+Loading PDB file /srv/pdb/pdbcat/0,3,8,13,17,18,22.pdb
+Loading PDB file /srv/pdb/pdbcat/0,4,9,14,19,23,24.pdb
+Loading PDB file /srv/pdb/pdbcat/0,1,5,6,10,15,20.pdb
+Loading PDB file /srv/pdb/pdbcat/0,11,12,16,17,21,22.pdb
+Loading PDB file /srv/pdb/pdbcat/0,1,2,3,4,5,6.pdb
+Loading PDB file /srv/pdb/pdbcat/0,7,8,9,12,13,14.pdb
+Loading PDB file /srv/pdb/pdbcat/0,3,4,9,14,19,24.pdb
+Loading PDB file /srv/pdb/pdbcat/0,7,8,12,13,18,23.pdb
+Loading PDB file /srv/pdb/pdbcat/0,15,20,21,22,23,24.pdb
+Loading PDB file /srv/pdb/pdbcat/0,11,12,16,17,18,19.pdb
+Loading PDB file /srv/pdb/pdbcat/0,11,12,13,16,17,18.pdb
+Loading PDB file /srv/pdb/pdbcat/0,14,19,21,22,23,24.pdb
+Loading PDB file /srv/pdb/pdbcat/0,7,8,12,13,17,18.pdb
+Loading PDB file /srv/pdb/pdbcat/0,9,14,19,22,23,24.pdb
+Loaded 28 PDBs and 14 heuristics from catalogues/small-t.cat
+Loading PDB catalogue from catalogues/clausecker.cat
+Loading PDB file /srv/pdb/pdbcat/0,15,16,17,20,21,22.pdb
+Loading PDB file /srv/pdb/pdbcat/0,13,14,18,19,23,24.pdb
+Loading PDB file /srv/pdb/pdbcat/0,3,4,7,8,9,12.pdb
+Loading PDB file /srv/pdb/pdbcat/0,1,2,5,6,10,11.pdb
+Loaded 4 PDBs and 1 heuristics from catalogues/clausecker.cat
+   0 avg 1.000000e+00 part 1.289390e-25 sdev 0.000000e+00 samples        1
+   1 avg 4.223678e-01 part 1.089194e-25 sdev 0.000000e+00 samples        2
+   2 avg 1.783946e-01 part 9.200808e-26 sdev 0.000000e+00 samples        4
+   3 avg 7.534813e-02 part 9.715314e-26 sdev 0.000000e+00 samples       10
+   4 avg 3.182463e-02 part 1.066893e-25 sdev 1.387779e-17 samples       26
+   5 avg 1.344170e-02 part 1.109222e-25 sdev 1.734723e-17 samples       64
+   6 avg 5.677341e-03 part 1.163929e-25 sdev 5.204170e-18 samples      159
+   7 avg 2.397926e-03 part 1.131622e-25 sdev 6.071532e-18 samples      366
+   8 avg 1.012807e-03 part 1.125689e-25 sdev 6.288373e-18 samples      862
+   9 avg 4.339855e-04 part 1.065434e-25 sdev 1.104221e-04 samples     1904
+  10 avg 1.880140e-04 part 1.100118e-25 sdev 7.777951e-05 samples     4538
+  11 avg 8.507626e-05 part 1.123073e-25 sdev 9.145627e-05 samples    10238
+  12 avg 3.857208e-05 part 1.198501e-25 sdev 7.375697e-05 samples    24098
+  13 avg 1.767351e-05 part 1.212005e-25 sdev 4.430802e-05 samples    53186
+  14 avg 8.340901e-06 part 1.327503e-25 sdev 4.492327e-05 samples   123435
+  15 avg 3.868674e-06 part 1.338921e-25 sdev 1.653781e-05 samples   268416
+  16 avg 1.864660e-06 part 1.481932e-25 sdev 1.358904e-05 samples   616374
+  17 avg 9.127607e-07 part 1.561614e-25 sdev 4.450081e-06 samples  1326882
+  18 avg 4.576025e-07 part 1.782549e-25 sdev 2.630499e-06 samples  3021126
+  19 avg 2.372402e-07 part 1.969606e-25 sdev 1.517057e-06 samples  6438828
+  20 avg 1.217174e-07 part 2.279526e-25 sdev 8.547704e-07 samples 10000000
+  21 avg 6.436240e-08 part 2.542227e-25 sdev 5.519988e-07 samples 10000000
+  22 avg 3.356651e-08 part 2.965296e-25 sdev 4.518296e-07 samples 10000000
+  23 avg 1.758878e-08 part 3.245483e-25 sdev 2.016507e-07 samples 10000000
+  24 avg 9.211331e-09 part 3.768639e-25 sdev 8.909599e-08 samples 10000000
+  25 avg 4.842994e-09 part 4.097514e-25 sdev 4.344750e-08 samples 10000000
+  26 avg 2.536318e-09 part 4.716002e-25 sdev 2.833028e-08 samples 10000000
+  27 avg 1.338202e-09 part 5.092750e-25 sdev 1.238718e-08 samples 10000000
+  28 avg 7.023069e-10 part 5.820075e-25 sdev 7.314095e-09 samples 10000000
+  29 avg 3.721014e-10 part 6.244349e-25 sdev 3.593578e-09 samples 10000000
+  30 avg 1.922574e-10 part 6.958554e-25 sdev 3.245531e-09 samples 10000000
+  31 avg 1.004734e-10 part 7.279954e-25 sdev 1.063431e-09 samples 10000000
+  32 avg 5.391216e-11 part 8.337655e-25 sdev 7.035920e-10 samples 10000000
+  33 avg 2.866869e-11 part 8.791372e-25 sdev 8.500855e-10 samples 10000000
+  34 avg 1.451808e-11 part 9.397587e-25 sdev 1.467357e-10 samples 10000000
+  35 avg 7.575412e-12 part 9.585437e-25 sdev 7.447365e-11 samples 10000000
+  36 avg 4.193380e-12 part 1.110223e-24 sdev 4.684345e-11 samples 10000000
+  37 avg 2.128655e-12 part 1.087406e-24 sdev 2.176068e-11 samples 10000000
+  38 avg 1.081208e-12 part 1.141959e-24 sdev 1.224430e-11 samples 10000000
+  39 avg 5.599178e-13 part 1.125344e-24 sdev 5.872709e-12 samples 10000000
+  40 avg 3.057872e-13 part 1.253562e-24 sdev 3.949782e-12 samples 10000000
+  41 avg 1.596048e-13 part 1.227663e-24 sdev 1.828907e-12 samples 10000000
+  42 avg 7.913426e-14 part 1.228781e-24 sdev 7.805033e-13 samples 10000000
+  43 avg 4.306354e-14 part 1.236337e-24 sdev 5.304062e-13 samples 10000000
+  44 avg 2.225569e-14 part 1.268004e-24 sdev 2.847586e-13 samples 10000000
+  45 avg 1.126759e-14 part 1.169717e-24 sdev 1.208063e-13 samples 10000000
+  46 avg 5.986969e-15 part 1.219070e-24 sdev 7.523217e-14 samples 10000000
+  47 avg 3.207946e-15 part 1.173616e-24 sdev 3.043029e-14 samples 10000000
+  48 avg 1.601225e-15 part 1.130258e-24 sdev 1.727460e-14 samples 10000000
+  49 avg 8.250933e-16 part 1.024617e-24 sdev 9.521183e-15 samples 10000000
+  50 avg 4.468862e-16 part 1.060035e-24 sdev 4.715573e-15 samples 10000000
+  51 avg 2.645299e-16 part 1.087165e-24 sdev 3.091621e-15 samples 10000000
+  52 avg 1.257415e-16 part 9.615408e-25 sdev 3.865812e-15 samples 10000000
+  53 avg 6.187797e-17 part 8.072407e-25 sdev 7.711774e-16 samples 10000000
+  54 avg 3.045083e-17 part 7.338721e-25 sdev 2.911366e-16 samples 10000000
+  55 avg 1.847807e-17 part 7.404377e-25 sdev 2.723759e-16 samples  9137321
+  56 avg 8.743494e-18 part 6.357929e-25 sdev 8.718969e-17 samples  7630467
+  57 avg 4.627782e-18 part 5.388686e-25 sdev 4.511366e-17 samples  6278343
+  58 avg 2.839318e-18 part 6.039588e-25 sdev 3.366038e-17 samples  5140162
+  59 avg 1.201760e-18 part 4.031432e-25 sdev 1.113271e-17 samples  4879476
+  60 avg 6.649991e-19 part 3.934623e-25 sdev 7.772884e-18 samples  3333477
+  61 avg 3.123772e-19 part 2.882729e-25 sdev 2.979725e-18 samples  2629233
+  62 avg 1.763437e-19 part 2.821739e-25 sdev 1.768315e-18 samples  2072350
+  63 avg 9.144120e-20 part 2.242556e-25 sdev 1.174869e-18 samples   952594
+  64 avg 8.539882e-20 part 3.356652e-25 sdev 7.552154e-19 samples   736146
+rest avg 7.622841e-25 part 7.622762e-25 sdev 6.121076e-22 samples 100000000 rej 1079)
+eta   3.786984e-23
+sdev  4.525630e-13
+error 6.581390e-26
