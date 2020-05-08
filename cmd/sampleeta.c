@@ -42,6 +42,7 @@
 enum {
 	VERBOSE = 1 << 0,
 	VERIFY = 1 << 1,
+	TRANSPOSE = 1 << 2,
 };
 
 struct stratum {
@@ -52,12 +53,32 @@ struct stratum {
 };
 
 /*
+ * Compute the h value of p as given by cat.  If flags & TRANSPOSE,
+ * compute the h value on both the puzzle and its transposition and
+ * return the maximum.  This alters the content of p.
+ */
+static int
+get_hval(struct puzzle *p, struct pdb_catalogue *cat, int flags)
+{
+	int h1, h2;
+
+	h1 = catalogue_hval(cat, p);
+	if (flags & TRANSPOSE) {
+		transpose(p);
+		h2 = catalogue_hval(cat, p);
+
+		return (h1 > h2 ? h1 : h2);
+	} else
+		return (h1);
+}
+
+/*
  * Compute b^-h(v) for a given puzzle configuration and a given heuristic.
  */
 static double
-pow_h(const struct puzzle *p, struct pdb_catalogue *cat)
+pow_h(struct puzzle *p, struct pdb_catalogue *cat, int flags)
 {
-	return (pow(B, -(double)catalogue_hval(cat, p)));
+	return (pow(B, -(double)get_hval(p, cat, flags)));
 }
 
 /*
@@ -69,7 +90,7 @@ pow_h(const struct puzzle *p, struct pdb_catalogue *cat)
  */
 static int
 sample_sphere(int d, struct stratum *str, struct pdb_catalogue *cat, FILE *samplefile,
-    long long max_samples, int verbose)
+    long long max_samples, int flags)
 {
 	struct puzzle p;
 	struct sample s;
@@ -86,7 +107,7 @@ sample_sphere(int d, struct stratum *str, struct pdb_catalogue *cat, FILE *sampl
 	while (i < max_samples &&
 	    (count = fread(&s, sizeof s, 1, samplefile), count == 1)) {
 		unpack_puzzle(&p, &s.cp);
-		observations[i][0] = pow_h(&p, cat);
+		observations[i][0] = pow_h(&p, cat, flags);
 		observations[i][1] = s.p;
 		accum += observations[i][0] / observations[i][1];
 		i++;
@@ -112,7 +133,7 @@ sample_sphere(int d, struct stratum *str, struct pdb_catalogue *cat, FILE *sampl
 	str->var = accum / str->n_samples;
 	str->size = sphere_sizes[d] / CONFCOUNT;
 
-	if (verbose)
+	if (flags & VERBOSE)
 		fprintf(stderr, "%4d avg %#e part %#e sdev %#e samples %8lld\n",
 		    d, str->eta, str->eta * str->size, sqrt(str->var), str->n_samples);
 
@@ -169,7 +190,7 @@ sample_rest(int lower, struct stratum *str, struct pdb_catalogue *cat,
 			}
 		}
 
-		hvals[i++] = catalogue_hval(cat, &p);
+		hvals[i++] = get_hval(&p, cat, flags);
 	}
 
 	str->n_samples = i;
@@ -237,7 +258,7 @@ join_strata(struct stratum *strata, int limit)
 static void
 usage(const char *argv0)
 {
-	fprintf(stderr, "Usage: %s [-vV] [-j nproc] [-s seed] [-n max_samples]\n"
+	fprintf(stderr, "Usage: %s [-tvV] [-j nproc] [-s seed] [-n max_samples]\n"
 	    "    [-d pdbdir] [-c verification_catalogue] [-l limit]\n"
 	    "    [-p sample_prefix] [-r rest_samples] catalogue\n", argv0);
 	exit(EXIT_FAILURE);
@@ -253,7 +274,7 @@ main(int argc, char *argv[])
 	int i, optchar, flags = 0, limit = MAX_SPHERE;
 	char *prefix = NULL, *pdbdir = NULL, *vcatname = NULL, filename[PATH_MAX];
 
-	while (optchar = getopt(argc, argv, "c:d:j:l:n:p:r:s:vV"), optchar != -1)
+	while (optchar = getopt(argc, argv, "c:d:j:l:n:p:r:s:tvV"), optchar != -1)
 		switch (optchar) {
 		case 'c':
 			vcatname = optarg;
@@ -301,6 +322,10 @@ main(int argc, char *argv[])
 
 		case 's':
 			set_seed(strtoll(optarg, NULL, 0));
+			break;
+
+		case 't':
+			flags |= TRANSPOSE;
 			break;
 
 		case 'v':
@@ -368,7 +393,7 @@ main(int argc, char *argv[])
 				return (EXIT_FAILURE);
 			}
 
-		if (sample_sphere(i, strata + i, cat, samplefile, max_samples, flags & VERBOSE) != 0) {
+		if (sample_sphere(i, strata + i, cat, samplefile, max_samples, flags) != 0) {
 			perror("sample_sphere");
 			return (EXIT_FAILURE);
 		}
