@@ -27,6 +27,7 @@ cmd/sampleeta
 cmd/spheresample
 test/bitpdbtest
 test/etatest
+test/expansions
 test/explore
 test/hitanalysis
 test/indexbench
