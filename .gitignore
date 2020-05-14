@@ -9,7 +9,6 @@ core
 cmd/addmoribund
 cmd/bitpdb
 cmd/compilefsm
-cmd/diffcode
 cmd/etacount
 cmd/genloops
 cmd/genpdb

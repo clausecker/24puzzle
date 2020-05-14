@@ -11,7 +11,7 @@ ZSTDLDFLAGS=-L$(HOME)/lib
 ZSTDLDLIBS=$(HOME)/lib/libzstd.a
 
 OBJ=index.o puzzle.o tileset.o validation.o ranktbl.o rank.o random.o pdb.o \
-	moves.o parallel.o pdbgen.o pdbverify.o pdbdiff.o \
+	moves.o parallel.o pdbgen.o pdbverify.o \
 	ida.o search.o catalogue.o pdbident.o transposition.o \
 	heuristic.o bitpdb.o bitpdbzstd.o match.o quality.o compact.o \
 	statistics.o fsm.o fsmwrite.o
@@ -56,7 +56,6 @@ test/ranktest: test/ranktest.o 24puzzle.a
 test/qualitytest: test/qualitytest.o 24puzzle.a
 cmd/genpdb: cmd/genpdb.o 24puzzle.a
 cmd/verifypdb: cmd/verifypdb.o 24puzzle.a
-cmd/diffcode: cmd/diffcode.o 24puzzle.a
 test/rankcount: test/rankcount.o 24puzzle.a
 cmd/bitpdb: cmd/bitpdb.o 24puzzle.a
 cmd/compilefsm: cmd/compilefsm.o 24puzzle.a
