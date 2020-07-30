@@ -17,7 +17,7 @@ OBJ=index.o puzzle.o tileset.o validation.o ranktbl.o rank.o random.o pdb.o \
 	statistics.o fsm.o fsmwrite.o
 
 BINARIES=cmd/pdbstats test/indextest util/rankgen test/ranktest cmd/genpdb \
-	cmd/verifypdb cmd/bitpdb cmd/diffcode test/rankcount cmd/puzzlegen \
+	cmd/verifypdb cmd/bitpdb test/rankcount cmd/puzzlegen \
 	test/qualitytest test/hitanalysis cmd/parsearch cmd/pdbsearch \
 	cmd/pdbcount test/bitpdbtest test/morphtest cmd/pdbmatch \
 	cmd/pdbquality test/walkdist cmd/puzzledist test/etatest \
