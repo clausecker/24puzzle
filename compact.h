@@ -28,6 +28,7 @@
 #ifndef COMPACT_H
 #define COMPACT_H
 
+#include <stdlib.h> /* for free() */
 #include "puzzle.h"
 
 /*
