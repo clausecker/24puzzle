@@ -37,7 +37,7 @@
 static void
 usage(const char *argv0)
 {
-	fprintf(stderr, "Usage: %s -f file [-t tile,tile,...]\n", argv0);
+	fprintf(stderr, "Usage: %s -f file [-j nproc] [-t tile,tile,...]\n", argv0);
 
 	exit(EXIT_FAILURE);
 }
