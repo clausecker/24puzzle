@@ -6,9 +6,9 @@ HOSTCFLAGS=-O3 -g
 HOSTCOPTS=-w -I. $(HOSTCFLAGS)
 LDLIBS=-lpthread -lzstd -lm
 
-ZSTDCOPTS=-I$(HOME)/include
-ZSTDLDFLAGS=-L$(HOME)/lib
-ZSTDLDLIBS=$(HOME)/lib/libzstd.a
+ZSTDCOPTS=-I/usr/local/include
+ZSTDLDFLAGS=-L/usr/local/lib
+ZSTDLDLIBS=-lzstd
 
 OBJ=index.o puzzle.o tileset.o validation.o ranktbl.o rank.o random.o pdb.o \
 	moves.o parallel.o pdbgen.o pdbverify.o \
