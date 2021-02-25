@@ -25,6 +25,8 @@
 
 /* samplegen.c -- generate random samples classified by distance */
 
+/* workaround for defective Darwin include files: obtains psignal() */
+#define _DARWIN_C_SOURCE
 #define _POSIX_C_SOURCE 200809L
 #include <assert.h>
 #include <errno.h>
