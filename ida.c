@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2017--2018 Robert Clausecker. All rights reserved.
+ * Copyright (c) 2017--2021 Robert Clausecker. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -85,6 +85,7 @@ expand_node(struct search_state *sst, size_t g, struct puzzle *p,
 		return;
 	}
 
+	/* apply h value pruning */
 	if (g + h > sst->bound)
 		return;
 
@@ -97,7 +98,9 @@ expand_node(struct search_state *sst, size_t g, struct puzzle *p,
 	for (i = 0; i < n_moves; i++) {
 		dest = moves[i];
 		ast = fsm_advance_idx(sst->fsm, st, i);
-		if (fsm_is_match(ast)) {
+
+		/* moribund state pruning */
+		if (fsm_moribundness(sst->fsm, ast) <= sst->bound - (g + 1)) {
 			sst->pruned++;
 			continue;
 		}
