@@ -4,11 +4,11 @@ COPTS=-std=c11 -I. -Wall -Wno-missing-braces -Wno-parentheses
 HOSTCC=cc
 HOSTCFLAGS=-O3 -g
 HOSTCOPTS=-w -I. $(HOSTCFLAGS)
-LDLIBS=-lpthread -lzstd -lm
+LDLIBS=-lpthread $(ZSTDLDLIBS) -lm
 
-ZSTDCOPTS=-I/usr/local/include
-ZSTDLDFLAGS=-L/usr/local/lib
-ZSTDLDLIBS=-lzstd
+ZSTDCFLAGS=`pkg-config --cflags libzstd`
+ZSTDLDFLAGS=`pkg-config --libs-only-L --libs-only-other libzstd`
+ZSTDLDLIBS=`pkg-config --libs-only-l libzstd`
 
 OBJ=index.o puzzle.o tileset.o validation.o ranktbl.o rank.o random.o pdb.o \
 	moves.o parallel.o pdbgen.o pdbverify.o \
@@ -82,7 +82,7 @@ test/statmerge: test/statmerge.o 24puzzle.a
 
 .c.o:
 	@echo "CC	$<"
-	@$(CC) $(ZSTDCOPTS) $(COPTS) $(CFLAGS) -c -o $@ $<
+	@$(CC) $(ZSTDCFLAGS) $(COPTS) $(CFLAGS) -c -o $@ $<
 
 clean:
 	@echo "CLEAN"
