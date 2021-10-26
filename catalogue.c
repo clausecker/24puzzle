@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2017 Robert Clausecker. All rights reserved.
+ * Copyright (c) 2017, 2021 Robert Clausecker. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -100,9 +100,10 @@ add_pdb(struct pdb_catalogue *cat, const char *tsbuf, const char *pdbdir,
 }
 
 /*
- * Load a catalogue from catfile, if pdbdir is not NULL, search for PDBs
- * in pdbdir. Generate missing PDBs and store them in pdbdir if pdbdir
- * is not NULL.  Print status information to f if f is not NULL.
+ * Load a catalogue from catfile.  Search for PDBs in pdbdir.  Generate
+ * missing PDBs and store them in pdbdir.  Print status information to f
+ * if f is not NULL.  If pdbdir is NULL, use the environment variable
+ * PDBDIR instead.  If it is unset, do not load or store and PDBs.
  *
  * A catalogue file contains groups of tilesets.  Each group forms one
  * heuristic.  The tileset name is used to form a file name for the PDB,
@@ -129,6 +130,9 @@ catalogue_load(const char *catfile, const char *pdbdir, int flags, FILE *f)
 
 	if (f != NULL)
 		fprintf(f, "Loading PDB catalogue from %s\n", catfile);
+
+	if (pdbdir == NULL)
+		pdbdir = getenv("PDBDIR");
 
 	catcfg = fopen(catfile, "r");
 	if (catcfg == NULL) {
