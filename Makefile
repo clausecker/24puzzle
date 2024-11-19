@@ -1,14 +1,14 @@
-CC=clang
-CFLAGS=-march=native -O3 -g
-COPTS=-std=c11 -I. -Wall -Wno-missing-braces -Wno-parentheses
-HOSTCC=cc
-HOSTCFLAGS=-O3 -g
-HOSTCOPTS=-w -I. $(HOSTCFLAGS)
-LDLIBS=-lpthread $(ZSTDLDLIBS) -lm
+CC=		clang
+CFLAGS=		-march=native -O3 -g
+COPTS=		-std=c11 -I. -Wall -Wno-missing-braces -Wno-parentheses
+HOSTCC=		cc
+HOSTCFLAGS=	-O3 -g
+HOSTCOPTS=	-w -I. $(HOSTCFLAGS)
+LDLIBS=		-lpthread $(ZSTDLDLIBS) -lm
 
-ZSTDCFLAGS=`pkg-config --cflags libzstd`
-ZSTDLDFLAGS=`pkg-config --libs-only-L --libs-only-other libzstd`
-ZSTDLDLIBS=`pkg-config --libs-only-l libzstd`
+ZSTDCFLAGS!=	pkg-config --cflags libzstd
+ZSTDLDFLAGS!=	pkg-config --libs-only-L --libs-only-other libzstd
+ZSTDLDLIBS!=	pkg-config --libs-only-l libzstd
 
 OBJ=index.o puzzle.o tileset.o validation.o ranktbl.o rank.o random.o pdb.o \
 	moves.o parallel.o pdbgen.o pdbverify.o \
@@ -32,15 +32,15 @@ size: $(BINARIES) 24puzzle.a
 
 .o:
 	@echo "CCLD	$@"
-	@$(CC) $(ZSTDLDFLAGS) $(LDFLAGS) -o $@ $^ $(LDLIBS)
+	@$(CC) $(ZSTDLDFLAGS) $(LDFLAGS) -o $@ $< 24puzzle.a $(LDLIBS)
 
 24puzzle.a: $(OBJ)
 	@echo "AR	$@"
 	@ar -src $@ $?
 
 util/rankgen: util/rankgen.c
-	@echo "HOSTCC  $<"
-	@$(HOSTCC) $(HOSTCOPTS) -o $@ $<
+	@echo "HOSTCC  util/rankgen.c"
+	@$(HOSTCC) $(HOSTCOPTS) -o $@ util/rankgen.c
 
 ranktbl.c: util/rankgen
 	@echo "RANKGEN	$@"
